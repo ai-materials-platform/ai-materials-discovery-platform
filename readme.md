@@ -48,6 +48,10 @@ PYTHONPATH=src python3 scripts/train_models.py
 ```
 
 ```bash
+PYTHONPATH=src python3 scripts/train_advanced.py --trials 20
+```
+
+```bash
 PYTHONPATH=src python3 scripts/predict_strength.py \
   --model-path models/proof_stress_mpa_best_pipeline.pkl \
   --input-csv data/processed/sample_inference_input.csv \

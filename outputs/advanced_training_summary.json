@@ -1,0 +1,28 @@
+{
+  "targets": {
+    "proof_stress_mpa": {
+      "best_model": "random_forest",
+      "test_rmse": 20.65927222149115,
+      "test_mae": 15.447208192778808,
+      "test_r2": 0.8118720421396257,
+      "best_params": {
+        "n_estimators": 293,
+        "max_depth": 17,
+        "min_samples_split": 6,
+        "min_samples_leaf": 1
+      }
+    },
+    "uts_mpa": {
+      "best_model": "extra_trees",
+      "test_rmse": 24.74067310466662,
+      "test_mae": 16.26140258670106,
+      "test_r2": 0.9306974811780583,
+      "best_params": {
+        "n_estimators": 499,
+        "max_depth": 19,
+        "min_samples_split": 10,
+        "min_samples_leaf": 2
+      }
+    }
+  }
+}
