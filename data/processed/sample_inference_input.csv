@@ -1,0 +1,6 @@
+chromium_wt_pct,nickel_wt_pct,molybdenum_wt_pct,manganese_wt_pct,silicon_wt_pct,niobium_wt_pct,titanium_wt_pct,zirconium_wt_pct,tantalum_wt_pct,vanadium_wt_pct,tungsten_wt_pct,copper_wt_pct,nitrogen_wt_pct,carbon_wt_pct,boron_wt_pct,phosphorus_wt_pct,sulphur_wt_pct,cobalt_wt_pct,aluminium_wt_pct,tin_wt_pct,lead_wt_pct,solution_treatment_temp_k,solution_treatment_time_s,water_quenched,air_quenched,grains_per_mm2,type_of_melting,size_of_ingot,product_form,test_temp_k
+18.7,10.69,0.47,1.56,0.62,0.01,0.04,0,0,0.0,0.0,0.17,0.031,0.062,0.0007,0.025,0.013,0.0,0.047,0,0,1403.0,,1.0,0.0,477.7128917,1.0,3.0,1,298
+18.7,10.69,0.47,1.56,0.62,0.01,0.04,0,0,0.0,0.0,0.17,0.031,0.062,0.0007,0.025,0.013,0.0,0.047,0,0,1403.0,,1.0,0.0,477.7128917,1.0,3.0,1,373
+18.7,10.69,0.47,1.56,0.62,0.01,0.04,0,0,0.0,0.0,0.17,0.031,0.062,0.0007,0.025,0.013,0.0,0.047,0,0,1403.0,,1.0,0.0,477.7128917,1.0,3.0,1,473
+18.7,10.69,0.47,1.56,0.62,0.01,0.04,0,0,0.0,0.0,0.17,0.031,0.062,0.0007,0.025,0.013,0.0,0.047,0,0,1403.0,,1.0,0.0,477.7128917,1.0,3.0,1,573
+18.7,10.69,0.47,1.56,0.62,0.01,0.04,0,0,0.0,0.0,0.17,0.031,0.062,0.0007,0.025,0.013,0.0,0.047,0,0,1403.0,,1.0,0.0,477.7128917,1.0,3.0,1,673

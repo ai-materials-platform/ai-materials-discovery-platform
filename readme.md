@@ -29,5 +29,30 @@ ai-materials-discovery-platform/
 4. 그래프/리포트/예측값을 `outputs/`에 정리합니다.
 5. 사용 방법과 의사결정을 `docs/`에 문서화합니다.
 
+## 구현된 분석/예측 파이프라인
+- 데이터: `data/raw/STMECH_AUS_SS.xls`
+- 전처리 결과: `data/processed/aus_ss_clean.csv`
+- 학습 스크립트: `scripts/train_models.py`
+- 추론 스크립트: `scripts/predict_strength.py`
+- 재사용 모듈: `src/materials_ai/pipeline.py`
+
+### 성능 검증 방식
+- 학습/테스트 분리: 80/20
+- 교차검증: K-Fold(3)
+- 지표: MAE, RMSE, R²
+- 타깃: `proof_stress_mpa`, `uts_mpa`
+
+### 실행 방법
+```bash
+PYTHONPATH=src python3 scripts/train_models.py
+```
+
+```bash
+PYTHONPATH=src python3 scripts/predict_strength.py \
+  --model-path models/proof_stress_mpa_best_pipeline.pkl \
+  --input-csv data/processed/sample_inference_input.csv \
+  --output-csv outputs/sample_predictions_proof_stress.csv
+```
+
 ## 참고
 - 빈 디렉터리 유지를 위해 각 폴더에 `.gitkeep` 파일이 포함되어 있습니다.

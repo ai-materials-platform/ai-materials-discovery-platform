@@ -1,0 +1,18 @@
+{
+  "rows": 2180,
+  "columns": 35,
+  "targets": {
+    "proof_stress_mpa": {
+      "best_model": "gradient_boosting",
+      "best_test_rmse": 12.973971619546063,
+      "best_test_mae": 9.366523796219155,
+      "best_test_r2": 0.9196480053764918
+    },
+    "uts_mpa": {
+      "best_model": "gradient_boosting",
+      "best_test_rmse": 26.18401760464534,
+      "best_test_mae": 12.43388111525957,
+      "best_test_r2": 0.9219416504591311
+    }
+  }
+}
