@@ -1,1 +1,10 @@
 .DS_Store
+Thumbs.db
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+models/*.joblib
+outputs/figures/*.png
+outputs/reports/*.csv
+outputs/reports/*.md
