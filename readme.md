@@ -12,9 +12,7 @@ AI 기반 계산 재료 탐색(Materials Discovery) 및 물성 예측(Property P
 ```text
 ai-materials-discovery-platform/
 ├── notebooks/      # 실험/분석용 Jupyter 노트북
-├── data/
-│   ├── raw/        # 원본 데이터
-│   └── processed/  # 전처리/가공 데이터
+├── data/           # 데이터
 ├── src/            # 재사용 가능한 Python 모듈
 ├── models/         # 학습된 모델 및 체크포인트
 ├── outputs/        # 시각화, 로그, 예측 결과물
@@ -72,8 +70,6 @@ ai-materials-discovery-platform/
 
 ---
 
-
----
 
 # AI Materials Discovery Platform - 사용자 가이드
 
