@@ -13,6 +13,7 @@ class DataEngine:
         self.df = None
         self.scaler_x = StandardScaler()
         self.scaler_y = StandardScaler()
+        self.selected_training_columns = []
 
         self.raw_feature_cols = [
             "Cr",
@@ -261,9 +262,24 @@ class DataEngine:
         if not self.file_path or not os.path.exists(self.file_path):
             raise FileNotFoundError(f"Data file not found at {self.file_path}")
 
-        df = pd.read_excel(self.file_path, header=5)
+        df = self._read_source_file()
         self.df = self.apply_quality_routine(df, include_engineered=include_engineered)
         return self.df
+
+    def _read_source_file(self):
+        _, extension = os.path.splitext(self.file_path)
+        extension = extension.lower()
+
+        if extension in {".xlsx", ".xlsm"}:
+            return pd.read_excel(self.file_path, header=5, engine="openpyxl")
+        if extension == ".xls":
+            return pd.read_excel(self.file_path, header=5, engine="xlrd")
+        if extension == ".csv":
+            return pd.read_csv(self.file_path)
+
+        raise ValueError(
+            f"Unsupported file format: {extension}. Supported formats are .xls, .xlsx, .xlsm, and .csv."
+        )
 
     def apply_quality_routine(self, df, include_engineered=None):
         numeric_cols = self._existing_columns(self.raw_feature_cols + self.target_cols, df)
@@ -347,6 +363,11 @@ class DataEngine:
         available_features = self._get_selected_feature_columns(self.df)
         available_targets = self._existing_columns(self.target_cols, self.df)
 
+        if not available_features:
+            raise ValueError("No training feature columns are available. Please select at least one column.")
+        if not available_targets:
+            raise ValueError("No target columns are available in the dataset.")
+
         X = self.df[available_features].copy()
         y = self.df[available_targets].copy()
 
@@ -371,6 +392,8 @@ class DataEngine:
             input_df = self._add_engineered_features(input_df)
 
         available_features = self._get_selected_feature_columns(input_df)
+        if not available_features:
+            raise ValueError("No selected training columns are available for inference.")
         return self.scaler_x.transform(input_df[available_features])
 
     def inverse_transform_y(self, y_scaled):
@@ -394,6 +417,29 @@ class DataEngine:
     def _existing_columns(self, columns, df):
         return [col for col in columns if col in df.columns]
 
+    def get_available_training_columns(self, include_engineered=True, df=None):
+        source_df = df if df is not None else self.df
+        if source_df is None:
+            return []
+
+        candidate_cols = list(self.raw_feature_cols)
+        if include_engineered:
+            candidate_cols += list(self.engineered_feature_cols)
+        return self._existing_columns(candidate_cols, source_df)
+
+    def set_selected_training_columns(self, columns):
+        ordered_columns = []
+        for col in columns or []:
+            if col not in ordered_columns:
+                ordered_columns.append(col)
+        self.selected_training_columns = ordered_columns
+
+    def get_selected_training_columns(self, df=None):
+        available_columns = self.get_available_training_columns(include_engineered=True, df=df)
+        if not self.selected_training_columns:
+            return available_columns
+        return [col for col in available_columns if col in self.selected_training_columns]
+
     def _get_selected_feature_columns(self, df):
         mode = self.quality_options.get("input_feature_mode", "combined")
         if mode == "clean_only":
@@ -402,7 +448,9 @@ class DataEngine:
             candidate_cols = self.engineered_feature_cols
         else:
             candidate_cols = self.feature_cols
-        return self._existing_columns(candidate_cols, df)
+        available_cols = self._existing_columns(candidate_cols, df)
+        selected_cols = self.get_selected_training_columns(df)
+        return [col for col in available_cols if col in selected_cols]
 
     def _coerce_numeric_columns(self, df, numeric_cols):
         invalid_type_cells = 0

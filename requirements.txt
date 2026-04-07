@@ -2,6 +2,7 @@ tensorflow
 tensorflow-probability
 pandas
 xlrd
+openpyxl
 pyqt6
 flask
 matplotlib
