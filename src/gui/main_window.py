@@ -602,16 +602,41 @@ class MainWindow(QMainWindow):
         detail_layout = QHBoxLayout(detail_widget)
         detail_layout.setContentsMargins(12, 10, 12, 10)
 
-        # 그래프 썸네일
+        # 그래프 썸네일 영역 (학습 + 상세 성능)
+        thumb_col = QVBoxLayout()
+        thumb_col.setSpacing(4)
+
+        # 학습 그래프 썸네일
+        train_lbl = QLabel("학습 그래프")
+        train_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        train_lbl.setStyleSheet("font-size: 10px; color: #7f8c8d;")
+        thumb_col.addWidget(train_lbl)
         self.ws_detail_thumb = QLabel()
-        self.ws_detail_thumb.setFixedSize(200, 140)
+        self.ws_detail_thumb.setFixedSize(200, 120)
         self.ws_detail_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_detail_thumb.setStyleSheet("border: 1px solid #dde1e6; background: white; cursor: pointer;")
-        self.ws_detail_thumb.setText("행을 클릭하면\n그래프가 표시됩니다.")
+        self.ws_detail_thumb.setStyleSheet("border: 1px solid #dde1e6; background: white;")
+        self.ws_detail_thumb.setText("없음")
         self.ws_detail_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ws_detail_thumb.mousePressEvent = self._on_thumb_clicked
-        self._ws_thumb_full_path = None  # 현재 썸네일 원본 경로
-        detail_layout.addWidget(self.ws_detail_thumb)
+        self._ws_thumb_full_path = None
+        thumb_col.addWidget(self.ws_detail_thumb)
+
+        # 상세 성능 그래프 썸네일
+        perf_lbl = QLabel("상세 성능")
+        perf_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        perf_lbl.setStyleSheet("font-size: 10px; color: #7f8c8d;")
+        thumb_col.addWidget(perf_lbl)
+        self.ws_detail_perf_thumb = QLabel()
+        self.ws_detail_perf_thumb.setFixedSize(200, 120)
+        self.ws_detail_perf_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ws_detail_perf_thumb.setStyleSheet("border: 1px solid #dde1e6; background: white;")
+        self.ws_detail_perf_thumb.setText("없음")
+        self.ws_detail_perf_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.ws_detail_perf_thumb.mousePressEvent = self._on_perf_thumb_clicked
+        self._ws_perf_thumb_full_path = None
+        thumb_col.addWidget(self.ws_detail_perf_thumb)
+
+        detail_layout.addLayout(thumb_col)
 
         # 상세 텍스트
         self.ws_detail_info = QLabel()
@@ -1315,7 +1340,7 @@ class MainWindow(QMainWindow):
         thumb_path = os.path.join(folder, "training.png")
         if os.path.exists(thumb_path):
             pix = QPixmap(thumb_path).scaled(
-                200, 140,
+                200, 120,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
@@ -1323,8 +1348,23 @@ class MainWindow(QMainWindow):
             self._ws_thumb_full_path = thumb_path
         else:
             self.ws_detail_thumb.clear()
-            self.ws_detail_thumb.setText("그래프 없음")
+            self.ws_detail_thumb.setText("없음")
             self._ws_thumb_full_path = None
+
+        # 상세 성능 썸네일 (performance.png)
+        perf_path = os.path.join(folder, "performance.png")
+        if os.path.exists(perf_path):
+            pix2 = QPixmap(perf_path).scaled(
+                200, 120,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.ws_detail_perf_thumb.setPixmap(pix2)
+            self._ws_perf_thumb_full_path = perf_path
+        else:
+            self.ws_detail_perf_thumb.clear()
+            self.ws_detail_perf_thumb.setText("없음")
+            self._ws_perf_thumb_full_path = None
 
         # 상세 정보 텍스트
         state = {}
@@ -1362,25 +1402,19 @@ class MainWindow(QMainWindow):
         )
         self.ws_detail_info.setText(info)
 
-    def _on_thumb_clicked(self, _):
-        """썸네일 클릭 시 원본 그래프를 크게 보여주는 다이얼로그"""
-        if not self._ws_thumb_full_path or not os.path.exists(self._ws_thumb_full_path):
+    def _show_full_graph_dialog(self, path):
+        """그래프 원본을 크게 보여주는 공통 다이얼로그"""
+        if not path or not os.path.exists(path):
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("그래프 크게 보기")
         dialog.resize(800, 600)
         layout = QVBoxLayout(dialog)
-
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pix = QPixmap(self._ws_thumb_full_path).scaled(
-            760, 520,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
+        pix = QPixmap(path).scaled(760, 520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
         img_label.setPixmap(pix)
         layout.addWidget(img_label)
-
         close_btn = QPushButton("닫기")
         close_btn.setFixedWidth(100)
         close_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-weight: bold; padding: 6px;")
@@ -1390,6 +1424,14 @@ class MainWindow(QMainWindow):
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
         dialog.exec()
+
+    def _on_thumb_clicked(self, _):
+        """학습 그래프 썸네일 클릭 시 크게 보기"""
+        self._show_full_graph_dialog(self._ws_thumb_full_path)
+
+    def _on_perf_thumb_clicked(self, _):
+        """상세 성능 그래프 썸네일 클릭 시 크게 보기"""
+        self._show_full_graph_dialog(self._ws_perf_thumb_full_path)
 
     def _load_selected_ws(self):
         """하단 불러오기 버튼 클릭 시 선택된 행 불러오기"""
