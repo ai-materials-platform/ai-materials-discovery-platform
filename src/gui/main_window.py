@@ -10,7 +10,7 @@ import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -32,6 +32,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QTableWidget,
     QTableWidgetItem,
+    QSplitter,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
@@ -175,6 +176,7 @@ class MainWindow(QMainWindow):
         self.setup_training_tab()
         self.setup_performance_tab()
         self.setup_inference_tab()
+        self.setup_workspace_tab()
 
     def setup_preprocessing_tab(self):
         tab = QWidget()
@@ -554,6 +556,88 @@ class MainWindow(QMainWindow):
         layout.addWidget(scroll, 1)
         layout.addLayout(right_panel, 1)
         self.tabs.addTab(tab, "물성 예측")
+
+    def setup_workspace_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        # 헤더
+        header_row = QHBoxLayout()
+        title = QLabel("분석 저장 목록")
+        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title.setStyleSheet("color: #2c3e50; margin: 6px 0;")
+        header_row.addWidget(title)
+        header_row.addStretch()
+        refresh_btn = QPushButton("새로고침")
+        refresh_btn.setFixedWidth(90)
+        refresh_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 5px;")
+        refresh_btn.clicked.connect(self.refresh_workspace_table)
+        header_row.addWidget(refresh_btn)
+        layout.addLayout(header_row)
+
+        # 상단 테이블 + 하단 상세 패널을 QSplitter로 분리
+        splitter = QSplitter(Qt.Orientation.Vertical)
+
+        # ── 상단: 목록 테이블 ──
+        self.ws_table = QTableWidget()
+        self.ws_table.setColumnCount(5)
+        self.ws_table.setHorizontalHeaderLabels(["이름", "모델", "데이터 파일", "저장 날짜", "R2 평균"])
+        self.ws_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.ws_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.ws_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.ws_table.setAlternatingRowColors(True)
+        self.ws_table.verticalHeader().setVisible(False)
+        self.ws_table.horizontalHeader().setStretchLastSection(True)
+        self.ws_table.setColumnWidth(0, 160)
+        self.ws_table.setColumnWidth(1, 130)
+        self.ws_table.setColumnWidth(2, 200)
+        self.ws_table.setColumnWidth(3, 160)
+        self.ws_table.cellClicked.connect(self._on_ws_table_clicked)
+        self.ws_table.cellDoubleClicked.connect(self._on_ws_table_double_clicked)
+        splitter.addWidget(self.ws_table)
+
+        # ── 하단: 상세 정보 패널 ──
+        detail_widget = QWidget()
+        detail_widget.setStyleSheet("background-color: #f6f8fa; border-top: 1px solid #dde1e6;")
+        detail_layout = QHBoxLayout(detail_widget)
+        detail_layout.setContentsMargins(12, 10, 12, 10)
+
+        # 그래프 썸네일
+        self.ws_detail_thumb = QLabel()
+        self.ws_detail_thumb.setFixedSize(200, 140)
+        self.ws_detail_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ws_detail_thumb.setStyleSheet("border: 1px solid #dde1e6; background: white; cursor: pointer;")
+        self.ws_detail_thumb.setText("행을 클릭하면\n그래프가 표시됩니다.")
+        self.ws_detail_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.ws_detail_thumb.mousePressEvent = self._on_thumb_clicked
+        self._ws_thumb_full_path = None  # 현재 썸네일 원본 경로
+        detail_layout.addWidget(self.ws_detail_thumb)
+
+        # 상세 텍스트
+        self.ws_detail_info = QLabel()
+        self.ws_detail_info.setWordWrap(True)
+        self.ws_detail_info.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.ws_detail_info.setStyleSheet("font-size: 12px; color: #2c3e50; padding-left: 12px;")
+        self.ws_detail_info.setText("저장된 분석을 클릭하면 상세 정보가 표시됩니다.")
+        detail_layout.addWidget(self.ws_detail_info, 1)
+
+        # 불러오기 버튼
+        load_btn = QPushButton("이 분석 불러오기")
+        load_btn.setFixedSize(130, 40)
+        load_btn.setStyleSheet("background-color: #16a085; color: white; font-weight: bold;")
+        load_btn.clicked.connect(self._load_selected_ws)
+        detail_layout.addWidget(load_btn, 0, Qt.AlignmentFlag.AlignBottom)
+
+        splitter.addWidget(detail_widget)
+        splitter.setSizes([400, 180])
+        layout.addWidget(splitter)
+
+        hint = QLabel("※ 행 클릭 → 상세 보기  |  더블클릭 → 바로 불러오기")
+        hint.setStyleSheet("color: #7f8c8d; font-size: 11px; margin-top: 4px;")
+        layout.addWidget(hint)
+
+        self.tabs.addTab(tab, "워크스페이스")
+        self.refresh_workspace_table()
 
     def refresh_domain_range_status(self):
         custom_count = len(getattr(self.data_engine, "custom_ranges", {}))
@@ -1169,7 +1253,165 @@ class MainWindow(QMainWindow):
             names = sorted([d for d in os.listdir(ws_dir)
                             if os.path.isdir(os.path.join(ws_dir, d)) and d != "auto_save"])
             self.ws_combo.addItems(names)
+        if hasattr(self, "ws_table"):
+            self.refresh_workspace_table()
     # ================================================================
+
+    def refresh_workspace_table(self):
+        ws_dir = "workspaces"
+        self.ws_table.setRowCount(0)
+        if not os.path.exists(ws_dir):
+            return
+        names = sorted([d for d in os.listdir(ws_dir)
+                        if os.path.isdir(os.path.join(ws_dir, d)) and d != "auto_save"])
+        model_name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
+
+        # log.json 한 번만 읽기
+        log_path = os.path.join(ws_dir, "log.json")
+        training_logs = []
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8") as f:
+                all_logs = json.load(f)
+            training_logs = [l for l in all_logs if l.get("type") == "학습"]
+
+        for row, name in enumerate(names):
+            self.ws_table.insertRow(row)
+            folder = os.path.join(ws_dir, name)
+            state_path = os.path.join(folder, "state.json")
+            state = {}
+            if os.path.exists(state_path):
+                with open(state_path, "r", encoding="utf-8") as f:
+                    state = json.load(f)
+
+            # 이름
+            self.ws_table.setItem(row, 0, QTableWidgetItem(name))
+
+            # 모델
+            model_idx = state.get("model_combo_index", -1)
+            model_keys = ["RF", "GBM", "MLP", "TFP"]
+            model_key = model_keys[model_idx] if 0 <= model_idx < len(model_keys) else "-"
+            self.ws_table.setItem(row, 1, QTableWidgetItem(model_name_map.get(model_key, "-")))
+
+            # 데이터 파일
+            fp = state.get("file_path") or ""
+            self.ws_table.setItem(row, 2, QTableWidgetItem(os.path.basename(fp) if fp else "-"))
+
+            # 저장 날짜 / R2 (log.json 마지막 학습 기준)
+            saved_date = training_logs[-1].get("timestamp", "-") if training_logs else "-"
+            r2_val = training_logs[-1].get("r2_avg") if training_logs else None
+            r2_text = f"{r2_val * 100:.1f}%" if r2_val is not None else "-"
+            self.ws_table.setItem(row, 3, QTableWidgetItem(saved_date))
+            self.ws_table.setItem(row, 4, QTableWidgetItem(r2_text))
+
+    def _on_ws_table_clicked(self, row, _):
+        """행 클릭 시 하단 상세 패널에 썸네일 + 정보 표시"""
+        name_item = self.ws_table.item(row, 0)
+        if not name_item:
+            return
+        name = name_item.text()
+        folder = os.path.join("workspaces", name)
+
+        # 썸네일 (training.png)
+        thumb_path = os.path.join(folder, "training.png")
+        if os.path.exists(thumb_path):
+            pix = QPixmap(thumb_path).scaled(
+                200, 140,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.ws_detail_thumb.setPixmap(pix)
+            self._ws_thumb_full_path = thumb_path
+        else:
+            self.ws_detail_thumb.clear()
+            self.ws_detail_thumb.setText("그래프 없음")
+            self._ws_thumb_full_path = None
+
+        # 상세 정보 텍스트
+        state = {}
+        state_path = os.path.join(folder, "state.json")
+        if os.path.exists(state_path):
+            with open(state_path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        model_keys = ["RF", "GBM", "MLP", "TFP"]
+        model_name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
+        model_idx = state.get("model_combo_index", -1)
+        model_key = model_keys[model_idx] if 0 <= model_idx < len(model_keys) else "-"
+        fp = os.path.basename(state.get("file_path") or "") or "-"
+        max_iter = state.get("max_iter", "-")
+        pre = state.get("preprocessing", {})
+        missing_labels = ["평균값", "중앙값", "KNN", "행 제거"]
+        outlier_labels = ["범위 보정", "이상치 제거", "플래그"]
+        missing_txt = missing_labels[pre.get("missing_combo", 0)] if pre else "-"
+        outlier_txt = outlier_labels[pre.get("outlier_combo", 0)] if pre else "-"
+        iqr_txt = str(pre.get("iqr_spin", "-")) if pre else "-"
+        has_pre_csv = os.path.exists(os.path.join(folder, "preprocessed_data.csv"))
+        has_eng_csv = os.path.exists(os.path.join(folder, "engineered_data.csv"))
+
+        info = (
+            f"<b>이름:</b> {name}<br>"
+            f"<b>모델:</b> {model_name_map.get(model_key, '-')}<br>"
+            f"<b>데이터 파일:</b> {fp}<br>"
+            f"<b>최대 반복 횟수:</b> {max_iter}<br><br>"
+            f"<b>[전처리 설정]</b><br>"
+            f"누락값 처리: {missing_txt}<br>"
+            f"이상치 처리: {outlier_txt}<br>"
+            f"IQR 민감도: {iqr_txt}<br><br>"
+            f"<b>[저장된 파일]</b><br>"
+            f"전처리 결과 CSV: {'✔' if has_pre_csv else '✘'}<br>"
+            f"합금 지표 CSV: {'✔' if has_eng_csv else '✘'}"
+        )
+        self.ws_detail_info.setText(info)
+
+    def _on_thumb_clicked(self, _):
+        """썸네일 클릭 시 원본 그래프를 크게 보여주는 다이얼로그"""
+        if not self._ws_thumb_full_path or not os.path.exists(self._ws_thumb_full_path):
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("그래프 크게 보기")
+        dialog.resize(800, 600)
+        layout = QVBoxLayout(dialog)
+
+        img_label = QLabel()
+        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pix = QPixmap(self._ws_thumb_full_path).scaled(
+            760, 520,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        img_label.setPixmap(pix)
+        layout.addWidget(img_label)
+
+        close_btn = QPushButton("닫기")
+        close_btn.setFixedWidth(100)
+        close_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-weight: bold; padding: 6px;")
+        close_btn.clicked.connect(dialog.close)
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(close_btn)
+        layout.addLayout(btn_row)
+        dialog.exec()
+
+    def _load_selected_ws(self):
+        """하단 불러오기 버튼 클릭 시 선택된 행 불러오기"""
+        selected = self.ws_table.selectedItems()
+        if not selected:
+            return
+        row = self.ws_table.currentRow()
+        self._on_ws_table_double_clicked(row, 0)
+
+    def _on_ws_table_double_clicked(self, row, _):
+        name_item = self.ws_table.item(row, 0)
+        if not name_item:
+            return
+        name = name_item.text()
+        reply = QMessageBox.question(self, "불러오기 확인",
+            f"'{name}' 분석을 불러오시겠습니까?\n현재 작업 중인 내용이 변경될 수 있습니다.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.No:
+            return
+        self.ws_combo.setCurrentText(name)
+        self.load_workspace()
+        self.tabs.setCurrentIndex(0)
 
     # ================================================================
     # [WORKSPACE] 이름 입력 후 저장 → workspaces/{이름}/ 폴더에 저장
