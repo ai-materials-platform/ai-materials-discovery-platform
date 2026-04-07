@@ -568,6 +568,11 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("color: #2c3e50; margin: 6px 0;")
         header_row.addWidget(title)
         header_row.addStretch()
+        compare_btn = QPushButton("선택 비교 (최대 3개)")
+        compare_btn.setFixedWidth(150)
+        compare_btn.setStyleSheet("background-color: #8e44ad; color: white; font-weight: bold; padding: 5px;")
+        compare_btn.clicked.connect(self._on_compare_clicked)
+        header_row.addWidget(compare_btn)
         refresh_btn = QPushButton("새로고침")
         refresh_btn.setFixedWidth(90)
         refresh_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 5px;")
@@ -584,7 +589,7 @@ class MainWindow(QMainWindow):
         self.ws_table.setHorizontalHeaderLabels(["이름", "모델", "데이터 파일", "저장 날짜", "R2 평균"])
         self.ws_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.ws_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.ws_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.ws_table.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
         self.ws_table.setAlternatingRowColors(True)
         self.ws_table.verticalHeader().setVisible(False)
         self.ws_table.horizontalHeader().setStretchLastSection(True)
@@ -657,7 +662,7 @@ class MainWindow(QMainWindow):
         splitter.setSizes([400, 180])
         layout.addWidget(splitter)
 
-        hint = QLabel("※ 행 클릭 → 상세 보기  |  더블클릭 → 바로 불러오기")
+        hint = QLabel("※ 행 클릭 → 상세 보기  |  더블클릭 → 바로 불러오기  |  Ctrl+클릭으로 여러 행 선택 후 [선택 비교] 클릭")
         hint.setStyleSheet("color: #7f8c8d; font-size: 11px; margin-top: 4px;")
         layout.addWidget(hint)
 
@@ -1167,7 +1172,7 @@ class MainWindow(QMainWindow):
             auto_folder = os.path.join("workspaces", "auto_save")
             if os.path.exists(auto_folder):
                 self.prediction_canvas.fig.savefig(
-                    os.path.join(auto_folder, "prediction.png"), dpi=100, bbox_inches="tight")
+                    os.path.join(auto_folder, "prediction.png"), dpi=200, bbox_inches="tight")
 
             # [LOG] 예측 실행 로그 기록
             self.append_log({
@@ -1217,8 +1222,8 @@ class MainWindow(QMainWindow):
         }
         with open(os.path.join(folder, "state.json"), "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
-        self.canvas.fig.savefig(os.path.join(folder, "training.png"), dpi=100, bbox_inches="tight")
-        self.perf_canvas.figure.savefig(os.path.join(folder, "performance.png"), dpi=100, bbox_inches="tight")
+        self.canvas.fig.savefig(os.path.join(folder, "training.png"), dpi=200, bbox_inches="tight")
+        self.perf_canvas.figure.savefig(os.path.join(folder, "performance.png"), dpi=200, bbox_inches="tight")
         # [AUTO SAVE] 전처리 결과 CSV 저장
         pre_df = self.data_engine.get_preprocessed_display_df()
         if not pre_df.empty:
@@ -1403,24 +1408,55 @@ class MainWindow(QMainWindow):
         self.ws_detail_info.setText(info)
 
     def _show_full_graph_dialog(self, path):
-        """그래프 원본을 크게 보여주는 공통 다이얼로그"""
+        """그래프 원본을 크게 보여주는 다이얼로그 (확대/축소 + 휠 줌)"""
         if not path or not os.path.exists(path):
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("그래프 크게 보기")
-        dialog.resize(800, 600)
+        dialog.resize(1100, 860)
         layout = QVBoxLayout(dialog)
+
+        orig_pix = QPixmap(path)
+        init_zoom = min(1040 / orig_pix.width(), 780 / orig_pix.height(), 1.0) if orig_pix.width() > 0 else 1.0
+        zoom = [init_zoom]
+
+        scroll = QScrollArea()
+        scroll.setAlignment(Qt.AlignmentFlag.AlignCenter)
         img_label = QLabel()
         img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        pix = QPixmap(path).scaled(760, 520, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        img_label.setPixmap(pix)
-        layout.addWidget(img_label)
-        close_btn = QPushButton("닫기")
-        close_btn.setFixedWidth(100)
-        close_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-weight: bold; padding: 6px;")
-        close_btn.clicked.connect(dialog.close)
+        scroll.setWidget(img_label)
+        layout.addWidget(scroll)
+
+        def render():
+            w = int(orig_pix.width() * zoom[0])
+            h = int(orig_pix.height() * zoom[0])
+            scaled = orig_pix.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            img_label.setPixmap(scaled)
+            img_label.resize(scaled.width(), scaled.height())
+
+        render()
+
+        def zoom_in():
+            zoom[0] = min(zoom[0] * 1.25, 8.0); render()
+        def zoom_out():
+            zoom[0] = max(zoom[0] * 0.8, init_zoom); render()
+        def zoom_reset():
+            zoom[0] = 1.0; render()
+
+        scroll.wheelEvent = lambda e: zoom_in() if e.angleDelta().y() > 0 else zoom_out()
+
         btn_row = QHBoxLayout()
+        for label, fn, color in [("확대 (+)", zoom_in, "#2980b9"), ("원래 크기", zoom_reset, "#27ae60")]:
+            b = QPushButton(label)
+            b.setFixedWidth(90)
+            b.setStyleSheet(f"background-color: {color}; color: white; font-weight: bold; padding: 5px;")
+            b.clicked.connect(fn)
+            btn_row.addWidget(b)
         btn_row.addStretch()
+        close_btn = QPushButton("닫기")
+        close_btn.setFixedWidth(90)
+        close_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-weight: bold; padding: 5px;")
+        close_btn.clicked.connect(dialog.close)
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
         dialog.exec()
@@ -1432,6 +1468,99 @@ class MainWindow(QMainWindow):
     def _on_perf_thumb_clicked(self, _):
         """상세 성능 그래프 썸네일 클릭 시 크게 보기"""
         self._show_full_graph_dialog(self._ws_perf_thumb_full_path)
+
+    def _on_compare_clicked(self):
+        """선택된 행(최대 3개)의 그래프를 나란히 비교하는 다이얼로그"""
+        selected_rows = list({idx.row() for idx in self.ws_table.selectedIndexes()})
+        if len(selected_rows) < 2:
+            QMessageBox.information(self, "비교", "비교할 분석을 2개 이상 선택해 주세요.\n(Ctrl+클릭으로 여러 행 선택)")
+            return
+        if len(selected_rows) > 3:
+            QMessageBox.warning(self, "비교", "최대 3개까지만 비교할 수 있습니다.")
+            return
+
+        names = [self.ws_table.item(r, 0).text() for r in selected_rows if self.ws_table.item(r, 0)]
+        n = len(names)
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"분석 비교 — {' vs '.join(names)}")
+        dialog.resize(500 * n, 900)
+        outer = QVBoxLayout(dialog)
+
+        # 원본 pixmap + label 쌍 보관 (줌 적용용)
+        all_pairs = []  # [(orig_pix, img_lbl), ...]
+        init_zoom_cmp = 0.5
+        zoom = [init_zoom_cmp]
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        scroll_area.setWidget(content_widget)
+        outer.addWidget(scroll_area)
+
+        # 그래프 종류별로 행 구성: 학습 / 상세 성능
+        for graph_file, graph_label in [("training.png", "학습 그래프"), ("performance.png", "상세 성능")]:
+            section_lbl = QLabel(f"▶ {graph_label}")
+            section_lbl.setStyleSheet("font-weight: bold; font-size: 13px; color: #2c3e50; margin-top: 8px;")
+            content_layout.addWidget(section_lbl)
+
+            row_layout = QHBoxLayout()
+            for name in names:
+                col = QVBoxLayout()
+                name_lbl = QLabel(name)
+                name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                name_lbl.setStyleSheet("font-size: 11px; font-weight: bold; color: #8e44ad;")
+                col.addWidget(name_lbl)
+
+                img_lbl = QLabel()
+                img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                img_lbl.setStyleSheet("border: 1px solid #dde1e6; background: white;")
+                path = os.path.join("workspaces", name, graph_file)
+                if os.path.exists(path):
+                    orig_pix = QPixmap(path)
+                    all_pairs.append((orig_pix, img_lbl))
+                else:
+                    img_lbl.setText("그래프 없음")
+                    img_lbl.setFixedSize(380, 260)
+                col.addWidget(img_lbl)
+                row_layout.addLayout(col)
+            content_layout.addLayout(row_layout)
+
+        def render_all():
+            for orig_pix, img_lbl in all_pairs:
+                w = int(orig_pix.width() * zoom[0])
+                h = int(orig_pix.height() * zoom[0])
+                scaled = orig_pix.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                img_lbl.setPixmap(scaled)
+                img_lbl.resize(scaled.width(), scaled.height())
+
+        render_all()
+
+        def zoom_in():
+            zoom[0] = min(zoom[0] * 1.25, 8.0); render_all()
+        def zoom_out():
+            zoom[0] = max(zoom[0] * 0.8, init_zoom_cmp); render_all()
+        def zoom_reset():
+            zoom[0] = 0.5; render_all()
+
+        scroll_area.wheelEvent = lambda e: zoom_in() if e.angleDelta().y() > 0 else zoom_out()
+
+        btn_row = QHBoxLayout()
+        for label, fn, color in [("확대 (+)", zoom_in, "#2980b9"), ("원래 크기", zoom_reset, "#27ae60")]:
+            b = QPushButton(label)
+            b.setFixedWidth(90)
+            b.setStyleSheet(f"background-color: {color}; color: white; font-weight: bold; padding: 5px;")
+            b.clicked.connect(fn)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+        close_btn = QPushButton("닫기")
+        close_btn.setFixedWidth(90)
+        close_btn.setStyleSheet("background-color: #7f8c8d; color: white; font-weight: bold; padding: 5px;")
+        close_btn.clicked.connect(dialog.close)
+        btn_row.addWidget(close_btn)
+        outer.addLayout(btn_row)
+        dialog.exec()
 
     def _load_selected_ws(self):
         """하단 불러오기 버튼 클릭 시 선택된 행 불러오기"""
@@ -1473,9 +1602,9 @@ class MainWindow(QMainWindow):
         else:
             os.makedirs(folder)
         # [WORKSPACE] 그래프 PNG 저장
-        self.canvas.fig.savefig(os.path.join(folder, "training.png"), dpi=100, bbox_inches="tight")
-        self.perf_canvas.figure.savefig(os.path.join(folder, "performance.png"), dpi=100, bbox_inches="tight")
-        self.prediction_canvas.fig.savefig(os.path.join(folder, "prediction.png"), dpi=100, bbox_inches="tight")
+        self.canvas.fig.savefig(os.path.join(folder, "training.png"), dpi=200, bbox_inches="tight")
+        self.perf_canvas.figure.savefig(os.path.join(folder, "performance.png"), dpi=200, bbox_inches="tight")
+        self.prediction_canvas.fig.savefig(os.path.join(folder, "prediction.png"), dpi=200, bbox_inches="tight")
         state = {
             "file_path": self.data_engine.file_path,
             "model_combo_index": self.model_combo.currentIndex(),
