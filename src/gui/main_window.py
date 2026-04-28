@@ -173,6 +173,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.tabs)
 
         self.setup_preprocessing_tab()
+        self.setup_feature_selection_tab()
         self.setup_training_tab()
         self.setup_performance_tab()
         self.setup_inference_tab()
@@ -375,6 +376,62 @@ class MainWindow(QMainWindow):
         self.invalid_type_combo.currentIndexChanged.connect(self.mark_preprocessing_dirty)
         self.iqr_spin.valueChanged.connect(self.mark_preprocessing_dirty)
         self.feature_engineering_check.stateChanged.connect(self.mark_preprocessing_dirty)
+
+    def setup_feature_selection_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        intro_label = QLabel(
+            "모델 학습에 사용할 컬럼을 선택합니다. 체크한 컬럼만 학습과 예측에 사용됩니다."
+        )
+        intro_label.setWordWrap(True)
+        intro_label.setStyleSheet(
+            "background-color: #eef6ff; padding: 12px; border-radius: 8px; color: #355c7d;"
+        )
+        layout.addWidget(intro_label)
+
+        self.feature_selection_status_label = QLabel(
+            "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+        )
+        self.feature_selection_status_label.setWordWrap(True)
+        self.feature_selection_status_label.setStyleSheet(
+            "background-color: #fff7d6; padding: 10px; border-radius: 8px; color: #7a5d00;"
+        )
+        layout.addWidget(self.feature_selection_status_label)
+
+        button_row = QHBoxLayout()
+        self.select_all_features_btn = QPushButton("전체 선택")
+        self.select_all_features_btn.setEnabled(False)
+        self.select_all_features_btn.clicked.connect(self.select_all_feature_columns)
+        button_row.addWidget(self.select_all_features_btn)
+
+        self.clear_features_btn = QPushButton("전체 해제")
+        self.clear_features_btn.setEnabled(False)
+        self.clear_features_btn.clicked.connect(self.clear_all_feature_columns)
+        button_row.addWidget(self.clear_features_btn)
+
+        button_row.addStretch()
+
+        self.go_to_model_training_btn = QPushButton("모델 학습 탭으로 이동")
+        self.go_to_model_training_btn.setEnabled(False)
+        self.go_to_model_training_btn.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
+        button_row.addWidget(self.go_to_model_training_btn)
+        layout.addLayout(button_row)
+
+        self.feature_selection_table = QTableWidget()
+        self.feature_selection_table.setColumnCount(3)
+        self.feature_selection_table.setHorizontalHeaderLabels(["사용", "컬럼", "구분"])
+        self.feature_selection_table.verticalHeader().setVisible(False)
+        self.feature_selection_table.setAlternatingRowColors(True)
+        self.feature_selection_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.feature_selection_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.feature_selection_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.feature_selection_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.feature_selection_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.feature_selection_table.itemChanged.connect(self.on_feature_selection_item_changed)
+        layout.addWidget(self.feature_selection_table)
+
+        self.tabs.addTab(tab, "학습 컬럼 선택")
 
     def setup_training_tab(self):
         tab = QWidget()
@@ -685,6 +742,8 @@ class MainWindow(QMainWindow):
         self.preprocessing_ready = False
         self.train_btn.setEnabled(False)
         self.go_to_training_btn.setEnabled(False)
+        if hasattr(self, "go_to_model_training_btn"):
+            self.go_to_model_training_btn.setEnabled(False)
         if hasattr(self, "generate_features_btn"):
             self.generate_features_btn.setEnabled(False)
         if self.data_engine.df is not None and not self.data_engine.df.empty:
@@ -697,6 +756,11 @@ class MainWindow(QMainWindow):
         self.training_status_label.setText("")
         self.quality_summary_label.setText("전처리 설정이 변경되었습니다. 전처리를 다시 실행해 주세요.")
         self.processed_preview_info_label.setText("설정이 변경되었고 아직 전처리 결과가 없습니다. 전처리를 다시 실행해 주세요.")
+
+        if hasattr(self, "feature_selection_status_label"):
+            self.feature_selection_status_label.setText(
+                "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+            )
 
     def apply_quality_settings_from_ui(self):
         missing_map = {0: "mean", 1: "median", 2: "knn", 3: "drop"}
@@ -793,16 +857,130 @@ class MainWindow(QMainWindow):
         self.perf_canvas.figure.tight_layout()
         self.perf_canvas.draw()
 
+    def populate_feature_selection_table(self, reset_selection=False):
+        available_columns = self.data_engine.get_available_training_columns(include_engineered=True)
+        previous_selection = [] if reset_selection else self.data_engine.get_selected_training_columns()
+        if reset_selection or not previous_selection:
+            selected_columns = list(available_columns)
+        else:
+            selected_columns = [col for col in available_columns if col in previous_selection]
+
+        self.data_engine.set_selected_training_columns(selected_columns)
+
+        self.feature_selection_table.blockSignals(True)
+        self.feature_selection_table.clearContents()
+        self.feature_selection_table.setRowCount(len(available_columns))
+
+        for row, column in enumerate(available_columns):
+            use_item = QTableWidgetItem()
+            use_item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            use_item.setCheckState(
+                Qt.CheckState.Checked if column in selected_columns else Qt.CheckState.Unchecked
+            )
+            self.feature_selection_table.setItem(row, 0, use_item)
+
+            name_item = QTableWidgetItem(column)
+            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.feature_selection_table.setItem(row, 1, name_item)
+
+            column_type = "합금 지표" if column in self.data_engine.engineered_feature_cols else "원본"
+            type_item = QTableWidgetItem(column_type)
+            type_item.setFlags(type_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.feature_selection_table.setItem(row, 2, type_item)
+
+        self.feature_selection_table.blockSignals(False)
+        self.feature_selection_table.resizeColumnsToContents()
+
+        has_columns = bool(available_columns)
+        self.select_all_features_btn.setEnabled(has_columns)
+        self.clear_features_btn.setEnabled(has_columns)
+        self.refresh_feature_selection_summary()
+
+    def get_checked_feature_columns_from_table(self):
+        selected_columns = []
+        for row in range(self.feature_selection_table.rowCount()):
+            use_item = self.feature_selection_table.item(row, 0)
+            name_item = self.feature_selection_table.item(row, 1)
+            if use_item and name_item and use_item.checkState() == Qt.CheckState.Checked:
+                selected_columns.append(name_item.text())
+        return selected_columns
+
+    def refresh_feature_selection_summary(self):
+        available_columns = self.data_engine.get_available_training_columns(include_engineered=True)
+        selected_columns = self.data_engine.get_selected_training_columns()
+
+        if not available_columns:
+            self.feature_selection_status_label.setText(
+                "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+            )
+            self.go_to_model_training_btn.setEnabled(False)
+            return
+
+        raw_count = sum(1 for col in selected_columns if col in self.data_engine.raw_feature_cols)
+        engineered_count = sum(
+            1 for col in selected_columns if col in self.data_engine.engineered_feature_cols
+        )
+        self.feature_selection_status_label.setText(
+            f"전체 {len(available_columns)}개 중 {len(selected_columns)}개 컬럼이 선택되었습니다. "
+            f"(원본 {raw_count}개, 합금 지표 {engineered_count}개)"
+        )
+        self.go_to_model_training_btn.setEnabled(self.preprocessing_ready and bool(selected_columns))
+
+        if self.preprocessing_ready:
+            if selected_columns:
+                self.train_btn.setEnabled(True)
+                self.training_data_status_label.setText(
+                    f"전처리가 완료되었습니다. 선택한 {len(selected_columns)}개 컬럼으로 학습합니다."
+                )
+            else:
+                self.train_btn.setEnabled(False)
+                self.training_data_status_label.setText(
+                    "전처리는 완료되었지만 아직 학습 컬럼이 선택되지 않았습니다."
+                )
+
+    def on_feature_selection_item_changed(self, item):
+        if item.column() != 0:
+            return
+        self.data_engine.set_selected_training_columns(self.get_checked_feature_columns_from_table())
+        self.refresh_feature_selection_summary()
+
+    def select_all_feature_columns(self):
+        self.feature_selection_table.blockSignals(True)
+        for row in range(self.feature_selection_table.rowCount()):
+            item = self.feature_selection_table.item(row, 0)
+            if item:
+                item.setCheckState(Qt.CheckState.Checked)
+        self.feature_selection_table.blockSignals(False)
+        self.data_engine.set_selected_training_columns(self.get_checked_feature_columns_from_table())
+        self.refresh_feature_selection_summary()
+
+    def clear_all_feature_columns(self):
+        self.feature_selection_table.blockSignals(True)
+        for row in range(self.feature_selection_table.rowCount()):
+            item = self.feature_selection_table.item(row, 0)
+            if item:
+                item.setCheckState(Qt.CheckState.Unchecked)
+        self.feature_selection_table.blockSignals(False)
+        self.data_engine.set_selected_training_columns(self.get_checked_feature_columns_from_table())
+        self.refresh_feature_selection_summary()
+
     def reset_preprocessing_state(self, keep_file=True):
         current_file = self.data_engine.file_path if keep_file else None
         self.preprocessing_ready = False
         self.data_engine.df = None
         self.data_engine.last_quality_report = {}
+        self.data_engine.set_selected_training_columns([])
         if not keep_file:
             self.data_engine.set_file_path(None)
 
         self.train_btn.setEnabled(False)
         self.go_to_training_btn.setEnabled(False)
+        if hasattr(self, "go_to_model_training_btn"):
+            self.go_to_model_training_btn.setEnabled(False)
         if hasattr(self, "generate_features_btn"):
             self.generate_features_btn.setEnabled(False)
         self.metrics_label.setText("<b>모델 성능 요약:</b><br>- 예측 정확도: N/A<br>- 평균 오차: N/A")
@@ -817,6 +995,14 @@ class MainWindow(QMainWindow):
         self.engineered_preview_table.clear()
         self.engineered_preview_table.setRowCount(0)
         self.engineered_preview_table.setColumnCount(0)
+        if hasattr(self, "feature_selection_table"):
+            self.feature_selection_table.clearContents()
+            self.feature_selection_table.setRowCount(0)
+            self.select_all_features_btn.setEnabled(False)
+            self.clear_features_btn.setEnabled(False)
+            self.feature_selection_status_label.setText(
+                "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+            )
         self.render_training_placeholder()
         self.render_performance_placeholder()
 
@@ -840,7 +1026,12 @@ class MainWindow(QMainWindow):
         self.reset_preprocessing_state(keep_file=True)
 
     def on_select_file_clicked(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "데이터 파일 열기", "", "Excel Files (*.xls *.xlsx)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "데이터 파일 열기",
+            "",
+            "데이터 파일 (*.xls *.xlsx *.xlsm *.csv)",
+        )
         if not file_path:
             return
 
@@ -883,6 +1074,7 @@ class MainWindow(QMainWindow):
             processed_df = self.data_engine.load_data(include_engineered=False)
             self.update_quality_summary_from_report(self.data_engine.last_quality_report)
             self.populate_processed_preview(processed_df)
+            self.populate_feature_selection_table(reset_selection=True)
             self.preprocessing_ready = True
             self.status_label.setText("상태: 1차 데이터 정제 전처리가 완료되었습니다.")
             self.training_data_status_label.setText(f"전처리 완료 데이터 {len(processed_df)}행이 준비되었습니다. 이제 모델 학습을 시작할 수 있습니다.")
@@ -890,6 +1082,7 @@ class MainWindow(QMainWindow):
             self.generate_features_btn.setEnabled(True)
             self.train_btn.setEnabled(True)
             self.go_to_training_btn.setEnabled(True)
+            self.refresh_feature_selection_summary()
         except Exception as exc:
             self.preprocessing_ready = False
             self.train_btn.setEnabled(False)
@@ -913,6 +1106,7 @@ class MainWindow(QMainWindow):
             self.feature_engineering_check.blockSignals(False)
             self.update_quality_summary_from_report(self.data_engine.last_quality_report)
             self.populate_processed_preview(self.data_engine.df)
+            self.populate_feature_selection_table(reset_selection=False)
             self.status_label.setText("상태: 합금 지표 생성이 완료되었습니다.")
             self.training_status_label.setText("상태: 합금 지표 생성 완료. 선택한 학습 데이터 방식으로 모델을 학습할 수 있습니다.")
         except Exception as exc:
@@ -1041,9 +1235,17 @@ class MainWindow(QMainWindow):
             self.training_status_label.setText("상태: 1번 탭에서 전처리를 먼저 실행해 주세요.")
             return
 
+        selected_columns = self.data_engine.get_selected_training_columns()
+        if not selected_columns:
+            self.training_status_label.setText("상태: 오류 - 학습할 컬럼을 하나 이상 선택해 주세요.")
+            self.tabs.setCurrentIndex(1)
+            return
+
         self.apply_quality_settings_from_ui()
         self.train_btn.setEnabled(False)
-        self.training_status_label.setText("상태: 학습 준비 중입니다.")
+        self.training_status_label.setText(
+            f"상태: 학습 준비 중입니다. 선택한 컬럼 {len(selected_columns)}개만 사용합니다."
+        )
         self.metrics_label.setText("<b>모델 성능 요약:</b><br>- 계산 중...")
 
         model_map = {0: "RF", 1: "GBM", 2: "MLP", 3: "TFP"}
