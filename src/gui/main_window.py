@@ -124,6 +124,8 @@ class MainWindow(QMainWindow):
         self.model_engine = None
         self.model_type = "RF"
         self.preprocessing_ready = False
+        self._open_dialogs = []
+        self.last_r2_avg = None
 
         self.init_ui()
 
@@ -1270,6 +1272,7 @@ class MainWindow(QMainWindow):
         metrics = results["metrics"]
         r2_avg = float(np.mean(metrics["r2"]))
         mae_avg = float(np.mean(metrics["mae"]))
+        self.last_r2_avg = round(r2_avg, 4)
         acc_text = "매우 높음" if r2_avg > 0.9 else "높음" if r2_avg > 0.8 else "보통"
 
         self.metrics_label.setText(
@@ -1498,14 +1501,6 @@ class MainWindow(QMainWindow):
                         if os.path.isdir(os.path.join(ws_dir, d)) and d != "auto_save"])
         model_name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
 
-        # log.json 한 번만 읽기
-        log_path = os.path.join(ws_dir, "log.json")
-        training_logs = []
-        if os.path.exists(log_path):
-            with open(log_path, "r", encoding="utf-8") as f:
-                all_logs = json.load(f)
-            training_logs = [l for l in all_logs if l.get("type") == "학습"]
-
         for row, name in enumerate(names):
             self.ws_table.insertRow(row)
             folder = os.path.join(ws_dir, name)
@@ -1528,9 +1523,9 @@ class MainWindow(QMainWindow):
             fp = state.get("file_path") or ""
             self.ws_table.setItem(row, 2, QTableWidgetItem(os.path.basename(fp) if fp else "-"))
 
-            # 저장 날짜 / R2 (log.json 마지막 학습 기준)
-            saved_date = training_logs[-1].get("timestamp", "-") if training_logs else "-"
-            r2_val = training_logs[-1].get("r2_avg") if training_logs else None
+            # 저장 날짜 / R2 (각 워크스페이스 state.json 기준)
+            saved_date = state.get("saved_date", "-")
+            r2_val = state.get("r2_avg")
             r2_text = f"{r2_val * 100:.1f}%" if r2_val is not None else "-"
             self.ws_table.setItem(row, 3, QTableWidgetItem(saved_date))
             self.ws_table.setItem(row, 4, QTableWidgetItem(r2_text))
@@ -1661,7 +1656,10 @@ class MainWindow(QMainWindow):
         close_btn.clicked.connect(dialog.close)
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
-        dialog.exec()
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.destroyed.connect(lambda: self._open_dialogs.remove(dialog) if dialog in self._open_dialogs else None)
+        self._open_dialogs.append(dialog)
+        dialog.show()
 
     def _on_thumb_clicked(self, _):
         """학습 그래프 썸네일 클릭 시 크게 보기"""
@@ -1762,7 +1760,10 @@ class MainWindow(QMainWindow):
         close_btn.clicked.connect(dialog.close)
         btn_row.addWidget(close_btn)
         outer.addLayout(btn_row)
-        dialog.exec()
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.destroyed.connect(lambda: self._open_dialogs.remove(dialog) if dialog in self._open_dialogs else None)
+        self._open_dialogs.append(dialog)
+        dialog.show()
 
     def _load_selected_ws(self):
         """하단 불러오기 버튼 클릭 시 선택된 행 불러오기"""
@@ -1812,6 +1813,8 @@ class MainWindow(QMainWindow):
             "model_combo_index": self.model_combo.currentIndex(),
             "max_iter": self.iter_spin.value(),
             "inputs": {k: v.text() for k, v in self.inputs.items()},
+            "saved_date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "r2_avg": self.last_r2_avg,
             # [WORKSPACE] 전처리 설정값 저장
             "preprocessing": {
                 "missing_combo": self.missing_combo.currentIndex(),
