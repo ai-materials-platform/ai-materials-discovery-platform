@@ -5,6 +5,8 @@ xlrd
 openpyxl
 pyqt6
 flask
+flask-cors
+joblib
 matplotlib
 seaborn
 scikit-learn
