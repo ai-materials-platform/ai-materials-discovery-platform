@@ -48,76 +48,79 @@ try:
 except Exception:
     pass
 
-LIGHT_QSS = """
-QMainWindow, QWidget { background-color: #F2F2F0; color: #1A1A1A; font-family: 'Malgun Gothic', sans-serif; }
-QTabWidget::pane { border: 1px solid #D8D8D6; background: #FFFFFF; }
-QTabBar { background: #EBEBEA; }
-QTabBar::tab { background: #EBEBEA; color: #8A8A8A; padding: 6px 14px; border: 1px solid #D8D8D6; border-bottom: none; font-size: 11px; }
-QTabBar::tab:selected { background: #FFFFFF; color: #1A1A1A; font-weight: bold; border-bottom: 2px solid #E56020; }
-QTabBar::tab:hover { background: #FFFFFF; color: #1A1A1A; }
-QGroupBox { border: 1px solid #D8D8D6; border-radius: 3px; margin-top: 8px; padding-top: 8px; font-weight: bold; font-size: 11px; color: #444444; }
-QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: #8A8A8A; font-size: 10px; letter-spacing: 1px; }
-QPushButton { background-color: #EBEBEA; color: #1A1A1A; border: 1px solid #D8D8D6; border-radius: 2px; padding: 5px 12px; font-size: 11px; }
-QPushButton:hover { background-color: #D8D8D6; }
-QPushButton:disabled { color: #8A8A8A; background: #F2F2F0; border-color: #EBEBEA; }
-QComboBox { border: none; border-bottom: 2px solid #D8D8D6; background: transparent; padding: 4px 2px; font-size: 11px; color: #1A1A1A; }
-QComboBox:focus { border-bottom-color: #E56020; }
-QComboBox QAbstractItemView { background: #FFFFFF; border: 1px solid #D8D8D6; selection-background-color: #E56020; }
-QTableWidget { border: 1px solid #D8D8D6; gridline-color: #EBEBEA; font-size: 11px; background: #FFFFFF; alternate-background-color: #F8F8F7; }
-QTableWidget::item { background-color: #FFFFFF; color: #1A1A1A; }
-QTableWidget::item:alternate { background-color: #F8F8F7; }
-QTableWidget::item:selected { background: #E56020; color: white; }
-QHeaderView::section { background: #EBEBEA; color: #8A8A8A; border: none; border-right: 1px solid #D8D8D6; border-bottom: 1px solid #D8D8D6; padding: 4px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; }
-QScrollBar:vertical { width: 6px; background: transparent; }
-QScrollBar::handle:vertical { background: #D8D8D6; border-radius: 3px; min-height: 20px; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QScrollBar:horizontal { height: 6px; background: transparent; }
-QScrollBar::handle:horizontal { background: #D8D8D6; border-radius: 3px; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-QLineEdit { border: none; border-bottom: 2px solid #D8D8D6; background: transparent; padding: 4px 2px; font-size: 11px; }
-QLineEdit:focus { border-bottom-color: #E56020; }
-QDoubleSpinBox, QSpinBox { border: none; border-bottom: 2px solid #D8D8D6; background: transparent; padding: 4px 2px; font-size: 11px; }
-QSplitter::handle { background: #D8D8D6; }
-QDialog { background: #FFFFFF; }
-QMessageBox { background: #FFFFFF; }
+APP_FONT_FAMILY = '"Malgun Gothic"'
+APP_FONT_SIZE = 11
+
+LIGHT_QSS = f"""
+QMainWindow, QWidget {{ background-color: #F4F6F8; color: #111827; font-family: {APP_FONT_FAMILY}; font-size: {APP_FONT_SIZE}px; }}
+QTabWidget::pane {{ border: 1px solid #C9D2DC; background: #FFFFFF; }}
+QTabBar {{ background: #E9EEF3; }}
+QTabBar::tab {{ background: #E9EEF3; color: #475569; padding: 9px 16px; border: 1px solid #C9D2DC; border-bottom: none; border-top-left-radius: 6px; border-top-right-radius: 6px; }}
+QTabBar::tab:selected {{ background: #FFFFFF; color: #111827; font-weight: 700; border-bottom: 2px solid #E56020; }}
+QTabBar::tab:hover {{ background: #FFFFFF; color: #111827; }}
+QGroupBox {{ border: 1px solid #C9D2DC; border-radius: 10px; margin-top: 12px; padding-top: 12px; font-weight: 700; color: #28323C; background: #FFFFFF; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; color: #475569; letter-spacing: 0.3px; }}
+QPushButton {{ background-color: #EEF2F6; color: #111827; border: 1px solid #C9D2DC; border-radius: 8px; padding: 7px 14px; }}
+QPushButton:hover {{ background-color: #E2E8F0; }}
+QPushButton:disabled {{ color: #7C8794; background: #F4F5F6; border-color: #E2E7EC; }}
+QComboBox {{ border: 1px solid #C9D2DC; border-radius: 8px; background: #FFFFFF; padding: 6px 10px; color: #111827; }}
+QComboBox:focus {{ border-color: #E56020; }}
+QComboBox QAbstractItemView {{ background: #FFFFFF; border: 1px solid #C9D2DC; color: #111827; selection-background-color: #E56020; selection-color: #FFFFFF; }}
+QTableWidget {{ border: 1px solid #C9D2DC; gridline-color: #E2E8F0; background: #FFFFFF; alternate-background-color: #F8FAFC; color: #111827; }}
+QTableWidget::item {{ background-color: #FFFFFF; color: #111827; }}
+QTableWidget::item:alternate {{ background-color: #F8FAFC; }}
+QTableWidget::item:selected {{ background: #E56020; color: #FFFFFF; }}
+QHeaderView::section {{ background: #E9EEF3; color: #475569; border: none; border-right: 1px solid #C9D2DC; border-bottom: 1px solid #C9D2DC; padding: 7px 10px; font-weight: 700; }}
+QScrollBar:vertical {{ width: 8px; background: transparent; }}
+QScrollBar::handle:vertical {{ background: #B8C2CE; border-radius: 4px; min-height: 24px; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar:horizontal {{ height: 8px; background: transparent; }}
+QScrollBar::handle:horizontal {{ background: #B8C2CE; border-radius: 4px; }}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
+QLineEdit {{ border: 1px solid #C9D2DC; border-radius: 8px; background: #FFFFFF; padding: 7px 10px; color: #111827; selection-background-color: #E56020; }}
+QLineEdit:focus {{ border-color: #E56020; }}
+QDoubleSpinBox, QSpinBox {{ border: 1px solid #C9D2DC; border-radius: 8px; background: #FFFFFF; padding: 7px 10px; color: #111827; }}
+QSplitter::handle {{ background: #C9D2DC; }}
+QDialog {{ background: #FFFFFF; }}
+QMessageBox {{ background: #FFFFFF; }}
 """
 
-DARK_QSS = """
-QMainWindow, QWidget { background-color: #2B2B2B; color: #D8D8D8; font-family: 'Malgun Gothic', sans-serif; }
-QTabWidget { background: #2B2B2B; }
-QTabWidget::pane { border: 1px solid #3E3E3E; background: #323232; }
-QTabBar { background: #2B2B2B; }
-QTabBar::scroller { background: #2B2B2B; }
-QTabBar QToolButton { background: #2B2B2B; border: none; }
-QTabBar::tab { background: #2B2B2B; color: #888888; padding: 6px 14px; border: 1px solid #3E3E3E; border-bottom: none; font-size: 11px; }
-QTabBar::tab:selected { background: #323232; color: #E8E8E8; font-weight: bold; border-bottom: 2px solid #E56020; }
-QTabBar::tab:hover { background: #383838; color: #D8D8D8; }
-QGroupBox { border: 1px solid #3E3E3E; border-radius: 3px; margin-top: 8px; padding-top: 8px; font-weight: bold; font-size: 11px; color: #AAAAAA; }
-QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: #777777; font-size: 10px; letter-spacing: 1px; }
-QPushButton { background-color: #3A3A3A; color: #D8D8D8; border: 1px solid #4A4A4A; border-radius: 2px; padding: 5px 12px; font-size: 11px; }
-QPushButton:hover { background-color: #454545; color: #FFFFFF; }
-QPushButton:disabled { color: #666666; background: #303030; border-color: #383838; }
-QComboBox { border: none; border-bottom: 2px solid #4A4A4A; background: transparent; padding: 4px 2px; font-size: 11px; color: #D8D8D8; }
-QComboBox:focus { border-bottom-color: #E56020; }
-QComboBox QAbstractItemView { background: #323232; border: 1px solid #4A4A4A; color: #D8D8D8; selection-background-color: #E56020; }
-QTableWidget { border: 1px solid #3E3E3E; gridline-color: #3A3A3A; font-size: 11px; background: #323232; alternate-background-color: #2B2B2B; color: #D8D8D8; }
-QTableWidget::item { background-color: #323232; color: #D8D8D8; }
-QTableWidget::item:alternate { background-color: #2B2B2B; }
-QTableWidget::item:selected { background: #E56020; color: white; }
-QHeaderView::section { background: #2B2B2B; color: #777777; border: none; border-right: 1px solid #3E3E3E; border-bottom: 1px solid #3E3E3E; padding: 4px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; }
-QScrollBar:vertical { width: 6px; background: transparent; }
-QScrollBar::handle:vertical { background: #4A4A4A; border-radius: 3px; min-height: 20px; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-QScrollBar:horizontal { height: 6px; background: transparent; }
-QScrollBar::handle:horizontal { background: #4A4A4A; border-radius: 3px; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-QLineEdit { border: none; border-bottom: 2px solid #4A4A4A; background: transparent; padding: 4px 2px; font-size: 11px; color: #D8D8D8; }
-QLineEdit:focus { border-bottom-color: #E56020; }
-QDoubleSpinBox, QSpinBox { border: none; border-bottom: 2px solid #4A4A4A; background: transparent; padding: 4px 2px; font-size: 11px; color: #D8D8D8; }
-QSplitter::handle { background: #3E3E3E; }
-QDialog { background: #323232; color: #D8D8D8; }
-QMessageBox { background: #323232; color: #D8D8D8; }
-QScrollArea { background: transparent; border: none; }
+DARK_QSS = f"""
+QMainWindow, QWidget {{ background-color: #25282D; color: #F3F4F6; font-family: {APP_FONT_FAMILY}; font-size: {APP_FONT_SIZE}px; }}
+QTabWidget {{ background: #25282D; }}
+QTabWidget::pane {{ border: 1px solid #4F5965; background: #2F3339; }}
+QTabBar {{ background: #25282D; }}
+QTabBar::scroller {{ background: #25282D; }}
+QTabBar QToolButton {{ background: #25282D; border: none; }}
+QTabBar::tab {{ background: #25282D; color: #B6C0CB; padding: 9px 16px; border: 1px solid #4F5965; border-bottom: none; border-top-left-radius: 6px; border-top-right-radius: 6px; }}
+QTabBar::tab:selected {{ background: #2F3339; color: #F8FAFC; font-weight: 700; border-bottom: 2px solid #E56020; }}
+QTabBar::tab:hover {{ background: #333840; color: #F3F4F6; }}
+QGroupBox {{ border: 1px solid #4F5965; border-radius: 10px; margin-top: 12px; padding-top: 12px; font-weight: 700; color: #E2E8F0; background: #2F3339; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; color: #D5DBE3; letter-spacing: 0.3px; }}
+QPushButton {{ background-color: #3A4048; color: #F3F4F6; border: 1px solid #59616C; border-radius: 8px; padding: 7px 14px; }}
+QPushButton:hover {{ background-color: #454C55; color: #FFFFFF; }}
+QPushButton:disabled {{ color: #7D8794; background: #2F3339; border-color: #3F454D; }}
+QComboBox {{ border: 1px solid #59616C; border-radius: 8px; background: #2F3339; padding: 6px 10px; color: #F3F4F6; }}
+QComboBox:focus {{ border-color: #E56020; }}
+QComboBox QAbstractItemView {{ background: #2F3339; border: 1px solid #59616C; color: #F3F4F6; selection-background-color: #E56020; selection-color: #FFFFFF; }}
+QTableWidget {{ border: 1px solid #4F5965; gridline-color: #3A4048; background: #2F3339; alternate-background-color: #25282D; color: #F3F4F6; }}
+QTableWidget::item {{ background-color: #2F3339; color: #F3F4F6; }}
+QTableWidget::item:alternate {{ background-color: #25282D; }}
+QTableWidget::item:selected {{ background: #E56020; color: #FFFFFF; }}
+QHeaderView::section {{ background: #25282D; color: #D5DBE3; border: none; border-right: 1px solid #4F5965; border-bottom: 1px solid #4F5965; padding: 7px 10px; font-weight: 700; }}
+QScrollBar:vertical {{ width: 8px; background: transparent; }}
+QScrollBar::handle:vertical {{ background: #59616C; border-radius: 4px; min-height: 24px; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar:horizontal {{ height: 8px; background: transparent; }}
+QScrollBar::handle:horizontal {{ background: #59616C; border-radius: 4px; }}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
+QLineEdit {{ border: 1px solid #59616C; border-radius: 8px; background: #2F3339; padding: 7px 10px; color: #F3F4F6; selection-background-color: #E56020; }}
+QLineEdit:focus {{ border-color: #E56020; }}
+QDoubleSpinBox, QSpinBox {{ border: 1px solid #59616C; border-radius: 8px; background: #2F3339; padding: 7px 10px; color: #F3F4F6; }}
+QSplitter::handle {{ background: #4F5965; }}
+QDialog {{ background: #2F3339; color: #F3F4F6; }}
+QMessageBox {{ background: #2F3339; color: #F3F4F6; }}
+QScrollArea {{ background: transparent; border: none; }}
 """
 
 GLOBAL_QSS = LIGHT_QSS
@@ -200,8 +203,11 @@ class MainWindow(QMainWindow):
         self.preprocessing_ready = False
         self._open_dialogs = []
         self.last_r2_avg = None
+        self._ui_font_family = "Malgun Gothic"
+        self._ui_font_size = APP_FONT_SIZE
         self._dark_mode = False
         self._panel_widgets = []       # background: panel
+        self._panel_header_widgets = []
         self._divider_widgets = []     # background: divider
         self._info_box_widgets = []    # info box (accent left border)
         self._section_lbl_widgets = [] # color: text_label, monospace
@@ -211,13 +217,14 @@ class MainWindow(QMainWindow):
 
     def init_ui(self):
         self.setStyleSheet(GLOBAL_QSS)
+        self._apply_ui_font()
 
         # Menu bar
         mb = self.menuBar()
         mb.setStyleSheet(
-            "QMenuBar { background: #252525; color: #BBBBBB; font-size: 11px; padding: 2px 4px; border-bottom: 1px solid #363636; }"
-            "QMenuBar::item { background: transparent; padding: 4px 8px; }"
-            "QMenuBar::item:selected { background: #363636; color: #FFFFFF; }"
+            "QMenuBar { background: #252525; color: #D7DCE3; font-size: 12px; padding: 3px 6px; border-bottom: 1px solid #363636; }"
+            "QMenuBar::item { background: transparent; padding: 5px 10px; }"
+            "QMenuBar::item:selected { background: #3A4048; color: #FFFFFF; }"
         )
         for name in ["파일", "편집", "보기", "데이터", "분석", "도구", "도움말"]:
             mb.addMenu(name)
@@ -234,7 +241,7 @@ class MainWindow(QMainWindow):
         # 3-panel splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
-        splitter.setHandleWidth(1)
+        splitter.setHandleWidth(2)
 
         splitter.addWidget(self._create_left_panel())
         splitter.addWidget(self._create_settings_panel())
@@ -249,18 +256,18 @@ class MainWindow(QMainWindow):
         # Status bar
         sb = self.statusBar()
         sb.setStyleSheet(
-            "QStatusBar { background: #252525; color: white; font-size: 10px; "
-            "font-family: 'Consolas', monospace; padding: 0 8px; border-top: 1px solid #363636; }"
+            f"QStatusBar {{ background: #252525; color: white; font-size: 11px; "
+            f"padding: 0 8px; border-top: 1px solid #363636; }}"
             "QStatusBar::item { border: none; }"
         )
         self._sb_status = QLabel("● 준비완료")
         self._sb_samples = QLabel("샘플: —")
         self._sb_missing = QLabel("결측: —")
         self._sb_model = QLabel("모델: 미훈련")
-        _lbl_style = "color: #BBBBBB; font-size: 10px; font-family: 'Consolas', monospace; padding: 0 10px;"
+        _lbl_style = "color: #F8FAFC; font-size: 11px; font-weight: 600; padding: 0 10px;"
         for lbl in [self._sb_samples, self._sb_missing, self._sb_model]:
             lbl.setStyleSheet(_lbl_style)
-        self._sb_status.setStyleSheet("color: #4CAF50; font-size: 10px; font-family: 'Consolas', monospace; padding: 0 10px;")
+        self._sb_status.setStyleSheet("color: #58C472; font-size: 11px; font-weight: 700; padding: 0 10px;")
         sb.addWidget(self._sb_status)
         sb.addWidget(self._sb_samples)
         sb.addWidget(self._sb_missing)
@@ -273,28 +280,77 @@ class MainWindow(QMainWindow):
         self.setup_inference_tab()
         self.setup_workspace_tab()
         self.refresh_workspace_list()
+        self._apply_theme_colors()
+
+    def _apply_ui_font(self):
+        font = QFont(self._ui_font_family)
+        font.setPixelSize(self._ui_font_size)
+        font.setStyleHint(QFont.StyleHint.SansSerif)
+        QApplication.instance().setFont(font)
+        self.setFont(font)
+        plt.rcParams["font.family"] = ["Malgun Gothic", "sans-serif"]
+        if hasattr(self, "canvas"):
+            self.render_training_placeholder()
+        if hasattr(self, "perf_canvas"):
+            self.render_performance_placeholder()
 
     # ── Toolbar ──────────────────────────────────────────────────────────────
 
     def _create_toolbar(self):
         bar = QWidget()
         self._toolbar_widget = bar
-        bar.setFixedHeight(34)
-        bar.setStyleSheet("background: #252525; border-bottom: 1px solid #363636;")
+        bar.setFixedHeight(48)
+        bar.setStyleSheet("background: #FFFFFF; border-bottom: 1px solid #C9D2DC;")
+
         layout = QHBoxLayout(bar)
-        layout.setContentsMargins(10, 0, 10, 0)
-        layout.setSpacing(3)
+        layout.setContentsMargins(16, 0, 14, 0)
+        layout.setSpacing(12)
+        layout.addStretch()
+
+        self._toolbar_title = QLabel("AI Materials Discovery Platform")
+        self._toolbar_title.setStyleSheet(
+            "color: #111827; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;"
+        )
+        layout.addWidget(self._toolbar_title)
+
+        self._theme_btn = QPushButton("다크 모드")
+        self._theme_btn.setFixedHeight(32)
+        self._theme_btn.setMinimumWidth(92)
+        self._theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._theme_btn.setStyleSheet(
+            "QPushButton { background: #111827; color: #F8FAFC; border: 1px solid #111827; "
+            "border-radius: 16px; font-size: 11px; font-weight: 700; padding: 0 14px; }"
+            "QPushButton:hover { background: #1F2937; border-color: #334155; }"
+        )
+        self._theme_btn.clicked.connect(self._toggle_theme)
+        layout.addWidget(self._theme_btn)
+        return bar
+
+        bar = QWidget()
+        self._toolbar_widget = bar
+        bar.setFixedHeight(46)
+        bar.setStyleSheet("background: #252525; border-bottom: 1px solid #3B4350;")
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(16, 0, 14, 0)
+        layout.setSpacing(10)
 
         _tb_style = (
-            "QPushButton { background: transparent; color: #BBBBBB; border: 1px solid #363636; "
-            "border-radius: 2px; padding: 1px 8px; font-size: 10px; }"
-            "QPushButton:hover { background: #363636; color: #FFFFFF; }"
-            "QPushButton:disabled { color: #555555; border-color: #2C2C2C; }"
+            "QPushButton { background: transparent; color: #D7DCE3; border: 1px solid #3A4048; "
+            "border-radius: 6px; padding: 3px 10px; font-weight: 600; }"
+            "QPushButton:hover { background: #3A4048; color: #FFFFFF; border-color: #4C5561; }"
+            "QPushButton:disabled { color: #707780; border-color: #2C2C2C; }"
+        )
+        _tb_field_style = (
+            "QComboBox, QSpinBox { background: #1F2329; color: #F3F4F6; border: 1px solid #4C5561; "
+            "border-radius: 6px; padding: 3px 8px; selection-background-color: #E56020; }"
+            "QComboBox:hover, QSpinBox:hover { border-color: #E56020; }"
+            "QComboBox QAbstractItemView { background: #2F3339; color: #F3F4F6; border: 1px solid #4C5561; "
+            "selection-background-color: #E56020; }"
         )
 
         def tb_btn(text, callback=None, enabled=True):
             b = QPushButton(text)
-            b.setFixedHeight(22)
+            b.setFixedHeight(26)
             b.setStyleSheet(_tb_style)
             if callback:
                 b.clicked.connect(callback)
@@ -318,41 +374,82 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         title = QLabel("AI Materials Discovery Platform")
-        title.setStyleSheet("color: #555555; font-size: 10px; letter-spacing: 1px;")
+        title.setStyleSheet("color: #F8FAFC; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;")
         layout.addWidget(title)
 
         layout.addSpacing(12)
+        font_hint = QLabel("Font")
+        font_hint.setStyleSheet("color: #AEB7C2; font-weight: 700;")
+        layout.addWidget(font_hint)
+
+        self._font_combo = QComboBox()
+        self._font_combo.addItems(self._available_ui_fonts())
+        self._font_combo.setCurrentText(self._ui_font_family)
+        self._font_combo.setFixedSize(170, 28)
+        self._font_combo.setStyleSheet(_tb_field_style)
+        self._font_combo.currentTextChanged.connect(self._on_font_family_changed)
+        layout.addWidget(self._font_combo)
+
+        size_hint = QLabel("Size")
+        size_hint.setStyleSheet("color: #AEB7C2; font-weight: 700;")
+        layout.addWidget(size_hint)
+
+        self._font_size_combo = QComboBox()
+        self._font_size_combo.addItem("Small (10px)", 10)
+        self._font_size_combo.addItem("Default (11px)", 11)
+        self._font_size_combo.addItem("Medium (12px)", 12)
+        self._font_size_combo.addItem("Large (14px)", 14)
+        self._font_size_combo.addItem("XL (16px)", 16)
+        self._font_size_combo.setFixedSize(130, 28)
+        self._font_size_combo.setStyleSheet(_tb_field_style)
+        index = self._font_size_combo.findData(self._ui_font_size)
+        self._font_size_combo.setCurrentIndex(index if index >= 0 else 1)
+        self._font_size_combo.currentIndexChanged.connect(self._on_font_size_changed)
+        layout.addWidget(self._font_size_combo)
+
         self._theme_btn = QPushButton("🌙")
-        self._theme_btn.setFixedSize(26, 22)
+        self._theme_btn.setFixedSize(34, 30)
         self._theme_btn.setStyleSheet(
-            "QPushButton { background: transparent; color: #BBBBBB; border: 1px solid #363636; "
-            "border-radius: 2px; font-size: 12px; padding: 0; }"
-            "QPushButton:hover { background: #363636; }"
+            "QPushButton { background: #313844; color: #F8FAFC; border: 1px solid #475161; "
+            "border-radius: 8px; font-size: 13px; padding: 0; font-weight: 700; }"
+            "QPushButton:hover { background: #3B4350; border-color: #E56020; }"
         )
         self._theme_btn.clicked.connect(self._toggle_theme)
         layout.addWidget(self._theme_btn)
+        keep_widgets = {title, self._theme_btn}
+        for child in bar.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly):
+            if child not in keep_widgets and child is not bar:
+                child.hide()
         return bar
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
-        self._theme_btn.setText("☀️" if self._dark_mode else "🌙")
+        self._theme_btn.setText("라이트 모드" if self._dark_mode else "다크 모드")
         self.setStyleSheet(DARK_QSS if self._dark_mode else LIGHT_QSS)
         self._apply_theme_colors()
+        if hasattr(self, "canvas") and self.last_r2_avg is None:
+            self.render_training_placeholder()
+        if hasattr(self, "perf_canvas") and self.last_r2_avg is None:
+            self.render_performance_placeholder()
 
     def _theme(self):
         d = self._dark_mode
         return {
-            "app_bg":      "#2B2B2B" if d else "#F2F2F0",
-            "panel_bg":    "#323232" if d else "#FFFFFF",
-            "muted_bg":    "#2E2E2E" if d else "#F8F8F7",
-            "info_bg":     "#383838" if d else "#F2F2F0",
-            "divider":     "#3A3A3A" if d else "#EBEBEA",
-            "border":      "#4A4A4A" if d else "#D8D8D6",
-            "text_primary":"#E8E8E8" if d else "#1A1A1A",
-            "text_sec":    "#BBBBBB" if d else "#444444",
-            "text_label":  "#777777" if d else "#8A8A8A",
-            "tb_bg":       "#1E1E1E" if d else "#252525",
-            "tb_border":   "#2A2A2A" if d else "#363636",
+            "app_bg":      "#25282D" if d else "#F4F6F8",
+            "panel_bg":    "#2F3339" if d else "#FFFFFF",
+            "muted_bg":    "#343941" if d else "#F8FAFC",
+            "info_bg":     "#3A4048" if d else "#F6F8FB",
+            "divider":     "#4F5965" if d else "#CBD5E1",
+            "border":      "#4F5965" if d else "#C9D2DC",
+            "text_primary":"#F3F4F6" if d else "#111827",
+            "text_sec":    "#D5DBE3" if d else "#334155",
+            "text_label":  "#B6C0CB" if d else "#64748B",
+            "tb_bg":       "#1E1E1E" if d else "#FFFFFF",
+            "tb_border":   "#3B4350" if d else "#C9D2DC",
+            "status_bg":   "#1E1E1E" if d else "#FFFFFF",
+            "status_text": "#F8FAFC" if d else "#111827",
+            "status_muted":"#D7DCE3" if d else "#334155",
+            "input_bg":    "#2F3339" if d else "#FFFFFF",
             "accent":      "#E56020",
         }
 
@@ -390,20 +487,48 @@ class MainWindow(QMainWindow):
         self._toolbar_widget.setStyleSheet(
             f"background: {c['tb_bg']}; border-bottom: 1px solid {c['tb_border']};"
         )
+        if hasattr(self, "_toolbar_title"):
+            self._toolbar_title.setStyleSheet(
+                f"color: {'#F8FAFC' if self._dark_mode else '#111827'}; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;"
+            )
+        if hasattr(self, "_theme_btn"):
+            self._theme_btn.setText("라이트 모드" if self._dark_mode else "다크 모드")
+            theme_bg = "#FFFFFF" if self._dark_mode else "#111827"
+            theme_text = "#111827" if self._dark_mode else "#F8FAFC"
+            theme_border = c["border"] if self._dark_mode else "#111827"
+            theme_hover = "#F8FAFC" if self._dark_mode else "#1F2937"
+            theme_hover_border = "#CBD5E1" if self._dark_mode else "#334155"
+            self._theme_btn.setStyleSheet(
+                "QPushButton { "
+                f"background: {theme_bg}; color: {theme_text}; border: 1px solid {theme_border}; "
+                "border-radius: 16px; font-size: 11px; font-weight: 700; padding: 0 14px; }"
+                f"QPushButton:hover {{ background: {theme_hover}; border-color: {theme_hover_border}; }}"
+            )
+        menu_bg = c["tb_bg"] if self._dark_mode else "#FFFFFF"
+        menu_text = c["text_sec"] if self._dark_mode else "#111827"
+        menu_border = c["tb_border"] if self._dark_mode else c["border"]
+        menu_hover_bg = c["tb_border"] if self._dark_mode else "#EEF2F6"
+        menu_hover_text = "#FFFFFF" if self._dark_mode else "#111827"
         self.menuBar().setStyleSheet(
-            f"QMenuBar {{ background: {c['tb_bg']}; color: {c['text_label']}; font-size: 11px; padding: 2px 4px; border-bottom: 1px solid {c['tb_border']}; }}"
-            f"QMenuBar::item {{ background: transparent; padding: 4px 8px; }}"
-            f"QMenuBar::item:selected {{ background: {c['tb_border']}; color: #FFFFFF; }}"
+            f"QMenuBar {{ background: {menu_bg}; color: {menu_text}; font-size: 12px; padding: 3px 6px; border-bottom: 1px solid {menu_border}; }}"
+            f"QMenuBar::item {{ background: transparent; padding: 5px 10px; color: {menu_text}; }}"
+            f"QMenuBar::item:selected {{ background: {menu_hover_bg}; color: {menu_hover_text}; }}"
         )
         self.statusBar().setStyleSheet(
-            f"QStatusBar {{ background: {c['tb_bg']}; color: {c['text_sec']}; font-size: 10px; "
-            f"font-family: 'Consolas', monospace; padding: 0 8px; border-top: 1px solid {c['tb_border']}; }}"
+            f"QStatusBar {{ background: {c['status_bg']}; color: {c['status_text']}; font-size: 11px; "
+            f"padding: 0 8px; border-top: 1px solid {c['border']}; }}"
             "QStatusBar::item { border: none; }"
         )
 
         # ── Panel backgrounds ──
         for w in self._panel_widgets:
             w.setStyleSheet(f"background: {c['panel_bg']};")
+
+        for w in self._panel_header_widgets:
+            w.setStyleSheet(
+                f"font-size: 11px; color: {c['text_label']}; padding: 10px 14px; "
+                f"letter-spacing: 0.8px; font-weight: 600; border-bottom: 1px solid {c['divider']};"
+            )
 
         # ── Dividers ──
         for w in self._divider_widgets:
@@ -412,45 +537,220 @@ class MainWindow(QMainWindow):
         # ── Info boxes (accent left border) ──
         for w in self._info_box_widgets:
             w.setStyleSheet(
-                f"font-size: 10px; color: {c['text_sec']}; background: {c['info_bg']}; "
-                f"padding: 8px; border-left: 2px solid {c['accent']};"
+                f"font-size: 12px; color: {c['text_sec']}; background: {c['info_bg']}; "
+                f"padding: 10px; border-left: 3px solid {c['accent']}; border-radius: 6px;"
             )
 
         # ── Section labels (monospace, label color) ──
         for w in self._section_lbl_widgets:
             w.setStyleSheet(
-                f"font-size: 10px; color: {c['text_label']}; "
-                "font-family: 'Consolas', monospace; letter-spacing: 0.5px;"
+                f"font-size: 11px; color: {c['text_label']}; "
+                "font-weight: 600; letter-spacing: 0.4px;"
             )
 
         # ── Muted background boxes (summary etc.) ──
         for w in self._muted_bg_widgets:
             w.setStyleSheet(
-                f"font-size: 10px; color: {c['text_label']}; padding: 8px; "
-                f"background: {c['muted_bg']}; border: 1px solid {c['border']};"
+                f"font-size: 12px; color: {c['text_sec']}; padding: 10px; "
+                f"background: {c['muted_bg']}; border: 1px solid {c['border']}; border-radius: 6px;"
             )
 
         # ── Settings misc labels ──
-        self.file_path_label.setStyleSheet(f"font-size: 11px; color: {c['text_label']};")
-        self.status_label.setStyleSheet(f"color: {c['text_label']}; font-size: 10px;")
-        self.domain_range_status_label.setStyleSheet(f"color: {c['text_label']}; font-size: 10px;")
+        self.file_path_label.setStyleSheet(f"font-size: 12px; color: {c['text_sec']};")
+        self.status_label.setStyleSheet(f"color: {c['text_sec']}; font-size: 11px;")
+        self.domain_range_status_label.setStyleSheet(f"color: {c['text_sec']}; font-size: 11px;")
         self.reset_preprocess_btn.setStyleSheet(
-            f"background: {c['muted_bg']}; color: {c['text_sec']}; border: none; font-size: 11px;"
+            f"background: {c['muted_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; border-radius: 6px; font-size: 12px; font-weight: 600;"
         )
 
-        # ── Tree labels ──
-        for lbl in [self._tree_file_label, self._tree_preprocess_label,
-                    self._tree_model_label, self._tree_results_label]:
-            cur = lbl.styleSheet()
-            lbl.setStyleSheet(cur.replace("#1A1A1A", c["text_primary"])
-                                 .replace("#8A8A8A", c["text_label"])
-                                 .replace("#E56020", c["accent"]))
+        self._sb_status.setStyleSheet(
+            f"color: {c['accent'] if self.preprocessing_ready and not self.model_engine else '#58C472'}; "
+            "font-size: 11px; font-weight: 700; padding: 0 10px;"
+        )
+        for lbl in [self._sb_samples, self._sb_missing, self._sb_model]:
+            lbl.setStyleSheet(
+                f"color: {c['status_muted']}; font-size: 11px; font-weight: 600; padding: 0 10px;"
+            )
 
         # ── Tree section title labels ──
         for w in self._tree_section_title_lbls:
             w.setStyleSheet(
-                f"font-size: 10px; color: {c['text_label']}; font-weight: 600; letter-spacing: 0.5px;"
+                f"font-size: 11px; color: {c['text_label']}; font-weight: 700; letter-spacing: 0.4px;"
             )
+
+        info_bg = "#15324A" if self._dark_mode else "#EFF6FF"
+        info_border = "#2563EB" if self._dark_mode else "#BFDBFE"
+        info_text = "#DBEAFE" if self._dark_mode else "#1D4ED8"
+        warn_bg = "#4A3818" if self._dark_mode else "#FFF7D6"
+        warn_border = "#D4A72C" if self._dark_mode else "#FACC15"
+        warn_text = "#FDE68A" if self._dark_mode else "#7A5D00"
+        success_bg = "#173B2F" if self._dark_mode else "#ECFDF3"
+        success_border = "#22C55E" if self._dark_mode else "#86EFAC"
+        success_text = "#DCFCE7" if self._dark_mode else "#166534"
+
+        if hasattr(self, "processed_preview_info_label"):
+            self.processed_preview_info_label.setStyleSheet(
+                f"font-size: 11px; color: {c['text_sec']}; padding: 8px 10px; "
+                f"background: {c['muted_bg']}; border-top: 1px solid {c['divider']};"
+            )
+        if hasattr(self, "feature_selection_status_label"):
+            self.feature_selection_status_label.setStyleSheet(
+                f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
+                f"color: {warn_text}; border: 1px solid {warn_border}; font-weight: 600;"
+            )
+        if hasattr(self, "training_data_status_label"):
+            self.training_data_status_label.setStyleSheet(
+                f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
+                f"color: {warn_text}; border: 1px solid {warn_border}; font-weight: 600;"
+            )
+        if hasattr(self, "active_model_info"):
+            card_bg = success_bg if self.model_engine else info_bg
+            card_border = success_border if self.model_engine else info_border
+            card_text = success_text if self.model_engine else info_text
+            self.active_model_info.setStyleSheet(
+                f"background-color: {card_bg}; color: {card_text}; padding: 11px 12px; "
+                f"border: 1px solid {card_border}; border-radius: 10px; font-weight: 700; margin-bottom: 12px;"
+            )
+        if hasattr(self, "result_display"):
+            self.result_display.setStyleSheet(
+                f"font-size: 12px; font-weight: 600; color: {c['text_primary']}; "
+                f"background: {c['muted_bg']}; border: 1px solid {c['border']}; "
+                "border-radius: 10px; padding: 12px;"
+            )
+        if hasattr(self, "comp_group_title_label"):
+            self.comp_group_title_label.setStyleSheet(
+                f"font-size: 14px; font-weight: 700; color: {c['text_primary']}; padding: 0 2px 4px 2px;"
+            )
+        if hasattr(self, "proc_group_title_label"):
+            self.proc_group_title_label.setStyleSheet(
+                f"font-size: 14px; font-weight: 700; color: {c['text_primary']}; padding: 0 2px 4px 2px;"
+            )
+        if hasattr(self, "inference_tab"):
+            self.inference_tab.setStyleSheet(f"background: {c['app_bg']};")
+        if hasattr(self, "inference_left_frame"):
+            self.inference_left_frame.setStyleSheet(
+                f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px;"
+            )
+        if hasattr(self, "inference_right_frame"):
+            self.inference_right_frame.setStyleSheet(
+                f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px;"
+            )
+        if hasattr(self, "ws_detail_widget"):
+            self.ws_detail_widget.setStyleSheet(
+                f"background-color: {c['muted_bg']}; border-top: 1px solid {c['divider']};"
+            )
+        if hasattr(self, "ws_detail_thumb"):
+            self.ws_detail_thumb.setStyleSheet(
+                f"border: 1px solid {c['border']}; background: {c['panel_bg']}; border-radius: 8px; color: {c['text_label']};"
+            )
+        if hasattr(self, "ws_detail_perf_thumb"):
+            self.ws_detail_perf_thumb.setStyleSheet(
+                f"border: 1px solid {c['border']}; background: {c['panel_bg']}; border-radius: 8px; color: {c['text_label']};"
+            )
+        if hasattr(self, "ws_detail_info"):
+            self.ws_detail_info.setStyleSheet(
+                f"font-size: 12px; color: {c['text_sec']}; padding-left: 12px;"
+            )
+        if hasattr(self, "ws_hint_label"):
+            self.ws_hint_label.setStyleSheet(
+                f"color: {c['text_label']}; font-size: 11px; font-weight: 600; margin-top: 4px;"
+            )
+        if hasattr(self, "perf_header_label"):
+            self.perf_header_label.setStyleSheet(
+                f"font-size: 16px; font-weight: 700; color: {c['text_primary']};"
+            )
+        if hasattr(self, "perf_desc_label"):
+            self.perf_desc_label.setStyleSheet(
+                f"color: {c['text_sec']}; font-weight: 600;"
+            )
+        if hasattr(self, "ws_name_label"):
+            self.ws_name_label.setStyleSheet(
+                f"font-size: 12px; color: {c['text_sec']}; font-weight: 600;"
+            )
+        if hasattr(self, "ws_list_title"):
+            self.ws_list_title.setStyleSheet(
+                f"font-size: 14px; font-weight: 700; color: {c['text_primary']};"
+            )
+        if hasattr(self, "ws_train_thumb_label"):
+            self.ws_train_thumb_label.setStyleSheet(
+                f"font-size: 11px; color: {c['text_sec']}; font-weight: 600;"
+            )
+        if hasattr(self, "ws_perf_thumb_label"):
+            self.ws_perf_thumb_label.setStyleSheet(
+                f"font-size: 11px; color: {c['text_sec']}; font-weight: 600;"
+            )
+        if hasattr(self, "ws_compare_btn"):
+            self.ws_compare_btn.setStyleSheet(
+                "QPushButton { "
+                f"background: {c['accent']}; color: white; border: none; border-radius: 17px; "
+                "font-weight: 700; padding: 6px 12px; }"
+                "QPushButton:hover { background: #F97316; }"
+            )
+        if hasattr(self, "ws_refresh_btn"):
+            self.ws_refresh_btn.setStyleSheet(
+                "QPushButton { "
+                f"background: {c['panel_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; "
+                "border-radius: 17px; font-weight: 700; padding: 6px 12px; }"
+                f"QPushButton:hover {{ background: {c['muted_bg']}; border-color: {c['divider']}; }}"
+            )
+        if hasattr(self, "ws_save_btn"):
+            self.ws_save_btn.setStyleSheet(
+                "QPushButton { background: #E56020; color: white; border: none; border-radius: 10px; "
+                "font-weight: 700; padding: 7px 16px; }"
+                "QPushButton:hover { background: #F97316; }"
+            )
+        if hasattr(self, "ws_load_btn"):
+            self.ws_load_btn.setStyleSheet(
+                "QPushButton { "
+                f"background: {c['panel_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; "
+                "border-radius: 10px; font-weight: 700; padding: 7px 14px; }"
+                f"QPushButton:hover {{ background: {c['muted_bg']}; border-color: {c['divider']}; }}"
+            )
+        if hasattr(self, "ws_delete_btn"):
+            self.ws_delete_btn.setStyleSheet(
+                "QPushButton { background: #DC2626; color: white; border: none; border-radius: 10px; "
+                "font-weight: 700; padding: 7px 12px; }"
+                "QPushButton:hover { background: #EF4444; }"
+            )
+        if hasattr(self, "ws_panel_load_btn"):
+            self.ws_panel_load_btn.setStyleSheet(
+                "QPushButton { background: #0F766E; color: white; border: none; border-radius: 10px; "
+                "font-weight: 700; padding: 8px 14px; }"
+                "QPushButton:hover { background: #0D9488; }"
+            )
+        if hasattr(self, "preprocessing_tab"):
+            self.preprocessing_tab.setStyleSheet(f"background: {c['panel_bg']};")
+        if hasattr(self, "workspace_tab"):
+            self.workspace_tab.setStyleSheet(f"background: {c['panel_bg']};")
+        if hasattr(self, "_settings_header_row"):
+            self._settings_header_row.setStyleSheet(
+                f"background: {c['panel_bg']}; border-bottom: 1px solid {c['divider']};"
+            )
+        if hasattr(self, "_settings_header_label"):
+            self._settings_header_label.setStyleSheet(
+                f"font-size: 11px; color: {c['text_label']}; padding: 10px 14px; "
+                "letter-spacing: 0.8px; font-weight: 600;"
+            )
+        if hasattr(self, "_settings_help_btn"):
+            self._settings_help_btn.setStyleSheet(
+                "QPushButton { "
+                f"background: transparent; color: {c['text_label']}; border: 1px solid {c['border']}; "
+                "border-radius: 10px; font-size: 11px; font-weight: 700; padding: 0; margin: 4px 8px 4px 0; }"
+                f"QPushButton:hover {{ background: {c['muted_bg']}; color: {c['text_primary']}; }}"
+            )
+
+        if hasattr(self, "ws_name_input"):
+            self.ws_name_input.setStyleSheet(
+                f"QLineEdit {{ background: {c['input_bg']}; color: {c['text_primary']}; "
+                f"border: 1px solid {c['border']}; border-radius: 6px; padding: 6px 10px; }}"
+            )
+        if hasattr(self, "ws_combo"):
+            self.ws_combo.setStyleSheet(
+                f"QComboBox {{ background: {c['input_bg']}; color: {c['text_primary']}; "
+                f"border: 1px solid {c['border']}; border-radius: 6px; padding: 5px 10px; }}"
+            )
+        if hasattr(self, "_tree_file_label"):
+            self._update_project_tree()
 
     # ── Left panel (Project Explorer) ────────────────────────────────────────
 
@@ -467,10 +767,11 @@ class MainWindow(QMainWindow):
 
         header = QLabel("프로젝트 탐색기")
         header.setStyleSheet(
-            "font-size: 10px; color: #8A8A8A; padding: 8px 12px; letter-spacing: 1px; "
-            "border-bottom: 1px solid #EBEBEA;"
+            "font-size: 11px; color: #5B6470; padding: 10px 14px; letter-spacing: 0.8px; "
+            "font-weight: 600; border-bottom: 1px solid #E1E5EA;"
         )
         self._panel_widgets.append(header)
+        self._panel_header_widgets.append(header)
         layout.addWidget(header)
 
         content = QWidget()
@@ -492,9 +793,9 @@ class MainWindow(QMainWindow):
             wl.setContentsMargins(0, 6, 0, 6)
             wl.setSpacing(3)
             t = QLabel(title_text)
-            t.setStyleSheet("font-size: 10px; color: #8A8A8A; font-weight: 600; letter-spacing: 0.5px;")
+            t.setStyleSheet("font-size: 11px; color: #5B6470; font-weight: 700; letter-spacing: 0.4px;")
             self._tree_section_title_lbls.append(t)
-            value_lbl.setStyleSheet("font-size: 11px; color: #1A1A1A; padding-left: 6px;")
+            value_lbl.setStyleSheet("font-size: 12px; color: #111827; padding-left: 6px;")
             value_lbl.setWordWrap(True)
             wl.addWidget(t)
             wl.addWidget(value_lbl)
@@ -515,35 +816,40 @@ class MainWindow(QMainWindow):
         return panel
 
     def _update_project_tree(self):
+        colors = self._theme()
+        primary_color = colors["text_sec"]
+        muted_color = colors["text_label"]
+        accent_color = colors["accent"]
+
         if self.data_engine.file_path:
             self._tree_file_label.setText(os.path.basename(self.data_engine.file_path))
-            self._tree_file_label.setStyleSheet("font-size: 11px; color: #1A1A1A; padding-left: 6px;")
+            self._tree_file_label.setStyleSheet(f"font-size: 12px; color: {primary_color}; padding-left: 6px; font-weight: 600;")
         else:
             self._tree_file_label.setText("(없음)")
-            self._tree_file_label.setStyleSheet("font-size: 11px; color: #8A8A8A; padding-left: 6px;")
+            self._tree_file_label.setStyleSheet(f"font-size: 12px; color: {muted_color}; padding-left: 6px;")
 
         if self.preprocessing_ready:
             n = self.data_engine.last_quality_report.get("rows_after", "?")
             self._tree_preprocess_label.setText(f"완료 ({n}행)")
-            self._tree_preprocess_label.setStyleSheet("font-size: 11px; color: #E56020; padding-left: 6px; font-weight: bold;")
+            self._tree_preprocess_label.setStyleSheet(f"font-size: 12px; color: {accent_color}; padding-left: 6px; font-weight: 700;")
         else:
             self._tree_preprocess_label.setText("미실행")
-            self._tree_preprocess_label.setStyleSheet("font-size: 11px; color: #8A8A8A; padding-left: 6px;")
+            self._tree_preprocess_label.setStyleSheet(f"font-size: 12px; color: {muted_color}; padding-left: 6px;")
 
         if self.model_engine:
             nm = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
             self._tree_model_label.setText(nm.get(self.model_type, self.model_type))
-            self._tree_model_label.setStyleSheet("font-size: 11px; color: #E56020; padding-left: 6px; font-weight: bold;")
+            self._tree_model_label.setStyleSheet(f"font-size: 12px; color: {accent_color}; padding-left: 6px; font-weight: 700;")
         else:
             self._tree_model_label.setText("미학습")
-            self._tree_model_label.setStyleSheet("font-size: 11px; color: #8A8A8A; padding-left: 6px;")
+            self._tree_model_label.setStyleSheet(f"font-size: 12px; color: {muted_color}; padding-left: 6px;")
 
         if self.last_r2_avg is not None:
             self._tree_results_label.setText(f"R² {self.last_r2_avg * 100:.1f}%")
-            self._tree_results_label.setStyleSheet("font-size: 11px; color: #E56020; padding-left: 6px; font-weight: bold;")
+            self._tree_results_label.setStyleSheet(f"font-size: 12px; color: {accent_color}; padding-left: 6px; font-weight: 700;")
         else:
             self._tree_results_label.setText("—")
-            self._tree_results_label.setStyleSheet("font-size: 11px; color: #8A8A8A; padding-left: 6px;")
+            self._tree_results_label.setStyleSheet(f"font-size: 12px; color: {muted_color}; padding-left: 6px;")
 
         if self.data_engine.last_quality_report:
             s = self.data_engine.last_quality_report.get("rows_after", 0)
@@ -562,25 +868,29 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        hdr_lbl = QLabel("설정")
-        hdr_lbl.setStyleSheet(
-            "font-size: 10px; color: #8A8A8A; padding: 8px 16px; letter-spacing: 1px; "
-            "border-bottom: 1px solid #EBEBEA;"
+        self._settings_header_row = QWidget()
+        self._panel_widgets.append(self._settings_header_row)
+        hdr_row = QHBoxLayout(self._settings_header_row)
+        hdr_row.setContentsMargins(0, 0, 0, 0)
+        hdr_row.setSpacing(0)
+
+        self._settings_header_label = QLabel("설정")
+        self._settings_header_label.setStyleSheet(
+            "font-size: 11px; color: #5B6470; padding: 10px 14px; letter-spacing: 0.8px; "
+            "font-weight: 600;"
         )
-        self._panel_widgets.append(hdr_lbl)
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(20, 20)
-        help_btn.setStyleSheet(
-            "QPushButton { background: transparent; color: #8A8A8A; border: 1px solid #D8D8D6; "
-            "border-radius: 10px; font-size: 10px; padding: 0; margin: 4px 8px 4px 0; }"
-            "QPushButton:hover { background: #EBEBEA; color: #1A1A1A; }"
+        self._settings_help_btn = QPushButton("?")
+        self._settings_help_btn.setFixedSize(20, 20)
+        self._settings_help_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #5B6470; border: 1px solid #CAD0D7; "
+            "border-radius: 10px; font-size: 11px; font-weight: 700; padding: 0; margin: 4px 8px 4px 0; }"
+            "QPushButton:hover { background: #EEF1F4; color: #111827; }"
         )
-        help_btn.clicked.connect(self.show_quality_help)
-        hdr_row = QHBoxLayout()
-        hdr_row.addWidget(hdr_lbl)
+        self._settings_help_btn.clicked.connect(self.show_quality_help)
+        hdr_row.addWidget(self._settings_header_label)
         hdr_row.addStretch()
-        hdr_row.addWidget(help_btn)
-        outer.addLayout(hdr_row)
+        hdr_row.addWidget(self._settings_help_btn)
+        outer.addWidget(self._settings_header_row)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -609,18 +919,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(s_label("01 — 데이터 소스"))
         self.file_path_label = QLabel("파일: 선택되지 않음")
         self.file_path_label.setWordWrap(True)
-        self.file_path_label.setStyleSheet("font-size: 11px; color: #8A8A8A;")
+        self.file_path_label.setStyleSheet("font-size: 12px; color: #374151;")
         layout.addWidget(self.file_path_label)
         self.select_file_btn = QPushButton("파일 열기  (.xls / .xlsx)")
         self.select_file_btn.setFixedHeight(34)
         self.select_file_btn.setStyleSheet(
-            "background: #E56020; color: white; border: none; font-size: 11px; font-weight: 600;"
+            "background: #E56020; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 700;"
         )
         self.select_file_btn.clicked.connect(self.on_select_file_clicked)
         layout.addWidget(self.select_file_btn)
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("color: #8A8A8A; font-size: 10px;")
+        self.status_label.setStyleSheet("color: #374151; font-size: 11px;")
         layout.addWidget(self.status_label)
 
         layout.addWidget(s_divider())
@@ -632,7 +942,7 @@ class MainWindow(QMainWindow):
         )
         self.domain_rule_label.setWordWrap(True)
         self.domain_rule_label.setStyleSheet(
-            "font-size: 10px; color: #444444; background: #F2F2F0; padding: 8px; border-left: 2px solid #E56020;"
+            "font-size: 12px; color: #374151; background: #F4F5F7; padding: 10px; border-left: 3px solid #E56020; border-radius: 6px;"
         )
         self._info_box_widgets.append(self.domain_rule_label)
         layout.addWidget(self.domain_rule_label)
@@ -646,7 +956,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(domain_row)
         self.domain_range_status_label = QLabel("")
         self.domain_range_status_label.setWordWrap(True)
-        self.domain_range_status_label.setStyleSheet("color: #8A8A8A; font-size: 10px;")
+        self.domain_range_status_label.setStyleSheet("color: #374151; font-size: 11px;")
         layout.addWidget(self.domain_range_status_label)
         self.refresh_domain_range_status()
 
@@ -685,7 +995,7 @@ class MainWindow(QMainWindow):
         self.feature_engineering_label = QLabel("Cr/Ni, C+N, Ni_eq, Cr_eq를 자동 생성합니다.")
         self.feature_engineering_label.setWordWrap(True)
         self.feature_engineering_label.setStyleSheet(
-            "font-size: 10px; color: #444444; background: #F2F2F0; padding: 8px; border-left: 2px solid #E56020;"
+            "font-size: 12px; color: #374151; background: #F4F5F7; padding: 10px; border-left: 3px solid #E56020; border-radius: 6px;"
         )
         self._info_box_widgets.append(self.feature_engineering_label)
         layout.addWidget(self.feature_engineering_label)
@@ -693,7 +1003,7 @@ class MainWindow(QMainWindow):
         self.quality_summary_label = QLabel("전처리 결과 요약이 아직 없습니다.")
         self.quality_summary_label.setWordWrap(True)
         self.quality_summary_label.setStyleSheet(
-            "font-size: 10px; color: #8A8A8A; padding: 8px; background: #F8F8F7; border: 1px solid #D8D8D6;"
+            "font-size: 12px; color: #374151; padding: 10px; background: #F6F7F9; border: 1px solid #D3D7DC; border-radius: 6px;"
         )
         self._muted_bg_widgets.append(self.quality_summary_label)
         layout.addWidget(self.quality_summary_label)
@@ -704,7 +1014,7 @@ class MainWindow(QMainWindow):
         self.preprocess_btn = QPushButton("전처리 실행")
         self.preprocess_btn.setFixedHeight(38)
         self.preprocess_btn.setStyleSheet(
-            "background: #E56020; color: white; border: none; font-size: 12px; font-weight: 700; letter-spacing: 1px;"
+            "background: #E56020; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;"
         )
         self.preprocess_btn.clicked.connect(self.on_preprocess_clicked)
         layout.addWidget(self.preprocess_btn)
@@ -718,7 +1028,7 @@ class MainWindow(QMainWindow):
         self.reset_preprocess_btn = QPushButton("전처리 초기화")
         self.reset_preprocess_btn.setFixedHeight(30)
         self.reset_preprocess_btn.setStyleSheet(
-            "background: #EBEBEA; color: #444444; border: none; font-size: 11px;"
+            "background: #F6F7F9; color: #374151; border: 1px solid #D3D7DC; border-radius: 6px; font-size: 12px; font-weight: 600;"
         )
         self.reset_preprocess_btn.clicked.connect(self.on_reset_preprocessing_clicked)
         layout.addWidget(self.reset_preprocess_btn)
@@ -727,7 +1037,7 @@ class MainWindow(QMainWindow):
         self.go_to_training_btn.setFixedHeight(30)
         self.go_to_training_btn.setEnabled(False)
         self.go_to_training_btn.clicked.connect(lambda: self.tabs.setCurrentIndex(1))
-        layout.addWidget(self.go_to_training_btn)
+        self.go_to_training_btn.hide()
 
         layout.addStretch()
 
@@ -744,7 +1054,7 @@ class MainWindow(QMainWindow):
 
     def _s_label(self, text):
         lbl = QLabel(text)
-        lbl.setStyleSheet("font-size: 10px; color: #8A8A8A; font-family: 'Consolas', monospace; letter-spacing: 0.5px;")
+        lbl.setStyleSheet("font-size: 11px; color: #5B6470; font-weight: 600; letter-spacing: 0.4px;")
         return lbl
 
     def _s_divider(self):
@@ -755,6 +1065,7 @@ class MainWindow(QMainWindow):
 
     def setup_preprocessing_tab(self):
         tab = QWidget()
+        self.preprocessing_tab = tab
         tab.setStyleSheet("background: #FFFFFF;")
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -784,7 +1095,7 @@ class MainWindow(QMainWindow):
         )
         self.processed_preview_info_label.setWordWrap(True)
         self.processed_preview_info_label.setStyleSheet(
-            "font-size: 10px; color: #8A8A8A; padding: 4px 10px; background: #F8F8F7; border-top: 1px solid #EBEBEA;"
+            "font-size: 11px; color: #374151; padding: 8px 10px; background: #F6F7F9; border-top: 1px solid #D3D7DC;"
         )
         layout.addWidget(self.processed_preview_info_label)
 
@@ -808,7 +1119,7 @@ class MainWindow(QMainWindow):
         )
         self.feature_selection_status_label.setWordWrap(True)
         self.feature_selection_status_label.setStyleSheet(
-            "background-color: #fff7d6; padding: 10px; border-radius: 8px; color: #7a5d00;"
+            "background-color: #FFF7D6; padding: 10px; border-radius: 8px; color: #7A5D00; border: 1px solid #FACC15;"
         )
         layout.addWidget(self.feature_selection_status_label)
 
@@ -853,7 +1164,12 @@ class MainWindow(QMainWindow):
         top_row = QHBoxLayout()
         top_row.addStretch()
         model_help_btn = QPushButton("모델 학습 도움말")
-        model_help_btn.setFixedWidth(140)
+        model_help_btn.setFixedHeight(32)
+        model_help_btn.setStyleSheet(
+            "QPushButton { background: #FFFFFF; color: #334155; border: 1px solid #CBD5E1; "
+            "border-radius: 16px; font-weight: 700; padding: 0 14px; }"
+            "QPushButton:hover { background: #F8FAFC; border-color: #94A3B8; }"
+        )
         model_help_btn.clicked.connect(self.show_model_training_help)
         top_row.addWidget(model_help_btn)
         outer_layout.addLayout(top_row)
@@ -887,10 +1203,9 @@ class MainWindow(QMainWindow):
         self.iter_spin.setSingleStep(500)
         model_form.addRow("최대 반복 횟수:", self.iter_spin)
         self.training_input_combo = QComboBox()
-        self.training_input_combo.addItems(
-            ["데이터 정제 + 합금 지표", "데이터 정제만", "합금 지표만"]
-        )
-        model_form.addRow("학습 데이터 선택:", self.training_input_combo)
+        self.training_input_combo.addItem("데이터 정제 + 합금 지표", "combined")
+        self.training_input_combo.setCurrentIndex(0)
+        self.training_input_combo.hide()
         info_layout.addWidget(model_selection_group)
 
         help_label = QLabel(
@@ -898,20 +1213,21 @@ class MainWindow(QMainWindow):
         )
         help_label.setWordWrap(True)
         help_label.setStyleSheet(
-            "font-family: 'Malgun Gothic'; font-size: 10px; color: #3498db; font-style: italic; line-height: 1.3; background-color: #eef6ff; padding: 8px; border-radius: 6px;"
+            "font-size: 11px; color: #1D4ED8; font-weight: 600; line-height: 1.4; background-color: #EEF6FF; padding: 10px; border-radius: 8px; border: 1px solid #BFDBFE;"
         )
         info_layout.addWidget(help_label)
 
         self.training_status_label = QLabel("")
         self.training_status_label.setWordWrap(True)
-        self.training_status_label.setStyleSheet("color: #34495e; padding: 2px 0 6px 0;")
+        self.training_status_label.setStyleSheet("color: #334155; font-weight: 600; padding: 4px 0 8px 0;")
         info_layout.addWidget(self.training_status_label)
 
         self.train_btn = QPushButton("모델 학습 시작")
         self.train_btn.setFixedHeight(45)
         self.train_btn.setEnabled(False)
         self.train_btn.setStyleSheet(
-            "background-color: #3498db; color: white; font-weight: bold; font-size: 13px; border-radius: 8px;"
+            "QPushButton { background-color: #2563EB; color: white; font-weight: 700; border: none; border-radius: 10px; }"
+            "QPushButton:hover { background-color: #1D4ED8; }"
         )
         self.train_btn.clicked.connect(self.on_train_clicked)
         info_layout.addWidget(self.train_btn)
@@ -921,6 +1237,7 @@ class MainWindow(QMainWindow):
         self.metrics_label.setStyleSheet(
             "background-color: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;"
         )
+        self.metrics_label.hide()
         info_layout.addWidget(self.metrics_label)
 
         left_panel.addWidget(info_group)
@@ -940,52 +1257,88 @@ class MainWindow(QMainWindow):
         tab = QWidget()
         layout = QVBoxLayout(tab)
 
-        header = QLabel("상세 성능 분석 (Predicted vs Actual)")
-        header.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        layout.addWidget(header)
+        self.perf_header_label = QLabel("상세 성능 분석 (Predicted vs Actual)")
+        self.perf_header_label.setStyleSheet("font-size: 16px; font-weight: 700; color: #111827;")
+        layout.addWidget(self.perf_header_label)
 
         self.perf_canvas = FigureCanvas(Figure(figsize=(10, 8)))
         layout.addWidget(self.perf_canvas)
 
-        desc = QLabel("* 학습이 끝나면 실제값과 예측값 비교 그래프가 여기에 표시됩니다.")
-        desc.setStyleSheet("color: #7f8c8d; font-style: italic;")
-        layout.addWidget(desc)
+        self.perf_desc_label = QLabel("* 학습이 끝나면 실제값과 예측값 비교 그래프가 여기에 표시됩니다.")
+        self.perf_desc_label.setStyleSheet("color: #475569; font-weight: 600;")
+        layout.addWidget(self.perf_desc_label)
 
         self.tabs.addTab(tab, "상세 성능 분석")
         self.render_performance_placeholder()
 
     def setup_inference_tab(self):
         tab = QWidget()
+        self.inference_tab = tab
         layout = QHBoxLayout(tab)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(12)
+
+        self.inference_left_frame = QWidget()
+        left_frame_layout = QVBoxLayout(self.inference_left_frame)
+        left_frame_layout.setContentsMargins(12, 12, 12, 12)
+        left_frame_layout.setSpacing(0)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setStyleSheet("background: transparent; border: none;")
         left_widget = QWidget()
+        left_widget.setStyleSheet("background: transparent;")
         left_panel = QVBoxLayout(left_widget)
+        left_panel.setContentsMargins(0, 0, 0, 0)
+        left_panel.setSpacing(12)
         scroll.setWidget(left_widget)
+        left_frame_layout.addWidget(scroll)
 
         self.inputs = {}
         self.active_model_info = QLabel("사용 중인 모델: 학습된 모델 없음")
-        self.active_model_info.setStyleSheet(
-            "background-color: #fcf3cf; padding: 10px; border: 1px solid #f39c12; border-radius: 5px; font-weight: bold; margin-bottom: 10px;"
-        )
         left_panel.addWidget(self.active_model_info)
 
-        comp_group = QGroupBox("Chemical Composition (wt%)")
-        comp_layout = QFormLayout(comp_group)
+        comp_group = QGroupBox()
+        comp_group.setStyleSheet("QGroupBox { margin-top: 0px; padding-top: 12px; }")
+        comp_group_layout = QVBoxLayout(comp_group)
+        comp_group_layout.setContentsMargins(12, 12, 12, 12)
+        comp_group_layout.setSpacing(8)
+        self.comp_group_title_label = QLabel("합금 조성 (wt%)")
+        comp_group_layout.addWidget(self.comp_group_title_label)
+        comp_layout = QFormLayout()
+        comp_layout.setContentsMargins(12, 10, 12, 12)
+        comp_layout.setHorizontalSpacing(14)
+        comp_layout.setVerticalSpacing(8)
         comp_list = [
             "Cr", "Ni", "Mo", "Mn", "Si", "Nb", "Ti", "Zr", "Ta", "V", "W", "Cu", "N", "C", "B", "P", "S", "Co", "Al", "Sn", "Pb",
         ]
         default_map = {"Cr": "18.0", "Ni": "8.0", "Mn": "2.0", "Si": "1.0", "C": "0.08"}
-        for col in comp_list:
+        for index, col in enumerate(comp_list):
             line_edit = QLineEdit()
             line_edit.setText(default_map.get(col, "0.0"))
             comp_layout.addRow(QLabel(col), line_edit)
             self.inputs[col] = line_edit
+            if index < len(comp_list) - 1:
+                divider = QWidget()
+                divider.setFixedHeight(1)
+                divider.setStyleSheet("background: #E2E8F0;")
+                self._divider_widgets.append(divider)
+                comp_layout.addRow(divider)
+        comp_group_layout.addLayout(comp_layout)
         left_panel.addWidget(comp_group)
 
-        proc_group = QGroupBox("Process & Structure")
-        proc_layout = QFormLayout(proc_group)
+        proc_group = QGroupBox()
+        proc_group.setStyleSheet("QGroupBox { margin-top: 0px; padding-top: 12px; }")
+        proc_group_layout = QVBoxLayout(proc_group)
+        proc_group_layout.setContentsMargins(12, 12, 12, 12)
+        proc_group_layout.setSpacing(8)
+        self.proc_group_title_label = QLabel("공정 및 조직")
+        proc_group_layout.addWidget(self.proc_group_title_label)
+        proc_layout = QFormLayout()
+        proc_layout.setContentsMargins(12, 10, 12, 12)
+        proc_layout.setHorizontalSpacing(14)
+        proc_layout.setVerticalSpacing(8)
         proc_defaults = {
             "Solution_treatment_temperature": "1050",
             "Solution_treatment_time(s)": "3600",
@@ -997,38 +1350,61 @@ class MainWindow(QMainWindow):
             "Product form": "3",
             "Temperature (K)": "300",
         }
-        for col, value in proc_defaults.items():
+        proc_items = list(proc_defaults.items())
+        for index, (col, value) in enumerate(proc_items):
             line_edit = QLineEdit()
             line_edit.setText(value)
             proc_layout.addRow(QLabel(col), line_edit)
             self.inputs[col] = line_edit
+            if index < len(proc_items) - 1:
+                divider = QWidget()
+                divider.setFixedHeight(1)
+                divider.setStyleSheet("background: #E2E8F0;")
+                self._divider_widgets.append(divider)
+                proc_layout.addRow(divider)
+        proc_group_layout.addLayout(proc_layout)
         left_panel.addWidget(proc_group)
 
-        predict_btn = QPushButton("Predict Properties")
-        predict_btn.setFixedHeight(45)
-        predict_btn.setStyleSheet("background-color: #2ecc71; color: white; font-weight: bold; margin-top: 10px;")
-        predict_btn.clicked.connect(self.on_predict_clicked)
-        left_panel.addWidget(predict_btn)
+        self.predict_btn = QPushButton("물성 예측 실행")
+        self.predict_btn.setFixedHeight(46)
+        self.predict_btn.setStyleSheet(
+            "QPushButton { background: #0F766E; color: white; border: none; border-radius: 10px; "
+            "font-weight: 700; margin-top: 4px; }"
+            "QPushButton:hover { background: #0D9488; }"
+        )
+        self.predict_btn.clicked.connect(self.on_predict_clicked)
+        left_panel.addWidget(self.predict_btn)
         left_panel.addStretch()
 
+        self.inference_right_frame = QWidget()
+        right_frame_layout = QVBoxLayout(self.inference_right_frame)
+        right_frame_layout.setContentsMargins(12, 12, 12, 12)
+        right_frame_layout.setSpacing(0)
+
         right_panel = QVBoxLayout()
-        result_group = QGroupBox("Predictions")
+        right_panel.setContentsMargins(0, 0, 0, 0)
+        right_panel.setSpacing(0)
+        result_group = QGroupBox("예측 결과")
         result_layout = QVBoxLayout(result_group)
 
-        self.result_display = QLabel("Enter parameters and click Predict.")
-        self.result_display.setFont(QFont("Arial", 12))
+        self.result_display = QLabel(
+            "<b>예측 준비 완료</b><br>좌측 입력값을 확인한 뒤 <b>물성 예측 실행</b> 버튼을 눌러 주세요."
+        )
+        self.result_display.setWordWrap(True)
         result_layout.addWidget(self.result_display)
 
         self.prediction_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         result_layout.addWidget(self.prediction_canvas)
         right_panel.addWidget(result_group)
+        right_frame_layout.addLayout(right_panel)
 
-        layout.addWidget(scroll, 1)
-        layout.addLayout(right_panel, 1)
+        layout.addWidget(self.inference_left_frame, 1)
+        layout.addWidget(self.inference_right_frame, 1)
         self.tabs.addTab(tab, "물성 예측")
 
     def setup_workspace_tab(self):
         tab = QWidget()
+        self.workspace_tab = tab
         tab.setStyleSheet("background: #FFFFFF;")
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -1037,54 +1413,78 @@ class MainWindow(QMainWindow):
         # ── 저장/불러오기 컨트롤 (이전 상단 바에서 이동) ──────────────
         ws_save_row = QHBoxLayout()
         ws_save_row.setSpacing(6)
-        name_lbl = QLabel("이름:")
-        name_lbl.setStyleSheet("font-size: 11px; color: #8A8A8A;")
+        self.ws_name_label = QLabel("이름:")
+        self.ws_name_label.setStyleSheet("font-size: 12px; color: #475569; font-weight: 600;")
         self.ws_name_input = QLineEdit()
         self.ws_name_input.setPlaceholderText("분석 저장 이름 입력 (예: 실험A)")
         self.ws_name_input.setFixedWidth(200)
-        save_ws_btn = QPushButton("저장")
-        save_ws_btn.setStyleSheet(
-            "background: #E56020; color: white; border: none; font-weight: bold; padding: 5px 14px;"
+        self.ws_name_input.setStyleSheet("QLineEdit { background: #FFFFFF; color: #111827; border: 1px solid #D3D7DC; border-radius: 6px; padding: 6px 10px; }")
+        self.ws_save_btn = QPushButton("저장")
+        self.ws_save_btn.setFixedHeight(34)
+        self.ws_save_btn.setStyleSheet(
+            "QPushButton { background: #E56020; color: white; border: none; border-radius: 10px; "
+            "font-weight: 700; padding: 7px 16px; }"
+            "QPushButton:hover { background: #F97316; }"
         )
-        save_ws_btn.clicked.connect(self.save_workspace)
+        self.ws_save_btn.clicked.connect(self.save_workspace)
         self.ws_combo = QComboBox()
         self.ws_combo.setFixedWidth(200)
-        load_ws_btn = QPushButton("불러오기")
-        load_ws_btn.clicked.connect(self.load_workspace)
-        delete_ws_btn = QPushButton("삭제")
-        delete_ws_btn.setStyleSheet(
-            "background: #D32F2F; color: white; border: none; font-weight: bold; padding: 5px 10px;"
+        self.ws_combo.setStyleSheet("QComboBox { background: #FFFFFF; color: #111827; border: 1px solid #D3D7DC; border-radius: 6px; padding: 5px 10px; }")
+        self.ws_load_btn = QPushButton("불러오기")
+        self.ws_load_btn.setFixedHeight(34)
+        self.ws_load_btn.setStyleSheet(
+            "QPushButton { background: #FFFFFF; color: #334155; border: 1px solid #CBD5E1; border-radius: 10px; "
+            "font-weight: 700; padding: 7px 14px; }"
+            "QPushButton:hover { background: #F8FAFC; border-color: #94A3B8; }"
         )
-        delete_ws_btn.clicked.connect(self.delete_workspace)
-        ws_save_row.addWidget(name_lbl)
+        self.ws_load_btn.clicked.connect(self.load_workspace)
+        self.ws_delete_btn = QPushButton("삭제")
+        self.ws_delete_btn.setFixedHeight(34)
+        self.ws_delete_btn.setStyleSheet(
+            "QPushButton { background: #DC2626; color: white; border: none; border-radius: 10px; "
+            "font-weight: 700; padding: 7px 12px; }"
+            "QPushButton:hover { background: #EF4444; }"
+        )
+        self.ws_delete_btn.clicked.connect(self.delete_workspace)
+        ws_save_row.addWidget(self.ws_name_label)
         ws_save_row.addWidget(self.ws_name_input)
-        ws_save_row.addWidget(save_ws_btn)
+        ws_save_row.addWidget(self.ws_save_btn)
         ws_save_row.addSpacing(16)
         ws_save_row.addWidget(self.ws_combo)
-        ws_save_row.addWidget(load_ws_btn)
-        ws_save_row.addWidget(delete_ws_btn)
+        ws_save_row.addWidget(self.ws_load_btn)
+        ws_save_row.addWidget(self.ws_delete_btn)
         ws_save_row.addStretch()
         layout.addLayout(ws_save_row)
 
         # ── 목록 헤더 ──────────────────────────────────────────────────
         header_row = QHBoxLayout()
-        title = QLabel("분석 저장 목록")
-        title.setStyleSheet("font-size: 13px; font-weight: bold; color: #1A1A1A;")
-        header_row.addWidget(title)
+        self.ws_list_title = QLabel("분석 저장 목록")
+        self.ws_list_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #111827;")
+        header_row.addWidget(self.ws_list_title)
         header_row.addStretch()
-        compare_btn = QPushButton("선택 비교 (최대 3개)")
-        compare_btn.setFixedWidth(150)
-        compare_btn.setStyleSheet("background: #8e44ad; color: white; border: none; font-weight: bold; padding: 5px;")
-        compare_btn.clicked.connect(self._on_compare_clicked)
-        header_row.addWidget(compare_btn)
-        refresh_btn = QPushButton("새로고침")
-        refresh_btn.setFixedWidth(90)
-        refresh_btn.clicked.connect(self.refresh_workspace_table)
-        header_row.addWidget(refresh_btn)
+        self.ws_compare_btn = QPushButton("비교 보기")
+        self.ws_compare_btn.setFixedSize(98, 34)
+        self.ws_compare_btn.setStyleSheet(
+            "QPushButton { background: #E56020; color: white; border: none; "
+            "border-radius: 17px; font-weight: 700; padding: 6px 12px; }"
+            "QPushButton:hover { background: #F97316; }"
+        )
+        self.ws_compare_btn.clicked.connect(self._on_compare_clicked)
+        header_row.addWidget(self.ws_compare_btn)
+        self.ws_refresh_btn = QPushButton("목록 갱신")
+        self.ws_refresh_btn.setFixedSize(98, 34)
+        self.ws_refresh_btn.setStyleSheet(
+            "QPushButton { background: #FFFFFF; color: #334155; border: 1px solid #CBD5E1; "
+            "border-radius: 17px; font-weight: 700; padding: 6px 12px; }"
+            "QPushButton:hover { background: #F8FAFC; border-color: #94A3B8; }"
+        )
+        self.ws_refresh_btn.clicked.connect(self.refresh_workspace_table)
+        header_row.addWidget(self.ws_refresh_btn)
         layout.addLayout(header_row)
 
         # 상단 테이블 + 하단 상세 패널을 QSplitter로 분리
         splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setHandleWidth(2)
 
         # ── 상단: 목록 테이블 ──
         self.ws_table = QTableWidget()
@@ -1105,9 +1505,9 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.ws_table)
 
         # ── 하단: 상세 정보 패널 ──
-        detail_widget = QWidget()
-        detail_widget.setStyleSheet("background-color: #f6f8fa; border-top: 1px solid #dde1e6;")
-        detail_layout = QHBoxLayout(detail_widget)
+        self.ws_detail_widget = QWidget()
+        self.ws_detail_widget.setStyleSheet("background-color: #F8FAFC; border-top: 1px solid #CBD5E1;")
+        detail_layout = QHBoxLayout(self.ws_detail_widget)
         detail_layout.setContentsMargins(12, 10, 12, 10)
 
         # 그래프 썸네일 영역 (학습 + 상세 성능)
@@ -1115,14 +1515,14 @@ class MainWindow(QMainWindow):
         thumb_col.setSpacing(4)
 
         # 학습 그래프 썸네일
-        train_lbl = QLabel("학습 그래프")
-        train_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        train_lbl.setStyleSheet("font-size: 10px; color: #7f8c8d;")
-        thumb_col.addWidget(train_lbl)
+        self.ws_train_thumb_label = QLabel("학습 그래프")
+        self.ws_train_thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ws_train_thumb_label.setStyleSheet("font-size: 11px; color: #475569; font-weight: 600;")
+        thumb_col.addWidget(self.ws_train_thumb_label)
         self.ws_detail_thumb = QLabel()
         self.ws_detail_thumb.setFixedSize(200, 120)
         self.ws_detail_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_detail_thumb.setStyleSheet("border: 1px solid #dde1e6; background: white;")
+        self.ws_detail_thumb.setStyleSheet("border: 1px solid #CBD5E1; background: white; border-radius: 8px;")
         self.ws_detail_thumb.setText("없음")
         self.ws_detail_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ws_detail_thumb.mousePressEvent = self._on_thumb_clicked
@@ -1130,14 +1530,14 @@ class MainWindow(QMainWindow):
         thumb_col.addWidget(self.ws_detail_thumb)
 
         # 상세 성능 그래프 썸네일
-        perf_lbl = QLabel("상세 성능")
-        perf_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        perf_lbl.setStyleSheet("font-size: 10px; color: #7f8c8d;")
-        thumb_col.addWidget(perf_lbl)
+        self.ws_perf_thumb_label = QLabel("상세 성능")
+        self.ws_perf_thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.ws_perf_thumb_label.setStyleSheet("font-size: 11px; color: #475569; font-weight: 600;")
+        thumb_col.addWidget(self.ws_perf_thumb_label)
         self.ws_detail_perf_thumb = QLabel()
         self.ws_detail_perf_thumb.setFixedSize(200, 120)
         self.ws_detail_perf_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_detail_perf_thumb.setStyleSheet("border: 1px solid #dde1e6; background: white;")
+        self.ws_detail_perf_thumb.setStyleSheet("border: 1px solid #CBD5E1; background: white; border-radius: 8px;")
         self.ws_detail_perf_thumb.setText("없음")
         self.ws_detail_perf_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
         self.ws_detail_perf_thumb.mousePressEvent = self._on_perf_thumb_clicked
@@ -1150,24 +1550,28 @@ class MainWindow(QMainWindow):
         self.ws_detail_info = QLabel()
         self.ws_detail_info.setWordWrap(True)
         self.ws_detail_info.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.ws_detail_info.setStyleSheet("font-size: 12px; color: #2c3e50; padding-left: 12px;")
+        self.ws_detail_info.setStyleSheet("font-size: 12px; color: #334155; padding-left: 12px;")
         self.ws_detail_info.setText("저장된 분석을 클릭하면 상세 정보가 표시됩니다.")
         detail_layout.addWidget(self.ws_detail_info, 1)
 
         # 불러오기 버튼
-        load_btn = QPushButton("이 분석 불러오기")
-        load_btn.setFixedSize(130, 40)
-        load_btn.setStyleSheet("background-color: #16a085; color: white; font-weight: bold;")
-        load_btn.clicked.connect(self._load_selected_ws)
-        detail_layout.addWidget(load_btn, 0, Qt.AlignmentFlag.AlignBottom)
+        self.ws_panel_load_btn = QPushButton("분석 불러오기")
+        self.ws_panel_load_btn.setFixedSize(130, 40)
+        self.ws_panel_load_btn.setStyleSheet(
+            "QPushButton { background: #0F766E; color: white; border: none; border-radius: 10px; "
+            "font-weight: 700; padding: 8px 14px; }"
+            "QPushButton:hover { background: #0D9488; }"
+        )
+        self.ws_panel_load_btn.clicked.connect(self._load_selected_ws)
+        detail_layout.addWidget(self.ws_panel_load_btn, 0, Qt.AlignmentFlag.AlignBottom)
 
-        splitter.addWidget(detail_widget)
+        splitter.addWidget(self.ws_detail_widget)
         splitter.setSizes([400, 180])
         layout.addWidget(splitter)
 
-        hint = QLabel("※ 행 클릭 → 상세 보기  |  더블클릭 → 바로 불러오기  |  Ctrl+클릭으로 여러 행 선택 후 [선택 비교] 클릭")
-        hint.setStyleSheet("color: #7f8c8d; font-size: 11px; margin-top: 4px;")
-        layout.addWidget(hint)
+        self.ws_hint_label = QLabel("※ 행 클릭 → 상세 보기  |  더블클릭 → 바로 불러오기  |  Ctrl+클릭으로 여러 행 선택 후 [비교 보기] 클릭")
+        self.ws_hint_label.setStyleSheet("color: #475569; font-size: 11px; font-weight: 600; margin-top: 4px;")
+        layout.addWidget(self.ws_hint_label)
 
         self.tabs.addTab(tab, "워크스페이스")
         self.refresh_workspace_table()
@@ -1212,17 +1616,12 @@ class MainWindow(QMainWindow):
         missing_map = {0: "mean", 1: "median", 2: "knn", 3: "drop"}
         outlier_map = {0: "clip", 1: "remove", 2: "flag"}
         invalid_type_map = {0: "coerce", 1: "drop"}
-        input_feature_mode_map = {
-            0: "combined",
-            1: "clean_only",
-            2: "engineered_only",
-        }
         self.data_engine.configure_quality_rules(
             missing_strategy=missing_map.get(self.missing_combo.currentIndex(), "mean"),
             outlier_strategy=outlier_map.get(self.outlier_combo.currentIndex(), "clip"),
             invalid_type_strategy=invalid_type_map.get(self.invalid_type_combo.currentIndex(), "coerce"),
             iqr_factor=self.iqr_spin.value(),
-            input_feature_mode=input_feature_mode_map.get(self.training_input_combo.currentIndex(), "combined"),
+            input_feature_mode="combined",
         )
 
     def update_quality_summary_from_report(self, report):
@@ -1288,25 +1687,31 @@ class MainWindow(QMainWindow):
         )
 
     def render_training_placeholder(self):
+        colors = self._theme()
         self.canvas.axes.clear()
         self.canvas.axes.axis("off")
-        self.canvas.axes.text(0.5, 0.58, "2번 탭에서 모델 학습 결과가 여기에 표시됩니다.", ha="center", va="center", fontsize=14, color="#5d6d7e", transform=self.canvas.axes.transAxes)
-        self.canvas.axes.text(0.5, 0.42, "먼저 1번 탭에서 전처리를 실행해 주세요.", ha="center", va="center", fontsize=11, color="#85929e", transform=self.canvas.axes.transAxes)
+        self.canvas.axes.set_facecolor(colors["panel_bg"])
+        self.canvas.fig.patch.set_facecolor(colors["panel_bg"])
+        self.canvas.axes.text(0.5, 0.58, "2번 탭에서 모델 학습 결과가 여기에 표시됩니다.", ha="center", va="center", fontsize=14, color=colors["text_sec"], transform=self.canvas.axes.transAxes)
+        self.canvas.axes.text(0.5, 0.42, "먼저 1번 탭에서 전처리를 실행해 주세요.", ha="center", va="center", fontsize=11, color=colors["text_label"], transform=self.canvas.axes.transAxes)
         self.canvas.draw()
 
     def render_performance_placeholder(self):
+        colors = self._theme()
         self.perf_canvas.figure.clear()
         ax = self.perf_canvas.figure.add_subplot(111)
         ax.axis("off")
-        ax.text(0.5, 0.56, "모델 학습이 끝나면 상세 성능 분석 그래프가 여기에 표시됩니다.", ha="center", va="center", fontsize=14, color="#5d6d7e", transform=ax.transAxes)
-        ax.text(0.5, 0.40, "실제값과 예측값이 얼마나 비슷한지 특성별로 확인할 수 있습니다.", ha="center", va="center", fontsize=11, color="#85929e", transform=ax.transAxes)
+        ax.set_facecolor(colors["panel_bg"])
+        self.perf_canvas.figure.patch.set_facecolor(colors["panel_bg"])
+        ax.text(0.5, 0.56, "모델 학습이 끝나면 상세 성능 분석 그래프가 여기에 표시됩니다.", ha="center", va="center", fontsize=14, color=colors["text_sec"], transform=ax.transAxes)
+        ax.text(0.5, 0.40, "실제값과 예측값이 얼마나 비슷한지 특성별로 확인할 수 있습니다.", ha="center", va="center", fontsize=11, color=colors["text_label"], transform=ax.transAxes)
         self.perf_canvas.figure.tight_layout()
         self.perf_canvas.draw()
 
     def populate_feature_selection_table(self, reset_selection=False):
         available_columns = self.data_engine.get_available_training_columns(include_engineered=True)
-        previous_selection = [] if reset_selection else self.data_engine.get_selected_training_columns()
-        if reset_selection or not previous_selection:
+        previous_selection = [] if reset_selection else self.data_engine.get_selected_training_columns(default_to_all=False)
+        if reset_selection or self.data_engine.selected_training_columns is None:
             selected_columns = list(available_columns)
         else:
             selected_columns = [col for col in available_columns if col in previous_selection]
@@ -1357,7 +1762,7 @@ class MainWindow(QMainWindow):
 
     def refresh_feature_selection_summary(self):
         available_columns = self.data_engine.get_available_training_columns(include_engineered=True)
-        selected_columns = self.data_engine.get_selected_training_columns()
+        selected_columns = self.data_engine.get_selected_training_columns(default_to_all=False)
 
         if not available_columns:
             self.feature_selection_status_label.setText(
@@ -1532,7 +1937,7 @@ class MainWindow(QMainWindow):
             self.refresh_feature_selection_summary()
             self._update_project_tree()
             self._sb_status.setText("● 전처리 완료")
-            self._sb_status.setStyleSheet("color: #E56020; font-size: 10px; font-family: 'Consolas', monospace; padding: 0 10px;")
+            self._sb_status.setStyleSheet("color: #E56020; font-size: 11px; font-weight: 700; padding: 0 10px;")
         except Exception as exc:
             self.preprocessing_ready = False
             self.train_btn.setEnabled(False)
@@ -1558,7 +1963,7 @@ class MainWindow(QMainWindow):
             self.populate_processed_preview(self.data_engine.df)
             self.populate_feature_selection_table(reset_selection=False)
             self.status_label.setText("상태: 합금 지표 생성이 완료되었습니다.")
-            self.training_status_label.setText("상태: 합금 지표 생성 완료. 선택한 학습 데이터 방식으로 모델을 학습할 수 있습니다.")
+            self.training_status_label.setText("상태: 합금 지표 생성 완료. 이제 선택한 학습 컬럼으로 모델을 학습할 수 있습니다.")
         except Exception as exc:
             self.status_label.setText(f"상태: 합금 지표 생성 오류 - {exc}")
         finally:
@@ -1578,7 +1983,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(dialog)
         intro = QLabel("각 컬럼의 최소값과 최대값을 직접 설정할 수 있습니다. SSINA 기준을 반영해 오스테나이트 조성 기준과 고온 특성 기준 두 부류로 나누어 표시합니다.")
         intro.setWordWrap(True)
-        intro.setStyleSheet("font-size: 13px; color: #34495e; padding-bottom: 4px;")
+        intro.setStyleSheet("font-size: 13px; color: #334155; font-weight: 600; padding-bottom: 4px;")
         layout.addWidget(intro)
 
         table = QTableWidget(dialog)
@@ -1685,7 +2090,7 @@ class MainWindow(QMainWindow):
             self.training_status_label.setText("상태: 1번 탭에서 전처리를 먼저 실행해 주세요.")
             return
 
-        selected_columns = self.data_engine.get_selected_training_columns()
+        selected_columns = self.data_engine.get_selected_training_columns(default_to_all=False)
         if not selected_columns:
             self.training_status_label.setText("상태: 오류 - 학습할 컬럼을 하나 이상 선택해 주세요.")
             self.tabs.setCurrentIndex(1)
@@ -1746,7 +2151,7 @@ class MainWindow(QMainWindow):
         self.auto_save_workspace()
         self._update_project_tree()
         self._sb_status.setText("● 학습 완료")
-        self._sb_status.setStyleSheet("color: #4CAF50; font-size: 10px; font-family: 'Consolas', monospace; padding: 0 10px;")
+        self._sb_status.setStyleSheet("color: #58C472; font-size: 11px; font-weight: 700; padding: 0 10px;")
 
         # [LOG] 학습 완료 로그 기록
         self.append_log({
@@ -1782,7 +2187,7 @@ class MainWindow(QMainWindow):
 
     def on_predict_clicked(self):
         if not self.model_engine:
-            self.result_display.setText("Please train or load the model first!")
+            self.result_display.setText("<b>먼저 모델을 준비해 주세요.</b><br>학습을 완료하거나 저장된 분석을 불러온 뒤 예측을 실행할 수 있습니다.")
             return
 
         try:
@@ -1794,12 +2199,12 @@ class MainWindow(QMainWindow):
             std = std_scaled[0] * self.data_engine.scaler_y.scale_
 
             result_text = (
-                f"<b>[강도 예측 결과]</b><br>"
-                f"0.2% Yield Stress: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b><br>"
-                f"UTS: <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br><br>"
-                f"<b>[연성 예측 결과]</b><br>"
-                f"Elongation: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b><br>"
-                f"Area Reduction: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b>"
+                f"<b>강도 예측 결과</b><br>"
+                f"0.2% 항복강도: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b><br>"
+                f"인장강도(UTS): <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br><br>"
+                f"<b>연성 예측 결과</b><br>"
+                f"연신율: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b><br>"
+                f"단면감소율: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b>"
             )
             self.result_display.setText(result_text)
 
@@ -1821,7 +2226,7 @@ class MainWindow(QMainWindow):
 
             self.prediction_canvas.axes.set_xticks(x)
             self.prediction_canvas.axes.set_xticklabels(labels)
-            self.prediction_canvas.axes.set_title("Predicted Properties")
+            self.prediction_canvas.axes.set_title("예측 물성 결과")
             self.prediction_canvas.draw()
 
             # [AUTO SAVE] 예측 완료 시 auto_save 폴더에 예측 그래프 저장
@@ -1843,14 +2248,12 @@ class MainWindow(QMainWindow):
                 },
             })
         except Exception as exc:
-            self.result_display.setText(f"Error during prediction: {exc}")
+            self.result_display.setText(f"<b>예측 중 오류가 발생했습니다.</b><br>{exc}")
 
     def update_active_model_display(self):
         name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
         self.active_model_info.setText(f"현재 예측 모델: {name_map.get(self.model_type, self.model_type)}")
-        self.active_model_info.setStyleSheet(
-            "background-color: #d4efdf; padding: 10px; border: 1px solid #27ae60; border-radius: 5px; font-weight: bold; margin-bottom: 10px;"
-        )
+        self._apply_theme_colors()
 
     # ================================================================
     # [AUTO SAVE] 학습 완료 시 workspaces/auto_save/ 폴더에 자동 저장 (1개만 유지, 덮어씀)
@@ -1872,7 +2275,7 @@ class MainWindow(QMainWindow):
                 "outlier_combo": self.outlier_combo.currentIndex(),
                 "invalid_type_combo": self.invalid_type_combo.currentIndex(),
                 "iqr_spin": self.iqr_spin.value(),
-                "training_input_combo": self.training_input_combo.currentIndex(),
+                "training_input_combo": 0,
                 "preprocessing_ready": self.preprocessing_ready,
             },
         }
@@ -2272,7 +2675,7 @@ class MainWindow(QMainWindow):
                 "outlier_combo": self.outlier_combo.currentIndex(),
                 "invalid_type_combo": self.invalid_type_combo.currentIndex(),
                 "iqr_spin": self.iqr_spin.value(),
-                "training_input_combo": self.training_input_combo.currentIndex(),
+                "training_input_combo": 0,
                 "preprocessing_ready": self.preprocessing_ready,
             },
         }
@@ -2321,12 +2724,12 @@ class MainWindow(QMainWindow):
             self.outlier_combo.blockSignals(True)
             self.invalid_type_combo.blockSignals(True)
             self.iqr_spin.blockSignals(True)
-            self.training_input_combo.blockSignals(True)
             self.missing_combo.setCurrentIndex(pre.get("missing_combo", 0))
             self.outlier_combo.setCurrentIndex(pre.get("outlier_combo", 0))
             self.invalid_type_combo.setCurrentIndex(pre.get("invalid_type_combo", 0))
             self.iqr_spin.setValue(pre.get("iqr_spin", 1.5))
-            self.training_input_combo.setCurrentIndex(pre.get("training_input_combo", 0))
+            if hasattr(self, "training_input_combo"):
+                self.training_input_combo.setCurrentIndex(0)
             self.preprocessing_ready = pre.get("preprocessing_ready", False)
             self.train_btn.setEnabled(self.preprocessing_ready)
             self.go_to_training_btn.setEnabled(self.preprocessing_ready)
@@ -2334,7 +2737,6 @@ class MainWindow(QMainWindow):
             self.outlier_combo.blockSignals(False)
             self.invalid_type_combo.blockSignals(False)
             self.iqr_spin.blockSignals(False)
-            self.training_input_combo.blockSignals(False)
 
         # [WORKSPACE] 전처리 결과 테이블 복원 (CSV)
         pre_csv = os.path.join(folder, "preprocessed_data.csv")
@@ -2395,8 +2797,8 @@ class MainWindow(QMainWindow):
         <p>모델 학습 탭에서는 전처리 완료 데이터를 이용해 모델을 학습합니다.</p>
         <h3>모델 선택 가이드</h3>
         <p><b>Random Forest</b>: 처음 시작할 때 가장 무난합니다.<br><b>Gradient Boosting</b>: 비교용으로 좋습니다.<br><b>Neural Network</b>: 데이터가 충분할 때 시도해 볼 수 있습니다.<br><b>TFP</b>: 불확실성까지 함께 보고 싶을 때 사용합니다.</p>
-        <h3>학습 데이터 선택</h3>
-        <p><b>데이터 정제 + 합금 지표</b>: 가장 기본 추천 방식입니다.<br><b>데이터 정제만</b>: 원본 정제 변수만 사용합니다.<br><b>합금 지표만</b>: 생성된 합금 지표만 사용합니다.</p>
+        <h3>학습 컬럼 선택</h3>
+        <p>학습에 사용할 변수는 <b>학습 컬럼 선택</b> 탭에서 고릅니다. 체크한 컬럼만 모델 학습과 예측에 사용됩니다.</p>
         <h3>주의 사항</h3>
         <p>전처리 설정을 바꿨다면 최신 설정을 반영하기 위해 전처리를 다시 실행한 뒤 학습해 주세요.</p>
         """

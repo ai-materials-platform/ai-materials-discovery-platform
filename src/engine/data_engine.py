@@ -13,7 +13,7 @@ class DataEngine:
         self.df = None
         self.scaler_x = StandardScaler()
         self.scaler_y = StandardScaler()
-        self.selected_training_columns = []
+        self.selected_training_columns = None
 
         self.raw_feature_cols = [
             "Cr",
@@ -428,16 +428,21 @@ class DataEngine:
         return self._existing_columns(candidate_cols, source_df)
 
     def set_selected_training_columns(self, columns):
+        if columns is None:
+            self.selected_training_columns = None
+            return
         ordered_columns = []
         for col in columns or []:
             if col not in ordered_columns:
                 ordered_columns.append(col)
         self.selected_training_columns = ordered_columns
 
-    def get_selected_training_columns(self, df=None):
+    def get_selected_training_columns(self, df=None, default_to_all=True):
         available_columns = self.get_available_training_columns(include_engineered=True, df=df)
+        if self.selected_training_columns is None:
+            return available_columns if default_to_all else []
         if not self.selected_training_columns:
-            return available_columns
+            return []
         return [col for col in available_columns if col in self.selected_training_columns]
 
     def _get_selected_feature_columns(self, df):
