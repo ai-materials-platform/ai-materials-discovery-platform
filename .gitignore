@@ -11,6 +11,9 @@ venv/
 # Editor settings
 .vscode/
 
+# Local app workspace state
+workspaces/
+
 # Local outputs and model artifacts
 run_log.txt
 final_error.txt
