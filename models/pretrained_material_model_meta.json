@@ -1,0 +1,18 @@
+{
+  "model_type": "GBM",
+  "data_file": "STMECH_AUS_SS.xls",
+  "r2_avg": 0.8642,
+  "mae_avg": 7.1355,
+  "r2_per_target": [
+    0.8961,
+    0.9664,
+    0.8714,
+    0.723
+  ],
+  "mae_per_target": [
+    11.7407,
+    12.7713,
+    2.9297,
+    1.1002
+  ]
+}
