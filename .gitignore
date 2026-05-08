@@ -18,6 +18,8 @@ workspaces/
 run_log.txt
 final_error.txt
 models/*.pkl
+!models/pretrained_material_model.pkl
+!models/pretrained_data_engine.pkl
 data/*.xlsx
 data/*.xls
 data/*.pkl
