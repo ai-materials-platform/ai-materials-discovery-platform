@@ -11,13 +11,20 @@ venv/
 # Editor settings
 .vscode/
 
+# Local app workspace state
+workspaces/
+
 # Local outputs and model artifacts
 run_log.txt
 final_error.txt
 models/*.pkl
+!models/pretrained_material_model.pkl
+!models/pretrained_data_engine.pkl
 data/*.xlsx
 data/*.xls
 data/*.pkl
 data/*.index
 data/*.data-*
 data/checkpoint
+
+gcm-diagnose.log*

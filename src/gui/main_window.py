@@ -1,5 +1,4 @@
 import os
-import sys
 import json        # [분석 저장] 워크스페이스 저장/불러오기에 사용
 import datetime   # [LOG] 로그 기록 시간 저장용
 
@@ -18,6 +17,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QFileDialog,
+    QFrame,
     QFormLayout,
     QGroupBox,
     QHeaderView,
@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QStackedWidget,
     QSpinBox,
     QTabWidget,
     QTableWidget,
@@ -200,6 +201,10 @@ class MainWindow(QMainWindow):
         self.data_engine = DataEngine(None)
         self.model_engine = None
         self.model_type = "RF"
+        self.pretrained_model_engine = None
+        self.pretrained_data_engine = None
+        self.pretrained_model_type = None
+        self.pretrained_metrics = None
         self.preprocessing_ready = False
         self._open_dialogs = []
         self.last_r2_avg = None
@@ -212,6 +217,14 @@ class MainWindow(QMainWindow):
         self._info_box_widgets = []    # info box (accent left border)
         self._section_lbl_widgets = [] # color: text_label, monospace
         self._muted_bg_widgets = []    # background: summary/muted
+        self._prediction_input_groups = []
+        self._prediction_input_fields = []
+        self._prediction_input_labels = []
+        self._curve_info_panels = []
+        self._curve_legend_cards = []
+        self._curve_legend_label_widgets = []
+        self._pretrained_prediction_state = None
+        self._user_prediction_state = None
 
         self.init_ui()
 
@@ -238,6 +251,17 @@ class MainWindow(QMainWindow):
         # Toolbar
         root_layout.addWidget(self._create_toolbar())
 
+        self.main_mode_stack = QStackedWidget()
+        root_layout.addWidget(self.main_mode_stack, 1)
+
+        self.material_prediction_page = self._create_material_prediction_page()
+        self.main_mode_stack.addWidget(self.material_prediction_page)
+
+        self.user_page = QWidget()
+        user_layout = QVBoxLayout(self.user_page)
+        user_layout.setContentsMargins(0, 0, 0, 0)
+        user_layout.setSpacing(0)
+
         # 3-panel splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -251,7 +275,9 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.tabs)
         splitter.setSizes([190, 270, 860])
 
-        root_layout.addWidget(splitter, 1)
+        user_layout.addWidget(splitter, 1)
+        self.main_mode_stack.addWidget(self.user_page)
+        self._switch_main_mode(0)
 
         # Status bar
         sb = self.statusBar()
@@ -281,6 +307,7 @@ class MainWindow(QMainWindow):
         self.setup_workspace_tab()
         self.refresh_workspace_list()
         self._apply_theme_colors()
+        self.prepare_pretrained_model()
 
     def _apply_ui_font(self):
         font = QFont(self._ui_font_family)
@@ -305,6 +332,23 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(16, 0, 14, 0)
         layout.setSpacing(12)
+
+        self._mode_nav_widget = QWidget()
+        mode_layout = QHBoxLayout(self._mode_nav_widget)
+        mode_layout.setContentsMargins(0, 0, 0, 0)
+        mode_layout.setSpacing(8)
+
+        self.material_mode_btn = QPushButton("물성예측")
+        self.material_mode_btn.setCheckable(True)
+        self.material_mode_btn.clicked.connect(lambda: self._switch_main_mode(0))
+        mode_layout.addWidget(self.material_mode_btn)
+
+        self.user_mode_btn = QPushButton("User")
+        self.user_mode_btn.setCheckable(True)
+        self.user_mode_btn.clicked.connect(lambda: self._switch_main_mode(1))
+        mode_layout.addWidget(self.user_mode_btn)
+
+        layout.addWidget(self._mode_nav_widget)
         layout.addStretch()
 
         self._toolbar_title = QLabel("AI Materials Discovery Platform")
@@ -324,103 +368,232 @@ class MainWindow(QMainWindow):
         )
         self._theme_btn.clicked.connect(self._toggle_theme)
         layout.addWidget(self._theme_btn)
+        self._update_mode_buttons()
         return bar
 
-        bar = QWidget()
-        self._toolbar_widget = bar
-        bar.setFixedHeight(46)
-        bar.setStyleSheet("background: #252525; border-bottom: 1px solid #3B4350;")
-        layout = QHBoxLayout(bar)
-        layout.setContentsMargins(16, 0, 14, 0)
-        layout.setSpacing(10)
+    def _switch_main_mode(self, index):
+        if hasattr(self, "main_mode_stack"):
+            self.main_mode_stack.setCurrentIndex(index)
+        self._current_main_mode = index
+        self._update_mode_buttons()
 
-        _tb_style = (
-            "QPushButton { background: transparent; color: #D7DCE3; border: 1px solid #3A4048; "
-            "border-radius: 6px; padding: 3px 10px; font-weight: 600; }"
-            "QPushButton:hover { background: #3A4048; color: #FFFFFF; border-color: #4C5561; }"
-            "QPushButton:disabled { color: #707780; border-color: #2C2C2C; }"
+    def _update_mode_buttons(self):
+        if not hasattr(self, "material_mode_btn") or not hasattr(self, "user_mode_btn"):
+            return
+        current_index = getattr(self, "_current_main_mode", 0)
+        self.material_mode_btn.setChecked(current_index == 0)
+        self.user_mode_btn.setChecked(current_index == 1)
+        self._apply_mode_button_styles()
+
+    def _apply_mode_button_styles(self):
+        active_bg = "#E56020"
+        active_text = "#FFFFFF"
+        if self._dark_mode:
+            inactive_bg = "#2F3339"
+            inactive_text = "#D5DBE3"
+            inactive_border = "#4F5965"
+            hover_bg = "#3A4048"
+        else:
+            inactive_bg = "#FFFFFF"
+            inactive_text = "#475569"
+            inactive_border = "#C9D2DC"
+            hover_bg = "#EEF2F6"
+
+        button_style = (
+            "QPushButton { "
+            f"background: {inactive_bg}; color: {inactive_text}; border: 1px solid {inactive_border}; "
+            "border-radius: 16px; font-size: 11px; font-weight: 700; padding: 0 16px; min-height: 32px; }"
+            f"QPushButton:hover {{ background: {hover_bg}; }}"
+            f"QPushButton:checked {{ background: {active_bg}; color: {active_text}; border: 1px solid {active_bg}; }}"
         )
-        _tb_field_style = (
-            "QComboBox, QSpinBox { background: #1F2329; color: #F3F4F6; border: 1px solid #4C5561; "
-            "border-radius: 6px; padding: 3px 8px; selection-background-color: #E56020; }"
-            "QComboBox:hover, QSpinBox:hover { border-color: #E56020; }"
-            "QComboBox QAbstractItemView { background: #2F3339; color: #F3F4F6; border: 1px solid #4C5561; "
-            "selection-background-color: #E56020; }"
+        self.material_mode_btn.setStyleSheet(button_style)
+        self.user_mode_btn.setStyleSheet(button_style)
+
+    def _create_material_prediction_page(self):
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(24, 24, 24, 24)
+        outer.setSpacing(18)
+
+        content_row = QHBoxLayout()
+        content_row.setSpacing(18)
+
+        input_card = QGroupBox("사전학습 모델 입력")
+        input_layout = QVBoxLayout(input_card)
+        self.pretrained_active_model_info = QLabel("사용 중인 모델: 사전학습 모델 없음")
+        self.pretrained_active_model_info.hide()
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        form_container = QWidget()
+        form_layout = QVBoxLayout(form_container)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(12)
+
+        self.pretrained_inputs = {}
+        self._build_prediction_input_sections(form_layout, self.pretrained_inputs)
+        scroll.setWidget(form_container)
+        input_layout.addWidget(scroll, 1)
+
+        self.pretrained_predict_btn = QPushButton("사전학습 모델로 예측")
+        self.pretrained_predict_btn.setFixedHeight(42)
+        self.pretrained_predict_btn.setStyleSheet(
+            "QPushButton { background: #16A34A; color: white; border: none; border-radius: 10px; font-weight: 700; }"
+            "QPushButton:hover { background: #15803D; }"
+        )
+        self.pretrained_predict_btn.clicked.connect(self.on_pretrained_predict_clicked)
+        input_layout.addWidget(self.pretrained_predict_btn)
+        content_row.addWidget(input_card, 1)
+
+        result_card = QGroupBox("예측 결과")
+        result_layout = QVBoxLayout(result_card)
+        self.pretrained_result_tabs = QTabWidget()
+
+        result_tab = QWidget()
+        result_tab_layout = QVBoxLayout(result_tab)
+        self.pretrained_result_display = QLabel(
+            "<b>예측 준비 완료</b><br>사전학습 모델로 바로 물성 예측을 실행할 수 있습니다."
+        )
+        self.pretrained_result_display.setWordWrap(True)
+        result_tab_layout.addWidget(self.pretrained_result_display)
+        self.pretrained_prediction_canvas = MplCanvas(self, width=5, height=4, dpi=100)
+        result_tab_layout.addWidget(self.pretrained_prediction_canvas)
+        self.pretrained_result_tabs.addTab(result_tab, "예측 결과")
+
+        curve_tab = QWidget()
+        curve_layout = QVBoxLayout(curve_tab)
+        curve_layout.addWidget(
+            self._create_curve_info_panel(
+                "pretrained_curve_placeholder",
+                "pretrained_curve_legend_card",
+            )
+        )
+        self.pretrained_curve_canvas = MplCanvas(self, width=5, height=4, dpi=100)
+        curve_layout.addWidget(self.pretrained_curve_canvas)
+        self.pretrained_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
+
+        result_layout.addWidget(self.pretrained_result_tabs)
+        self.render_prediction_placeholder(
+            self.pretrained_prediction_canvas,
+            "사전학습 예측 결과",
+            title_fontsize=12.5,
+            body_fontsize=9.8,
+        )
+        self.render_stress_strain_placeholder(
+            self.pretrained_curve_canvas,
+            self.pretrained_curve_placeholder,
         )
 
-        def tb_btn(text, callback=None, enabled=True):
-            b = QPushButton(text)
-            b.setFixedHeight(26)
-            b.setStyleSheet(_tb_style)
-            if callback:
-                b.clicked.connect(callback)
-            b.setEnabled(enabled)
-            return b
+        self.pretrained_status_label = QLabel("")
+        self.pretrained_status_label.setWordWrap(True)
+        self.pretrained_status_label.hide()
 
-        def sep():
-            line = QWidget()
-            line.setFixedSize(1, 16)
-            line.setStyleSheet("background: #363636;")
-            return line
+        self.pretrained_model_summary_label = QLabel("")
+        self.pretrained_model_summary_label.setWordWrap(True)
+        self.pretrained_model_summary_label.hide()
+        content_row.addWidget(result_card, 1)
 
-        layout.addWidget(tb_btn("열기", self.on_select_file_clicked))
-        layout.addWidget(sep())
-        layout.addWidget(tb_btn("전처리", self.on_preprocess_clicked))
-        layout.addWidget(tb_btn("합금 지표", self.on_generate_features_clicked))
-        layout.addWidget(sep())
-        layout.addWidget(tb_btn("모델 학습", self.on_train_clicked))
-        layout.addWidget(sep())
-        layout.addWidget(tb_btn("예측", self.on_predict_clicked))
-        layout.addStretch()
+        outer.addLayout(content_row, 1)
+        return page
 
-        title = QLabel("AI Materials Discovery Platform")
-        title.setStyleSheet("color: #F8FAFC; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;")
-        layout.addWidget(title)
+    def _build_prediction_input_sections(self, parent_layout, input_store):
+        comp_group = QGroupBox("합금 조성 (wt%)")
+        comp_group_layout = QVBoxLayout(comp_group)
+        comp_group_layout.setContentsMargins(12, 12, 12, 12)
+        comp_group_layout.setSpacing(12)
+        composition_defaults = {
+            "Fe": "96.0",
+            "C": "0.08",
+            "Si": "0.4",
+            "Mn": "1.5",
+            "P": "0.01",
+            "S": "0.005",
+            "Ni": "0.2",
+            "Cr": "0.3",
+            "Mo": "0.05",
+            "Cu": "0.1",
+            "V": "0.01",
+            "N": "0.005",
+            "Nb": "0.02",
+            "Ti": "0.01",
+            "B": "0.0005",
+            "Al": "0.03",
+        }
+        composition_items = list(composition_defaults.items())
+        midpoint = (len(composition_items) + 1) // 2
+        comp_columns = QHBoxLayout()
+        comp_columns.setContentsMargins(0, 0, 0, 0)
+        comp_columns.setSpacing(16)
+        comp_columns.addLayout(self._create_prediction_form(composition_items[:midpoint], input_store))
+        comp_columns.addLayout(self._create_prediction_form(composition_items[midpoint:], input_store))
+        comp_group_layout.addLayout(comp_columns)
+        parent_layout.addWidget(comp_group)
+        self._prediction_input_groups.append(comp_group)
 
-        layout.addSpacing(12)
-        font_hint = QLabel("Font")
-        font_hint.setStyleSheet("color: #AEB7C2; font-weight: 700;")
-        layout.addWidget(font_hint)
+        proc_group = QGroupBox("공정 및 조직")
+        proc_group_layout = QVBoxLayout(proc_group)
+        proc_group_layout.setContentsMargins(12, 12, 12, 12)
+        proc_group_layout.setSpacing(12)
+        proc_defaults = {
+            "Solution_treatment_temperature": "1050",
+            "Solution_treatment_time(s)": "3600",
+            "Water_Quenched_after_s.t.": "1",
+            "Air_Quenched_after_s.t.": "0",
+            "Grains mm-2": "500",
+            "Type of melting": "2",
+            "Size of ingot": "50",
+            "Product form": "3",
+            "Temperature (K)": "300",
+        }
+        proc_group_layout.addLayout(self._create_prediction_form(list(proc_defaults.items()), input_store))
+        parent_layout.addWidget(proc_group)
+        self._prediction_input_groups.append(proc_group)
+        self._apply_prediction_input_styles()
 
-        self._font_combo = QComboBox()
-        self._font_combo.addItems(self._available_ui_fonts())
-        self._font_combo.setCurrentText(self._ui_font_family)
-        self._font_combo.setFixedSize(170, 28)
-        self._font_combo.setStyleSheet(_tb_field_style)
-        self._font_combo.currentTextChanged.connect(self._on_font_family_changed)
-        layout.addWidget(self._font_combo)
+    def _create_prediction_form(self, items, input_store):
+        form_layout = QFormLayout()
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setHorizontalSpacing(14)
+        form_layout.setVerticalSpacing(10)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        for col, value in items:
+            label = QLabel(col)
+            label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+            line_edit = QLineEdit()
+            line_edit.setText(value)
+            line_edit.deselect()
+            line_edit.setCursorPosition(0)
+            form_layout.addRow(label, line_edit)
+            input_store[col] = line_edit
+            self._prediction_input_labels.append(label)
+            self._prediction_input_fields.append(line_edit)
+        return form_layout
 
-        size_hint = QLabel("Size")
-        size_hint.setStyleSheet("color: #AEB7C2; font-weight: 700;")
-        layout.addWidget(size_hint)
-
-        self._font_size_combo = QComboBox()
-        self._font_size_combo.addItem("Small (10px)", 10)
-        self._font_size_combo.addItem("Default (11px)", 11)
-        self._font_size_combo.addItem("Medium (12px)", 12)
-        self._font_size_combo.addItem("Large (14px)", 14)
-        self._font_size_combo.addItem("XL (16px)", 16)
-        self._font_size_combo.setFixedSize(130, 28)
-        self._font_size_combo.setStyleSheet(_tb_field_style)
-        index = self._font_size_combo.findData(self._ui_font_size)
-        self._font_size_combo.setCurrentIndex(index if index >= 0 else 1)
-        self._font_size_combo.currentIndexChanged.connect(self._on_font_size_changed)
-        layout.addWidget(self._font_size_combo)
-
-        self._theme_btn = QPushButton("🌙")
-        self._theme_btn.setFixedSize(34, 30)
-        self._theme_btn.setStyleSheet(
-            "QPushButton { background: #313844; color: #F8FAFC; border: 1px solid #475161; "
-            "border-radius: 8px; font-size: 13px; padding: 0; font-weight: 700; }"
-            "QPushButton:hover { background: #3B4350; border-color: #E56020; }"
+    def _apply_prediction_input_styles(self):
+        c = self._theme()
+        group_style = (
+            "QGroupBox { "
+            f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px; "
+            "margin-top: 10px; padding-top: 14px; font-weight: 700; }"
+            f"QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; color: {c['text_primary']}; }}"
         )
-        self._theme_btn.clicked.connect(self._toggle_theme)
-        layout.addWidget(self._theme_btn)
-        keep_widgets = {title, self._theme_btn}
-        for child in bar.findChildren(QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly):
-            if child not in keep_widgets and child is not bar:
-                child.hide()
-        return bar
+        line_edit_style = (
+            "QLineEdit { "
+            f"background: {c['input_bg']}; color: {c['text_primary']}; border: 1px solid {c['border']}; "
+            "border-radius: 8px; padding: 7px 10px; selection-background-color: #E56020; selection-color: #FFFFFF; }"
+            "QLineEdit:focus { border-color: #E56020; }"
+        )
+        for group in self._prediction_input_groups:
+            group.setStyleSheet(group_style)
+        label_color = "#555555" if not self._dark_mode else c['text_sec']
+        for label in self._prediction_input_labels:
+            label.setStyleSheet(
+                f"color: {label_color}; font-size: 12px; font-weight: 600; "
+                "padding-right: 4px; background: transparent;"
+            )
+        for field in self._prediction_input_fields:
+            field.setStyleSheet(line_edit_style)
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
@@ -593,6 +766,8 @@ class MainWindow(QMainWindow):
                 f"font-size: 11px; color: {c['text_sec']}; padding: 8px 10px; "
                 f"background: {c['muted_bg']}; border-top: 1px solid {c['divider']};"
             )
+        if self._prediction_input_groups or self._prediction_input_fields or self._prediction_input_labels:
+            self._apply_prediction_input_styles()
         if hasattr(self, "feature_selection_status_label"):
             self.feature_selection_status_label.setStyleSheet(
                 f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
@@ -611,11 +786,34 @@ class MainWindow(QMainWindow):
                 f"background-color: {card_bg}; color: {card_text}; padding: 11px 12px; "
                 f"border: 1px solid {card_border}; border-radius: 10px; font-weight: 700; margin-bottom: 12px;"
             )
-        if hasattr(self, "result_display"):
-            self.result_display.setStyleSheet(
-                f"font-size: 12px; font-weight: 600; color: {c['text_primary']}; "
-                f"background: {c['muted_bg']}; border: 1px solid {c['border']}; "
-                "border-radius: 10px; padding: 12px;"
+        for attr_name in ["result_display", "pretrained_result_display"]:
+            if hasattr(self, attr_name):
+                getattr(self, attr_name).setStyleSheet(
+                    f"font-size: 12px; font-weight: 600; color: {c['text_primary']}; "
+                    f"background: {c['muted_bg']}; border: 1px solid {c['border']}; "
+                    "border-radius: 10px; padding: 12px;"
+                )
+        for panel in self._curve_info_panels:
+            panel.setStyleSheet(
+                f"background: {c['muted_bg']}; border: 1px solid {c['border']}; border-radius: 10px;"
+            )
+        for attr_name in ["pretrained_curve_placeholder", "stress_strain_placeholder_label"]:
+            if hasattr(self, attr_name):
+                getattr(self, attr_name).setStyleSheet(
+                    f"font-size: 13px; font-weight: 600; color: {c['text_sec']}; "
+                    "background: transparent; border: none; padding: 0;"
+                )
+        legend_bg = "#FFFFFF" if not self._dark_mode else "#1F2937"
+        legend_border = "#CBD5E1" if not self._dark_mode else "#64748B"
+        legend_text = "#334155" if not self._dark_mode else "#E5E7EB"
+        for card in self._curve_legend_cards:
+            card.setStyleSheet(
+                f"background: {legend_bg}; border: 1px solid {legend_border}; border-radius: 8px;"
+            )
+        for label in self._curve_legend_label_widgets:
+            label.setStyleSheet(
+                f"font-size: 12px; font-weight: 600; color: {legend_text}; "
+                "background: transparent; border: none;"
             )
         if hasattr(self, "comp_group_title_label"):
             self.comp_group_title_label.setStyleSheet(
@@ -627,6 +825,12 @@ class MainWindow(QMainWindow):
             )
         if hasattr(self, "inference_tab"):
             self.inference_tab.setStyleSheet(f"background: {c['app_bg']};")
+        if hasattr(self, "material_prediction_page"):
+            self.material_prediction_page.setStyleSheet(f"background: {c['app_bg']};")
+        if hasattr(self, "user_page"):
+            self.user_page.setStyleSheet(f"background: {c['app_bg']};")
+        if hasattr(self, "main_mode_stack"):
+            self.main_mode_stack.setStyleSheet(f"background: {c['app_bg']};")
         if hasattr(self, "inference_left_frame"):
             self.inference_left_frame.setStyleSheet(
                 f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px;"
@@ -751,6 +955,7 @@ class MainWindow(QMainWindow):
             )
         if hasattr(self, "_tree_file_label"):
             self._update_project_tree()
+        self._refresh_prediction_views_for_theme()
 
     # ── Left panel (Project Explorer) ────────────────────────────────────────
 
@@ -1296,74 +1501,10 @@ class MainWindow(QMainWindow):
         left_frame_layout.addWidget(scroll)
 
         self.inputs = {}
-        self.active_model_info = QLabel("사용 중인 모델: 학습된 모델 없음")
+        self.active_model_info = QLabel("현재 예측 모델: 아직 준비되지 않음")
         left_panel.addWidget(self.active_model_info)
 
-        comp_group = QGroupBox()
-        comp_group.setStyleSheet("QGroupBox { margin-top: 0px; padding-top: 12px; }")
-        comp_group_layout = QVBoxLayout(comp_group)
-        comp_group_layout.setContentsMargins(12, 12, 12, 12)
-        comp_group_layout.setSpacing(8)
-        self.comp_group_title_label = QLabel("합금 조성 (wt%)")
-        comp_group_layout.addWidget(self.comp_group_title_label)
-        comp_layout = QFormLayout()
-        comp_layout.setContentsMargins(12, 10, 12, 12)
-        comp_layout.setHorizontalSpacing(14)
-        comp_layout.setVerticalSpacing(8)
-        comp_list = [
-            "Cr", "Ni", "Mo", "Mn", "Si", "Nb", "Ti", "Zr", "Ta", "V", "W", "Cu", "N", "C", "B", "P", "S", "Co", "Al", "Sn", "Pb",
-        ]
-        default_map = {"Cr": "18.0", "Ni": "8.0", "Mn": "2.0", "Si": "1.0", "C": "0.08"}
-        for index, col in enumerate(comp_list):
-            line_edit = QLineEdit()
-            line_edit.setText(default_map.get(col, "0.0"))
-            comp_layout.addRow(QLabel(col), line_edit)
-            self.inputs[col] = line_edit
-            if index < len(comp_list) - 1:
-                divider = QWidget()
-                divider.setFixedHeight(1)
-                divider.setStyleSheet("background: #E2E8F0;")
-                self._divider_widgets.append(divider)
-                comp_layout.addRow(divider)
-        comp_group_layout.addLayout(comp_layout)
-        left_panel.addWidget(comp_group)
-
-        proc_group = QGroupBox()
-        proc_group.setStyleSheet("QGroupBox { margin-top: 0px; padding-top: 12px; }")
-        proc_group_layout = QVBoxLayout(proc_group)
-        proc_group_layout.setContentsMargins(12, 12, 12, 12)
-        proc_group_layout.setSpacing(8)
-        self.proc_group_title_label = QLabel("공정 및 조직")
-        proc_group_layout.addWidget(self.proc_group_title_label)
-        proc_layout = QFormLayout()
-        proc_layout.setContentsMargins(12, 10, 12, 12)
-        proc_layout.setHorizontalSpacing(14)
-        proc_layout.setVerticalSpacing(8)
-        proc_defaults = {
-            "Solution_treatment_temperature": "1050",
-            "Solution_treatment_time(s)": "3600",
-            "Water_Quenched_after_s.t.": "1",
-            "Air_Quenched_after_s.t.": "0",
-            "Grains mm-2": "500",
-            "Type of melting": "2",
-            "Size of ingot": "50",
-            "Product form": "3",
-            "Temperature (K)": "300",
-        }
-        proc_items = list(proc_defaults.items())
-        for index, (col, value) in enumerate(proc_items):
-            line_edit = QLineEdit()
-            line_edit.setText(value)
-            proc_layout.addRow(QLabel(col), line_edit)
-            self.inputs[col] = line_edit
-            if index < len(proc_items) - 1:
-                divider = QWidget()
-                divider.setFixedHeight(1)
-                divider.setStyleSheet("background: #E2E8F0;")
-                self._divider_widgets.append(divider)
-                proc_layout.addRow(divider)
-        proc_group_layout.addLayout(proc_layout)
-        left_panel.addWidget(proc_group)
+        self._build_prediction_input_sections(left_panel, self.inputs)
 
         self.predict_btn = QPushButton("물성 예측 실행")
         self.predict_btn.setFixedHeight(46)
@@ -1384,19 +1525,51 @@ class MainWindow(QMainWindow):
         right_panel = QVBoxLayout()
         right_panel.setContentsMargins(0, 0, 0, 0)
         right_panel.setSpacing(0)
+        self.inference_result_tabs = QTabWidget()
+        self.inference_result_tabs.setDocumentMode(True)
+
+        result_tab = QWidget()
+        result_tab_layout = QVBoxLayout(result_tab)
         result_group = QGroupBox("예측 결과")
         result_layout = QVBoxLayout(result_group)
-
         self.result_display = QLabel(
-            "<b>예측 준비 완료</b><br>좌측 입력값을 확인한 뒤 <b>물성 예측 실행</b> 버튼을 눌러 주세요."
+            "<b>예측 준비 완료</b><br>"
+            "학습된 모델이 있으면 <b>물성 예측 실행</b> 버튼으로 바로 결과를 확인할 수 있습니다."
         )
         self.result_display.setWordWrap(True)
         result_layout.addWidget(self.result_display)
-
         self.prediction_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         result_layout.addWidget(self.prediction_canvas)
-        right_panel.addWidget(result_group)
+        result_tab_layout.addWidget(result_group)
+        self.inference_result_tabs.addTab(result_tab, "예측 결과")
+
+        curve_tab = QWidget()
+        curve_tab_layout = QVBoxLayout(curve_tab)
+        curve_group = QGroupBox("Stress-Strain Curve")
+        curve_group_layout = QVBoxLayout(curve_group)
+        curve_group_layout.addWidget(
+            self._create_curve_info_panel(
+                "stress_strain_placeholder_label",
+                "stress_strain_legend_card",
+            )
+        )
+        self.stress_strain_canvas = MplCanvas(self, width=5, height=4, dpi=100)
+        curve_group_layout.addWidget(self.stress_strain_canvas)
+        curve_tab_layout.addWidget(curve_group)
+        self.inference_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
+
+        right_panel.addWidget(self.inference_result_tabs)
         right_frame_layout.addLayout(right_panel)
+        self.render_prediction_placeholder(
+            self.prediction_canvas,
+            "물성 예측 결과",
+            title_fontsize=11.4,
+            body_fontsize=9.0,
+        )
+        self.render_stress_strain_placeholder(
+            self.stress_strain_canvas,
+            self.stress_strain_placeholder_label,
+        )
 
         layout.addWidget(self.inference_left_frame, 1)
         layout.addWidget(self.inference_right_frame, 1)
@@ -1707,6 +1880,389 @@ class MainWindow(QMainWindow):
         ax.text(0.5, 0.40, "실제값과 예측값이 얼마나 비슷한지 특성별로 확인할 수 있습니다.", ha="center", va="center", fontsize=11, color=colors["text_label"], transform=ax.transAxes)
         self.perf_canvas.figure.tight_layout()
         self.perf_canvas.draw()
+
+    def _create_curve_legend_card(self):
+        card = QFrame()
+        card.setFixedWidth(174)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(7)
+
+        for text, color in [
+            ("Elastic region", "#3B82F6"),
+            ("Plastic hardening", "#F59E0B"),
+            ("Necking", "#EF4444"),
+        ]:
+            row = QWidget()
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(8)
+
+            swatch = QFrame()
+            swatch.setFixedSize(30, 4)
+            swatch.setStyleSheet(f"background: {color}; border-radius: 2px;")
+            text_label = QLabel(text)
+
+            row_layout.addWidget(swatch, 0, Qt.AlignmentFlag.AlignVCenter)
+            row_layout.addWidget(text_label, 1)
+            layout.addWidget(row)
+            self._curve_legend_label_widgets.append(text_label)
+
+        self._curve_legend_cards.append(card)
+        return card
+
+    def _create_curve_info_panel(self, text_attr_name, legend_attr_name):
+        panel = QFrame()
+        panel_layout = QHBoxLayout(panel)
+        panel_layout.setContentsMargins(12, 12, 12, 12)
+        panel_layout.setSpacing(12)
+
+        text_label = QLabel("")
+        text_label.setWordWrap(True)
+        text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        panel_layout.addWidget(text_label, 1)
+
+        legend_col = QVBoxLayout()
+        legend_col.setContentsMargins(0, 0, 0, 0)
+        legend_col.setSpacing(0)
+        legend_col.addStretch()
+        legend_card = self._create_curve_legend_card()
+        legend_col.addWidget(
+            legend_card,
+            0,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
+        )
+        panel_layout.addLayout(legend_col)
+
+        setattr(self, text_attr_name, text_label)
+        setattr(self, legend_attr_name, legend_card)
+        self._curve_info_panels.append(panel)
+        return panel
+
+    def _refresh_prediction_views_for_theme(self):
+        if hasattr(self, "pretrained_prediction_canvas"):
+            if self._pretrained_prediction_state:
+                state = self._pretrained_prediction_state
+                self._render_prediction_chart(
+                    self.pretrained_prediction_canvas,
+                    state["mean"],
+                    state["std"],
+                )
+                self._render_stress_strain_curve(
+                    self.pretrained_curve_canvas,
+                    self.pretrained_curve_placeholder,
+                    state["mean"],
+                    state["input_dict"],
+                )
+            else:
+                if getattr(self.pretrained_prediction_canvas, "_view_mode", None) == "placeholder":
+                    self.render_prediction_placeholder(
+                        self.pretrained_prediction_canvas,
+                        "사전학습 예측 결과",
+                        title_fontsize=12.5,
+                        body_fontsize=9.8,
+                    )
+                if getattr(self.pretrained_curve_canvas, "_view_mode", None) == "placeholder":
+                    self.render_stress_strain_placeholder(
+                        self.pretrained_curve_canvas,
+                        self.pretrained_curve_placeholder,
+                    )
+
+        if hasattr(self, "prediction_canvas"):
+            if self._user_prediction_state:
+                state = self._user_prediction_state
+                self._render_prediction_chart(
+                    self.prediction_canvas,
+                    state["mean"],
+                    state["std"],
+                )
+                self._render_stress_strain_curve(
+                    self.stress_strain_canvas,
+                    self.stress_strain_placeholder_label,
+                    state["mean"],
+                    state["input_dict"],
+                )
+            else:
+                if getattr(self.prediction_canvas, "_view_mode", None) == "placeholder":
+                    self.render_prediction_placeholder(
+                        self.prediction_canvas,
+                        "물성 예측 결과",
+                        title_fontsize=11.4,
+                        body_fontsize=9.0,
+                    )
+                if getattr(self.stress_strain_canvas, "_view_mode", None) == "placeholder":
+                    self.render_stress_strain_placeholder(
+                        self.stress_strain_canvas,
+                        self.stress_strain_placeholder_label,
+                    )
+
+    def render_prediction_placeholder(self, canvas, title, title_fontsize=12.0, body_fontsize=9.5):
+        colors = self._theme()
+        canvas.fig.clear()
+        ax = canvas.fig.add_subplot(111)
+        canvas.axes = ax
+        canvas._view_mode = "placeholder"
+        ax.axis("off")
+        ax.set_facecolor(colors["panel_bg"])
+        canvas.fig.patch.set_facecolor(colors["panel_bg"])
+        ax.text(
+            0.5,
+            0.58,
+            f"{title} 그래프가 여기에 표시됩니다.",
+            ha="center",
+            va="center",
+            fontsize=title_fontsize,
+            color=colors["text_sec"],
+            transform=ax.transAxes,
+        )
+        ax.text(
+            0.5,
+            0.42,
+            "예측을 실행하면 물성 요약 그래프가 자동으로 갱신됩니다.",
+            ha="center",
+            va="center",
+            fontsize=body_fontsize,
+            color=colors["text_label"],
+            transform=ax.transAxes,
+        )
+        canvas.fig.tight_layout()
+        canvas.draw()
+
+    def render_stress_strain_placeholder(self, canvas, label, title_fontsize=14.0, body_fontsize=11.8):
+        colors = self._theme()
+        label.setText(
+            "예측을 실행하면 yield stress, UTS, elongation, area reduction으로 근사한 "
+            "engineering stress-strain curve가 여기에 표시됩니다."
+        )
+        canvas.fig.clear()
+        ax = canvas.fig.add_subplot(111)
+        canvas.axes = ax
+        canvas._view_mode = "placeholder"
+        ax.axis("off")
+        ax.set_facecolor(colors["panel_bg"])
+        canvas.fig.patch.set_facecolor(colors["panel_bg"])
+        ax.text(
+            0.5,
+            0.56,
+            "Stress-Strain Curve preview",
+            ha="center",
+            va="center",
+            fontsize=title_fontsize,
+            color=colors["text_sec"],
+            transform=ax.transAxes,
+        )
+        ax.text(
+            0.5,
+            0.40,
+            "탄성 구간, 항복점, 가공경화, necking 이후 파단 구간을 함께 표시합니다.",
+            ha="center",
+            va="center",
+            fontsize=body_fontsize,
+            color=colors["text_label"],
+            transform=ax.transAxes,
+        )
+        canvas.fig.tight_layout()
+        canvas.draw()
+
+    def _style_prediction_axes(self, ax, title=None, xlabel=None, ylabel=None):
+        colors = self._theme()
+        ax.set_facecolor(colors["panel_bg"])
+        ax.figure.patch.set_facecolor(colors["panel_bg"])
+        ax.grid(True, color=colors["divider"], alpha=0.28, linewidth=0.8)
+        for spine in ax.spines.values():
+            spine.set_color(colors["border"])
+        ax.tick_params(axis="both", colors=colors["text_sec"], labelcolor=colors["text_sec"])
+        if title:
+            ax.set_title(title, color=colors["text_primary"], fontsize=13, fontweight="bold")
+        if xlabel:
+            ax.set_xlabel(xlabel, color=colors["text_sec"])
+        if ylabel:
+            ax.set_ylabel(ylabel, color=colors["text_sec"])
+
+    def _safe_float(self, value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
+
+    def _estimate_elastic_modulus(self, temperature_k):
+        temperature_k = self._safe_float(temperature_k, 293.15)
+        temperature_c = temperature_k - 273.15
+        softening_factor = 1.0 - max(0.0, temperature_c - 20.0) * 0.00022
+        return float(np.clip(193000.0 * softening_factor, 125000.0, 210000.0))
+
+    def _build_stress_strain_profile(self, mean, input_dict):
+        yield_stress = max(self._safe_float(mean[0]), 1.0)
+        uts = max(self._safe_float(mean[1], yield_stress + 1.0), yield_stress + 1.0)
+        elongation_pct = float(np.clip(self._safe_float(mean[2], 2.0), 2.0, 120.0))
+        area_reduction_pct = float(np.clip(self._safe_float(mean[3], 0.0), 0.0, 95.0))
+        fracture_strain = max(elongation_pct / 100.0, 0.02)
+
+        elastic_modulus = self._estimate_elastic_modulus(input_dict.get("Temperature (K)", 293.15))
+        yield_strain = float(
+            np.clip((yield_stress / elastic_modulus) + 0.002, 0.002, max(0.012, fracture_strain * 0.22))
+        )
+        if fracture_strain <= yield_strain + 0.01:
+            fracture_strain = yield_strain + 0.01
+
+        necking_ratio = 0.55 + 0.20 * (area_reduction_pct / 100.0)
+        uts_strain = yield_strain + (fracture_strain - yield_strain) * necking_ratio
+        uts_strain = float(np.clip(uts_strain, yield_strain + 0.006, fracture_strain - 0.003))
+        if uts_strain >= fracture_strain:
+            fracture_strain = uts_strain + 0.003
+
+        fracture_stress_ratio = float(np.clip(0.82 - 0.45 * (area_reduction_pct / 100.0), 0.32, 0.82))
+        fracture_stress = uts * fracture_stress_ratio
+
+        elastic_x = np.linspace(0.0, yield_strain, 70)
+        elastic_y = (yield_stress / max(yield_strain, 1e-6)) * elastic_x
+
+        hardening_x = np.linspace(yield_strain, uts_strain, 120)
+        hardening_t = np.linspace(0.0, 1.0, hardening_x.size)
+        hardening_y = yield_stress + (uts - yield_stress) * (1.0 - np.power(1.0 - hardening_t, 1.7))
+
+        necking_x = np.linspace(uts_strain, fracture_strain, 80)
+        necking_t = np.linspace(0.0, 1.0, necking_x.size)
+        necking_y = uts - (uts - fracture_stress) * np.power(necking_t, 1.2)
+
+        strain = np.concatenate([elastic_x, hardening_x[1:], necking_x[1:]])
+        stress = np.concatenate([elastic_y, hardening_y[1:], necking_y[1:]])
+        segments = {
+            "elastic": (elastic_x, elastic_y),
+            "hardening": (hardening_x, hardening_y),
+            "necking": (necking_x, necking_y),
+        }
+        points = {
+            "Yield": (yield_strain, yield_stress),
+            "UTS": (uts_strain, uts),
+            "Fracture": (fracture_strain, fracture_stress),
+        }
+        meta = {
+            "yield_stress": yield_stress,
+            "uts": uts,
+            "elongation_pct": elongation_pct,
+            "area_reduction_pct": area_reduction_pct,
+            "elastic_modulus_gpa": elastic_modulus / 1000.0,
+            "yield_strain": yield_strain,
+            "uts_strain": uts_strain,
+            "fracture_strain": fracture_strain,
+        }
+        return strain, stress, points, meta, segments
+
+    def _render_stress_strain_curve(self, canvas, label, mean, input_dict):
+        strain, stress, points, meta, segments = self._build_stress_strain_profile(mean, input_dict)
+
+        canvas.fig.clear()
+        ax = canvas.fig.add_subplot(111)
+        canvas.axes = ax
+        canvas._view_mode = "curve"
+        self._style_prediction_axes(
+            ax,
+            title="Predicted Engineering Stress-Strain Curve",
+            xlabel="Strain",
+            ylabel="Stress (MPa)",
+        )
+
+        yield_x = points["Yield"][0]
+        uts_x = points["UTS"][0]
+        fracture_x = points["Fracture"][0]
+        max_stress = max(float(np.max(stress)), meta["uts"])
+
+        segment_styles = {
+            "elastic": {"color": "#3B82F6", "label": "Elastic region"},
+            "hardening": {"color": "#F59E0B", "label": "Plastic hardening"},
+            "necking": {"color": "#EF4444", "label": "Necking"},
+        }
+        ax.axvspan(0.0, yield_x, color="#60A5FA", alpha=0.08)
+        ax.axvspan(yield_x, uts_x, color="#FBBF24", alpha=0.06)
+        ax.axvspan(uts_x, fracture_x, color="#F87171", alpha=0.05)
+        for segment_name, (x_vals, y_vals) in segments.items():
+            style = segment_styles[segment_name]
+            ax.plot(
+                x_vals,
+                y_vals,
+                color=style["color"],
+                linewidth=2.9,
+                solid_capstyle="round",
+                label=style["label"],
+            )
+            ax.fill_between(x_vals, y_vals, 0, color=style["color"], alpha=0.06)
+
+        point_styles = {
+            "Yield": ("#2563EB", (12, 12)),
+            "UTS": ("#DC2626", (-28, 14)),
+            "Fracture": ("#059669", (-82, -6)),
+        }
+        colors = self._theme()
+        annotation_box = {
+            "boxstyle": "round,pad=0.24",
+            "facecolor": colors["panel_bg"],
+            "edgecolor": colors["border"],
+            "alpha": 0.94,
+        }
+        for name, (x_val, y_val) in points.items():
+            color, offset = point_styles[name]
+            ax.scatter([x_val], [y_val], s=42, color=color, zorder=5)
+            ax.annotate(
+                f"{name}\n({x_val:.3f}, {y_val:.0f} MPa)",
+                xy=(x_val, y_val),
+                xytext=offset,
+                textcoords="offset points",
+                fontsize=9,
+                color=color,
+                fontweight="bold",
+                bbox=annotation_box,
+                arrowprops={"arrowstyle": "-", "color": color, "lw": 1.0},
+            )
+
+        elastic_mid = len(segments["elastic"][0]) // 2
+        hardening_mid = len(segments["hardening"][0]) // 2
+        necking_mid = len(segments["necking"][0]) // 2
+        ax.annotate(
+            "Elastic region",
+            xy=(segments["elastic"][0][elastic_mid], segments["elastic"][1][elastic_mid]),
+            xytext=(-10, 26),
+            textcoords="offset points",
+            bbox=annotation_box,
+            arrowprops={"arrowstyle": "-", "color": "#3B82F6", "lw": 1.0},
+            color=colors["text_sec"],
+            fontsize=11.4,
+            ha="center",
+        )
+        ax.annotate(
+            "Plastic hardening",
+            xy=(segments["hardening"][0][hardening_mid], segments["hardening"][1][hardening_mid]),
+            xytext=(6, 28),
+            textcoords="offset points",
+            bbox=annotation_box,
+            arrowprops={"arrowstyle": "-", "color": "#F59E0B", "lw": 1.0},
+            color=colors["text_sec"],
+            fontsize=11.4,
+            ha="center",
+        )
+        ax.annotate(
+            "Necking",
+            xy=(segments["necking"][0][necking_mid], segments["necking"][1][necking_mid]),
+            xytext=(34, -10),
+            textcoords="offset points",
+            bbox=annotation_box,
+            arrowprops={"arrowstyle": "-", "color": "#EF4444", "lw": 1.0},
+            color=colors["text_sec"],
+            fontsize=11.4,
+            ha="center",
+        )
+        ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
+        ax.set_ylim(0.0, max_stress * 1.14)
+        canvas.fig.tight_layout()
+        canvas.draw()
+
+        label.setText(
+            "예측 물성으로 근사한 engineering stress-strain curve입니다. "
+            f"Yield {meta['yield_stress']:.1f} MPa, UTS {meta['uts']:.1f} MPa, "
+            f"Elongation {meta['elongation_pct']:.1f}%, Area reduction {meta['area_reduction_pct']:.1f}% "
+            f"(탄성계수 추정 {meta['elastic_modulus_gpa']:.1f} GPa). "
+            "실험 인장시험 곡선이 아니라 경향 확인용 그래프입니다."
+        )
 
     def populate_feature_selection_table(self, reset_selection=False):
         available_columns = self.data_engine.get_available_training_columns(include_engineered=True)
@@ -2185,78 +2741,229 @@ class MainWindow(QMainWindow):
         self.perf_canvas.figure.tight_layout()
         self.perf_canvas.draw()
 
-    def on_predict_clicked(self):
-        if not self.model_engine:
-            self.result_display.setText("<b>먼저 모델을 준비해 주세요.</b><br>학습을 완료하거나 저장된 분석을 불러온 뒤 예측을 실행할 수 있습니다.")
-            return
+    def _render_prediction_chart(self, canvas, mean, std):
+        canvas.fig.clear()
+        ax1 = canvas.fig.add_subplot(111)
+        canvas.axes = ax1
+        canvas._view_mode = "prediction"
+        labels = ["Yield", "UTS", "Elong.", "Area Red."]
+        x = np.arange(len(labels))
+        colors = self._theme()
 
-        try:
-            input_dict = {key: widget.text() for key, widget in self.inputs.items()}
-            scaled_input = self.data_engine.get_inference_data(input_dict)
-            mean_scaled, std_scaled = self.model_engine.predict(scaled_input.astype(np.float32))
+        self._style_prediction_axes(ax1, title="예측 물성 결과")
+        ax1.grid(False)
 
-            mean = self.data_engine.scaler_y.inverse_transform(mean_scaled)[0]
-            std = std_scaled[0] * self.data_engine.scaler_y.scale_
+        stress_vals = [mean[0], mean[1], 0, 0]
+        stress_errs = [1.96 * std[0], 1.96 * std[1], 0, 0]
+        ax1.bar(x[:2], stress_vals[:2], yerr=stress_errs[:2], capsize=10, color=["#3498db", "#e74c3c"])
+        ax1.set_ylabel("Stress (MPa)", color=colors["text_sec"])
+        ax1.tick_params(axis="y", colors=colors["text_sec"])
 
-            result_text = (
-                f"<b>강도 예측 결과</b><br>"
-                f"0.2% 항복강도: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b><br>"
-                f"인장강도(UTS): <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br><br>"
-                f"<b>연성 예측 결과</b><br>"
-                f"연신율: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b><br>"
-                f"단면감소율: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b>"
+        ax2 = ax1.twinx()
+        ax2.set_facecolor("none")
+        duct_vals = [0, 0, mean[2], mean[3]]
+        duct_errs = [0, 0, 1.96 * std[2], 1.96 * std[3]]
+        ax2.bar(x[2:], duct_vals[2:], yerr=duct_errs[2:], capsize=10, color=["#2ecc71", "#f39c12"])
+        ax2.set_ylabel("Percentage (%)", color=colors["text_sec"])
+        ax2.tick_params(axis="y", colors=colors["text_sec"])
+        for spine in ax2.spines.values():
+            spine.set_color(colors["border"])
+
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(labels)
+        ax1.tick_params(axis="x", colors=colors["text_sec"])
+        canvas.fig.tight_layout()
+        canvas.draw()
+
+    def _run_prediction(
+        self,
+        model_engine,
+        data_engine,
+        inputs,
+        result_label,
+        canvas,
+        curve_canvas=None,
+        curve_label=None,
+        prediction_state_attr=None,
+        result_tabs=None,
+    ):
+        if not model_engine or not data_engine:
+            result_label.setText(
+                "<b>먼저 모델을 준비해 주세요.</b><br>"
+                "학습을 완료하거나 저장된 모델을 불러온 뒤 예측을 실행할 수 있습니다."
             )
-            self.result_display.setText(result_text)
+            return None
 
-            self.prediction_canvas.axes.clear()
-            labels = ["Yield", "UTS", "Elong.", "Area Red."]
-            x = np.arange(len(labels))
+        input_dict = {key: widget.text() for key, widget in inputs.items()}
+        scaled_input = data_engine.get_inference_data(input_dict)
+        mean_scaled, std_scaled = model_engine.predict(scaled_input.astype(np.float32))
 
-            stress_vals = [mean[0], mean[1], 0, 0]
-            stress_errs = [1.96 * std[0], 1.96 * std[1], 0, 0]
-            self.prediction_canvas.axes.bar(x[:2], stress_vals[:2], yerr=stress_errs[:2], capsize=10, color=["#3498db", "#e74c3c"])
-            self.prediction_canvas.axes.set_ylabel("Stress (MPa)", color="#3498db")
+        mean = data_engine.scaler_y.inverse_transform(mean_scaled)[0]
+        std = std_scaled[0] * data_engine.scaler_y.scale_
 
-            ax2 = self.prediction_canvas.axes.twinx()
-            ax2.clear()
-            duct_vals = [0, 0, mean[2], mean[3]]
-            duct_errs = [0, 0, 1.96 * std[2], 1.96 * std[3]]
-            ax2.bar(x[2:], duct_vals[2:], yerr=duct_errs[2:], capsize=10, color=["#2ecc71", "#f39c12"])
-            ax2.set_ylabel("Percentage (%)", color="#2ecc71")
+        note_color = self._theme()["text_label"]
+        result_text = (
+            f"<b>강도 예측 결과</b><br>"
+            f"0.2% 항복강도: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b><br>"
+            f"인장강도(UTS): <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br><br>"
+            f"<b>연성 예측 결과</b><br>"
+            f"연신율: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b><br>"
+            f"단면감소율: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b><br><br>"
+            f"<span style='color:{note_color};'>Stress-Strain Curve 탭에서 예측 물성 기반 곡선을 확인할 수 있습니다.</span>"
+        )
+        result_label.setText(result_text)
+        self._render_prediction_chart(canvas, mean, std)
+        if curve_canvas is not None and curve_label is not None:
+            self._render_stress_strain_curve(curve_canvas, curve_label, mean, input_dict)
+        if prediction_state_attr:
+            setattr(
+                self,
+                prediction_state_attr,
+                {
+                    "mean": np.array(mean, dtype=float),
+                    "std": np.array(std, dtype=float),
+                    "input_dict": dict(input_dict),
+                },
+            )
 
-            self.prediction_canvas.axes.set_xticks(x)
-            self.prediction_canvas.axes.set_xticklabels(labels)
-            self.prediction_canvas.axes.set_title("예측 물성 결과")
-            self.prediction_canvas.draw()
+        if result_tabs is not None:
+            result_tabs.setCurrentIndex(0)
 
-            # [AUTO SAVE] 예측 완료 시 auto_save 폴더에 예측 그래프 저장
+        return {
+            "yield_stress": round(float(mean[0]), 2),
+            "uts": round(float(mean[1]), 2),
+            "elongation": round(float(mean[2]), 2),
+            "area_reduction": round(float(mean[3]), 2),
+        }
+
+    def on_pretrained_predict_clicked(self):
+        try:
+            self._run_prediction(
+                self.pretrained_model_engine,
+                self.pretrained_data_engine,
+                self.pretrained_inputs,
+                self.pretrained_result_display,
+                self.pretrained_prediction_canvas,
+                self.pretrained_curve_canvas,
+                self.pretrained_curve_placeholder,
+                "_pretrained_prediction_state",
+                self.pretrained_result_tabs,
+            )
+        except Exception as exc:
+            self.pretrained_result_display.setText(f"<b>사전학습 모델 예측 중 오류가 발생했습니다.</b><br>{exc}")
+
+    def on_predict_clicked(self):
+        try:
+            results = self._run_prediction(
+                self.model_engine,
+                self.data_engine,
+                self.inputs,
+                self.result_display,
+                self.prediction_canvas,
+                self.stress_strain_canvas,
+                self.stress_strain_placeholder_label,
+                "_user_prediction_state",
+                self.inference_result_tabs,
+            )
+            if results is None:
+                return
+
             auto_folder = os.path.join("workspaces", "auto_save")
             if os.path.exists(auto_folder):
                 self.prediction_canvas.fig.savefig(
-                    os.path.join(auto_folder, "prediction.png"), dpi=200, bbox_inches="tight")
+                    os.path.join(auto_folder, "prediction.png"), dpi=200, bbox_inches="tight"
+                )
+                self.stress_strain_canvas.fig.savefig(
+                    os.path.join(auto_folder, "stress_strain_curve.png"), dpi=200, bbox_inches="tight"
+                )
 
-            # [LOG] 예측 실행 로그 기록
             self.append_log({
                 "type": "예측",
                 "model": self.model_type,
                 "inputs": {k: v.text() for k, v in self.inputs.items()},
-                "results": {
-                    "yield_stress": round(float(mean[0]), 2),
-                    "uts": round(float(mean[1]), 2),
-                    "elongation": round(float(mean[2]), 2),
-                    "area_reduction": round(float(mean[3]), 2),
-                },
+                "results": results,
             })
         except Exception as exc:
             self.result_display.setText(f"<b>예측 중 오류가 발생했습니다.</b><br>{exc}")
 
+    def prepare_pretrained_model(self):
+        try:
+            model_info = self._load_or_train_pretrained_model()
+            self.pretrained_model_engine = model_info["model_engine"]
+            self.pretrained_data_engine = model_info["data_engine"]
+            self.pretrained_model_type = model_info["model_type"]
+            self.pretrained_metrics = model_info["metrics"]
+
+            name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
+            model_name = name_map.get(self.pretrained_model_type, self.pretrained_model_type)
+            self.pretrained_active_model_info.setText(
+                f"사용 중인 모델: {model_name} | 평균 R2 {self.pretrained_metrics['r2_avg']:.3f} | 평균 MAE {self.pretrained_metrics['mae_avg']:.3f}"
+            )
+            self.pretrained_active_model_info.hide()
+            self.pretrained_predict_btn.setEnabled(True)
+        except Exception as exc:
+            self.pretrained_predict_btn.setEnabled(False)
+            self.pretrained_result_display.setText(
+                "<b>사전학습 모델을 준비하지 못했습니다.</b><br>"
+                f"{exc}"
+            )
+            self.pretrained_active_model_info.setText("사용 중인 모델: 준비되지 않음")
+            self.pretrained_active_model_info.hide()
+
+    def _load_or_train_pretrained_model(self):
+        models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models"))
+        os.makedirs(models_dir, exist_ok=True)
+
+        model_path = os.path.join(models_dir, "pretrained_material_model.pkl")
+        data_engine_path = os.path.join(models_dir, "pretrained_data_engine.pkl")
+        meta_path = os.path.join(models_dir, "pretrained_material_model_meta.json")
+        required_files = {
+            "model": model_path,
+            "data_engine": data_engine_path,
+            "meta": meta_path,
+        }
+        missing_files = [path for path in required_files.values() if not os.path.exists(path)]
+        if missing_files:
+            missing_names = ", ".join(os.path.basename(path) for path in missing_files)
+            raise FileNotFoundError(
+                "사전학습 예측 기능에 필요한 번들 모델 파일이 없습니다: "
+                f"{missing_names}"
+            )
+
+        pretrained_engine = joblib.load(data_engine_path)
+        pretrained_engine.file_path = None
+        selected_columns = pretrained_engine.get_selected_training_columns()
+        if "Fe" not in selected_columns:
+            raise ValueError("사전학습 입력 컬럼 정보가 올바르지 않습니다.")
+
+        pretrained_model = ModelEngine(model_type="RF", output_dim=4)
+        pretrained_model.load(model_path)
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+
+        return {
+            "model_engine": pretrained_model,
+            "data_engine": pretrained_engine,
+            "model_type": meta.get("model_type", pretrained_model.model_type),
+            "metrics": meta,
+        }
+
     def update_active_model_display(self):
         name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
         self.active_model_info.setText(f"현재 예측 모델: {name_map.get(self.model_type, self.model_type)}")
+        if self.pretrained_model_type and hasattr(self, "pretrained_active_model_info"):
+            metrics = self.pretrained_metrics or {}
+            model_name = name_map.get(self.pretrained_model_type, self.pretrained_model_type)
+            if metrics:
+                self.pretrained_active_model_info.setText(
+                    f"사용 중인 모델: {model_name} | 평균 R2 {metrics.get('r2_avg', 0):.3f} | 평균 MAE {metrics.get('mae_avg', 0):.3f}"
+                )
+            else:
+                self.pretrained_active_model_info.setText(f"사용 중인 모델: {model_name}")
         self._apply_theme_colors()
 
     # ================================================================
-    # [AUTO SAVE] 학습 완료 시 workspaces/auto_save/ 폴더에 자동 저장 (1개만 유지, 덮어씀)
+    # [AUTO SAVE] ??? ??? ??workspaces/auto_save/ ???????? ????(1??? ???, ?????)
     # ================================================================
     def auto_save_workspace(self):
         import shutil
@@ -2283,6 +2990,7 @@ class MainWindow(QMainWindow):
             json.dump(state, f, ensure_ascii=False, indent=2)
         self.canvas.fig.savefig(os.path.join(folder, "training.png"), dpi=200, bbox_inches="tight")
         self.perf_canvas.figure.savefig(os.path.join(folder, "performance.png"), dpi=200, bbox_inches="tight")
+        self.stress_strain_canvas.fig.savefig(os.path.join(folder, "stress_strain_curve.png"), dpi=200, bbox_inches="tight")
         # [AUTO SAVE] 전처리 결과 CSV 저장
         pre_df = self.data_engine.get_preprocessed_display_df()
         if not pre_df.empty:
@@ -2523,6 +3231,16 @@ class MainWindow(QMainWindow):
         """상세 성능 그래프 썸네일 클릭 시 크게 보기"""
         self._show_full_graph_dialog(self._ws_perf_thumb_full_path)
 
+    def _show_image_on_canvas(self, canvas, image):
+        canvas.fig.clear()
+        ax = canvas.fig.add_subplot(111)
+        canvas.axes = ax
+        canvas._view_mode = "image"
+        ax.imshow(image)
+        ax.axis("off")
+        canvas.fig.tight_layout()
+        canvas.draw()
+
     def _on_compare_clicked(self):
         """선택된 행(최대 3개)의 그래프를 나란히 비교하는 다이얼로그"""
         selected_rows = list({idx.row() for idx in self.ws_table.selectedIndexes()})
@@ -2662,6 +3380,7 @@ class MainWindow(QMainWindow):
         self.canvas.fig.savefig(os.path.join(folder, "training.png"), dpi=200, bbox_inches="tight")
         self.perf_canvas.figure.savefig(os.path.join(folder, "performance.png"), dpi=200, bbox_inches="tight")
         self.prediction_canvas.fig.savefig(os.path.join(folder, "prediction.png"), dpi=200, bbox_inches="tight")
+        self.stress_strain_canvas.fig.savefig(os.path.join(folder, "stress_strain_curve.png"), dpi=200, bbox_inches="tight")
         state = {
             "file_path": self.data_engine.file_path,
             "model_combo_index": self.model_combo.currentIndex(),
@@ -2707,6 +3426,7 @@ class MainWindow(QMainWindow):
             return
         with open(state_path, "r", encoding="utf-8") as f:
             state = json.load(f)
+        self._user_prediction_state = None
         saved_file = state.get("file_path")
         if saved_file and os.path.exists(saved_file):
             self.data_engine.set_file_path(saved_file)
@@ -2762,9 +3482,10 @@ class MainWindow(QMainWindow):
 
         # [WORKSPACE] 그래프 이미지 복원 (폴더 내 PNG)
         for img_file, canvas_fn in [
-            ("training.png",    lambda img: (self.canvas.axes.clear(), self.canvas.axes.imshow(img), self.canvas.axes.axis("off"), self.canvas.draw())),
+            ("training.png",    lambda img: self._show_image_on_canvas(self.canvas, img)),
             ("performance.png", lambda img: (self.perf_canvas.figure.clear(), self.perf_canvas.figure.add_subplot(111).imshow(img), self.perf_canvas.figure.axes[0].axis("off"), self.perf_canvas.draw())),
-            ("prediction.png",  lambda img: (self.prediction_canvas.axes.clear(), self.prediction_canvas.axes.imshow(img), self.prediction_canvas.axes.axis("off"), self.prediction_canvas.draw())),
+            ("prediction.png",  lambda img: self._show_image_on_canvas(self.prediction_canvas, img)),
+            ("stress_strain_curve.png", lambda img: self._show_image_on_canvas(self.stress_strain_canvas, img)),
         ]:
             path = os.path.join(folder, img_file)
             if os.path.exists(path):
@@ -2827,9 +3548,3 @@ class MainWindow(QMainWindow):
 
         dialog.exec()
 
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
