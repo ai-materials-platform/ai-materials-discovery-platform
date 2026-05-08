@@ -24,3 +24,5 @@ data/*.pkl
 data/*.index
 data/*.data-*
 data/checkpoint
+
+gcm-diagnose.log*

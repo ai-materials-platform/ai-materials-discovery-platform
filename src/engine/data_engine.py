@@ -16,6 +16,7 @@ class DataEngine:
         self.selected_training_columns = None
 
         self.raw_feature_cols = [
+            "Fe",
             "Cr",
             "Ni",
             "Mo",
@@ -66,6 +67,7 @@ class DataEngine:
             "Air_Quenched_after_s.t.",
         ]
         self.nonnegative_cols = [
+            "Fe",
             "Cr",
             "Ni",
             "Mo",
@@ -153,6 +155,7 @@ class DataEngine:
             "Temperature (K)": "SSINA 고온 특성",
         }
         self.default_domain_ranges = {
+            "Fe": (0, 100),
             "Cr": (16, 26),
             "Ni": (3.5, 37),
             "Mo": (0, 5),
@@ -545,6 +548,16 @@ class DataEngine:
     def _add_engineered_features(self, df):
         df = df.copy()
         eps = 1e-8
+
+        if "Fe" not in df.columns:
+            composition_columns = [
+                "Cr", "Ni", "Mo", "Mn", "Si", "Nb", "Ti", "Zr", "Ta", "V",
+                "W", "Cu", "N", "C", "B", "P", "S", "Co", "Al", "Sn", "Pb",
+            ]
+            composition_total = pd.Series(0.0, index=df.index)
+            for column in composition_columns:
+                composition_total = composition_total + df.get(column, pd.Series(0.0, index=df.index)).fillna(0.0)
+            df["Fe"] = (100.0 - composition_total).clip(lower=0.0)
 
         cr = df.get("Cr", pd.Series(0.0, index=df.index)).fillna(0.0)
         ni = df.get("Ni", pd.Series(0.0, index=df.index)).fillna(0.0)

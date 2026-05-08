@@ -1,5 +1,4 @@
 import os
-import sys
 import json        # [분석 저장] 워크스페이스 저장/불러오기에 사용
 import datetime   # [LOG] 로그 기록 시간 저장용
 
@@ -217,6 +216,9 @@ class MainWindow(QMainWindow):
         self._info_box_widgets = []    # info box (accent left border)
         self._section_lbl_widgets = [] # color: text_label, monospace
         self._muted_bg_widgets = []    # background: summary/muted
+        self._prediction_input_groups = []
+        self._prediction_input_fields = []
+        self._prediction_input_labels = []
 
         self.init_ui()
 
@@ -477,18 +479,10 @@ class MainWindow(QMainWindow):
         return page
 
     def _build_prediction_input_sections(self, parent_layout, input_store):
-        comp_group = QGroupBox()
-        comp_group.setStyleSheet("QGroupBox { margin-top: 0px; padding-top: 12px; }")
+        comp_group = QGroupBox("합금 조성 (wt%)")
         comp_group_layout = QVBoxLayout(comp_group)
         comp_group_layout.setContentsMargins(12, 12, 12, 12)
-        comp_group_layout.setSpacing(8)
-        title_comp = QLabel("합금 조성 (wt%)")
-        title_comp.setStyleSheet("font-size: 14px; font-weight: 700;")
-        comp_group_layout.addWidget(title_comp)
-        comp_layout = QFormLayout()
-        comp_layout.setContentsMargins(12, 10, 12, 12)
-        comp_layout.setHorizontalSpacing(14)
-        comp_layout.setVerticalSpacing(8)
+        comp_group_layout.setSpacing(12)
         composition_defaults = {
             "Fe": "96.0",
             "C": "0.08",
@@ -507,26 +501,21 @@ class MainWindow(QMainWindow):
             "B": "0.0005",
             "Al": "0.03",
         }
-        for col, value in composition_defaults.items():
-            line_edit = QLineEdit()
-            line_edit.setText(value)
-            comp_layout.addRow(QLabel(col), line_edit)
-            input_store[col] = line_edit
-        comp_group_layout.addLayout(comp_layout)
+        composition_items = list(composition_defaults.items())
+        midpoint = (len(composition_items) + 1) // 2
+        comp_columns = QHBoxLayout()
+        comp_columns.setContentsMargins(0, 0, 0, 0)
+        comp_columns.setSpacing(16)
+        comp_columns.addLayout(self._create_prediction_form(composition_items[:midpoint], input_store))
+        comp_columns.addLayout(self._create_prediction_form(composition_items[midpoint:], input_store))
+        comp_group_layout.addLayout(comp_columns)
         parent_layout.addWidget(comp_group)
+        self._prediction_input_groups.append(comp_group)
 
-        proc_group = QGroupBox()
-        proc_group.setStyleSheet("QGroupBox { margin-top: 0px; padding-top: 12px; }")
+        proc_group = QGroupBox("공정 및 조직")
         proc_group_layout = QVBoxLayout(proc_group)
         proc_group_layout.setContentsMargins(12, 12, 12, 12)
-        proc_group_layout.setSpacing(8)
-        title_proc = QLabel("공정 및 조직")
-        title_proc.setStyleSheet("font-size: 14px; font-weight: 700;")
-        proc_group_layout.addWidget(title_proc)
-        proc_layout = QFormLayout()
-        proc_layout.setContentsMargins(12, 10, 12, 12)
-        proc_layout.setHorizontalSpacing(14)
-        proc_layout.setVerticalSpacing(8)
+        proc_group_layout.setSpacing(12)
         proc_defaults = {
             "Solution_treatment_temperature": "1050",
             "Solution_treatment_time(s)": "3600",
@@ -538,13 +527,49 @@ class MainWindow(QMainWindow):
             "Product form": "3",
             "Temperature (K)": "300",
         }
-        for col, value in proc_defaults.items():
+        proc_group_layout.addLayout(self._create_prediction_form(list(proc_defaults.items()), input_store))
+        parent_layout.addWidget(proc_group)
+        self._prediction_input_groups.append(proc_group)
+        self._apply_prediction_input_styles()
+
+    def _create_prediction_form(self, items, input_store):
+        form_layout = QFormLayout()
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setHorizontalSpacing(14)
+        form_layout.setVerticalSpacing(10)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        for col, value in items:
+            label = QLabel(col)
             line_edit = QLineEdit()
             line_edit.setText(value)
-            proc_layout.addRow(QLabel(col), line_edit)
+            form_layout.addRow(label, line_edit)
             input_store[col] = line_edit
-        proc_group_layout.addLayout(proc_layout)
-        parent_layout.addWidget(proc_group)
+            self._prediction_input_labels.append(label)
+            self._prediction_input_fields.append(line_edit)
+        return form_layout
+
+    def _apply_prediction_input_styles(self):
+        c = self._theme()
+        group_style = (
+            "QGroupBox { "
+            f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px; "
+            "margin-top: 10px; padding-top: 14px; font-weight: 700; }"
+            f"QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; color: {c['text_primary']}; }}"
+        )
+        line_edit_style = (
+            "QLineEdit { "
+            f"background: {c['input_bg']}; color: {c['text_primary']}; border: 1px solid {c['border']}; "
+            "border-radius: 8px; padding: 7px 10px; selection-background-color: #E56020; selection-color: #FFFFFF; }"
+            "QLineEdit:focus { border-color: #E56020; }"
+        )
+        for group in self._prediction_input_groups:
+            group.setStyleSheet(group_style)
+        for label in self._prediction_input_labels:
+            label.setStyleSheet(
+                f"color: {c['text_sec']}; font-size: 12px; font-weight: 600; padding-right: 4px;"
+            )
+        for field in self._prediction_input_fields:
+            field.setStyleSheet(line_edit_style)
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
@@ -717,6 +742,8 @@ class MainWindow(QMainWindow):
                 f"font-size: 11px; color: {c['text_sec']}; padding: 8px 10px; "
                 f"background: {c['muted_bg']}; border-top: 1px solid {c['divider']};"
             )
+        if self._prediction_input_groups or self._prediction_input_fields or self._prediction_input_labels:
+            self._apply_prediction_input_styles()
         if hasattr(self, "feature_selection_status_label"):
             self.feature_selection_status_label.setStyleSheet(
                 f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
@@ -2379,7 +2406,7 @@ class MainWindow(QMainWindow):
             self.pretrained_active_model_info.setText(
                 f"사용 중인 모델: {model_name} | 평균 R2 {self.pretrained_metrics['r2_avg']:.3f} | 평균 MAE {self.pretrained_metrics['mae_avg']:.3f}"
             )
-            self.pretrained_active_model_info.show()
+            self.pretrained_active_model_info.hide()
             self.pretrained_predict_btn.setEnabled(True)
         except Exception as exc:
             self.pretrained_predict_btn.setEnabled(False)
@@ -2388,7 +2415,7 @@ class MainWindow(QMainWindow):
                 f"{exc}"
             )
             self.pretrained_active_model_info.setText("사용 중인 모델: 준비되지 않음")
-            self.pretrained_active_model_info.show()
+            self.pretrained_active_model_info.hide()
 
     def _load_or_train_pretrained_model(self):
         models_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models"))
@@ -2401,16 +2428,18 @@ class MainWindow(QMainWindow):
 
         if os.path.exists(model_path) and os.path.exists(data_engine_path) and os.path.exists(meta_path):
             pretrained_engine = joblib.load(data_engine_path)
-            pretrained_model = ModelEngine(model_type="RF", output_dim=4)
-            pretrained_model.load(model_path)
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-            return {
-                "model_engine": pretrained_model,
-                "data_engine": pretrained_engine,
-                "model_type": meta.get("model_type", pretrained_model.model_type),
-                "metrics": meta,
-            }
+            selected_columns = pretrained_engine.get_selected_training_columns()
+            if "Fe" in selected_columns:
+                pretrained_model = ModelEngine(model_type="RF", output_dim=4)
+                pretrained_model.load(model_path)
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                return {
+                    "model_engine": pretrained_model,
+                    "data_engine": pretrained_engine,
+                    "model_type": meta.get("model_type", pretrained_model.model_type),
+                    "metrics": meta,
+                }
 
         if not os.path.exists(dataset_path):
             raise FileNotFoundError(f"사전학습 데이터 파일을 찾을 수 없습니다: {dataset_path}")
@@ -3048,9 +3077,3 @@ class MainWindow(QMainWindow):
 
         dialog.exec()
 
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
