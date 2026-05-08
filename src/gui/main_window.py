@@ -540,8 +540,11 @@ class MainWindow(QMainWindow):
         form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         for col, value in items:
             label = QLabel(col)
+            label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             line_edit = QLineEdit()
             line_edit.setText(value)
+            line_edit.deselect()
+            line_edit.setCursorPosition(0)
             form_layout.addRow(label, line_edit)
             input_store[col] = line_edit
             self._prediction_input_labels.append(label)
@@ -564,9 +567,11 @@ class MainWindow(QMainWindow):
         )
         for group in self._prediction_input_groups:
             group.setStyleSheet(group_style)
+        label_color = "#555555" if not self._dark_mode else c['text_sec']
         for label in self._prediction_input_labels:
             label.setStyleSheet(
-                f"color: {c['text_sec']}; font-size: 12px; font-weight: 600; padding-right: 4px;"
+                f"color: {label_color}; font-size: 12px; font-weight: 600; "
+                "padding-right: 4px; background: transparent;"
             )
         for field in self._prediction_input_fields:
             field.setStyleSheet(line_edit_style)
