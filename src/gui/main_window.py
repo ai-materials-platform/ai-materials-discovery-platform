@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal, QRect, QPoint, QRectF, QEvent, QObject
 from PyQt6.QtGui import QColor, QBrush, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QPalette
 from PyQt6.QtWidgets import (
     QApplication,
@@ -1231,6 +1231,8 @@ class StressStrainSimulationWidget(QWidget):
                 + " | 하중은 지금 마우스로 당기고 있는 외력입니다. 손을 놓아 잔류 상태가 되면 외력은 0 N으로 내려가고, 남는 값은 잔류 변형입니다."
             ),
             "accent_color": state["accent_color"],
+            "current_strain": self._current_strain,
+            "current_stress_mpa": state.get("stress_mpa", 0.0),
         }
 
     @staticmethod
@@ -1246,9 +1248,179 @@ class StressStrainSimulationWidget(QWidget):
 
     @staticmethod
     def _qrectf(x_pos, y_pos, width, height):
-        from PyQt6.QtCore import QRectF
-
         return QRectF(float(x_pos), float(y_pos), float(width), float(height))
+
+
+class PredictionGuideOverlay(QWidget):
+    """물성 예측 페이지 위에 떠 있는 단계별 가이드 오버레이."""
+
+    NAV_H = 64
+
+    def __init__(self, steps, parent=None, toolbar_h=0):
+        super().__init__(parent)
+        self._steps = steps
+        self._step = 0
+        self._toolbar_h = toolbar_h
+        if parent:
+            self.setGeometry(0, toolbar_h, parent.width(), parent.height() - toolbar_h)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        # 말풍선 (고정 크기)
+        self._bubble = QLabel(self)
+        self._bubble.setWordWrap(True)
+        self._bubble.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._bubble.setStyleSheet(
+            "background: #FFFFFF; color: #1E293B; border: 2px solid #E56020; "
+            "border-radius: 12px; padding: 14px 16px; font-size: 12px;"
+        )
+        self._bubble.setFixedSize(280, 210)
+
+        # 상단 네비게이션 바
+        self._nav = QWidget(self)
+        self._nav.setStyleSheet("background: #1E293B; border-bottom: 1px solid #334155;")
+        nav_layout = QHBoxLayout(self._nav)
+        nav_layout.setContentsMargins(24, 0, 24, 0)
+        nav_layout.setSpacing(10)
+
+        btn_base = (
+            "QPushButton {{ background: {bg}; color: white; border: none; border-radius: 14px; "
+            "font-weight: 700; font-size: 12px; min-width: 80px; min-height: 34px; padding: 0 16px; }}"
+            "QPushButton:hover {{ background: {hv}; }}"
+            "QPushButton:disabled {{ background: #475569; color: #94A3B8; }}"
+        )
+        self._prev_btn = QPushButton("◀  이전")
+        self._prev_btn.setStyleSheet(btn_base.format(bg="#475569", hv="#64748B"))
+        self._prev_btn.clicked.connect(self._go_prev)
+
+        self._step_label = QLabel()
+        self._step_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._step_label.setStyleSheet("color: #CBD5E1; font-size: 13px; font-weight: 700;")
+
+        self._next_btn = QPushButton("다음  ▶")
+        self._next_btn.setStyleSheet(btn_base.format(bg="#E56020", hv="#F97316"))
+        self._next_btn.clicked.connect(self._go_next)
+
+        self._close_btn = QPushButton("✕  닫기")
+        self._close_btn.setStyleSheet(btn_base.format(bg="#DC2626", hv="#EF4444"))
+        self._close_btn.clicked.connect(self.close)
+
+        nav_layout.addWidget(self._prev_btn)
+        nav_layout.addStretch(1)
+        nav_layout.addWidget(self._step_label)
+        nav_layout.addStretch(1)
+        nav_layout.addWidget(self._next_btn)
+        nav_layout.addSpacing(12)
+        nav_layout.addWidget(self._close_btn)
+
+        self._update_step()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self.parent():
+            self.parent().installEventFilter(self)
+        self._relayout()
+        self._position_bubble()
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        if self.parent():
+            self.parent().removeEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if obj is self.parent() and event.type() == QEvent.Type.Resize:
+            th = self._toolbar_h
+            self.setGeometry(0, th, obj.width(), obj.height() - th)
+            self._relayout()
+            self._position_bubble()
+        return False
+
+    def _relayout(self):
+        self._nav.setGeometry(0, 0, self.width(), self.NAV_H)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._relayout()
+        self._position_bubble()
+
+    def _spotlight_rect(self):
+        if self._step >= len(self._steps):
+            return None
+        w = self._steps[self._step].get("widget")
+        if not w or not w.isVisible():
+            return None
+        try:
+            global_pos = w.mapToGlobal(QPoint(0, 0))
+            local_pos = self.mapFromGlobal(global_pos)
+            return QRect(local_pos, w.size()).adjusted(-10, -10, 10, 10)
+        except Exception:
+            return None
+
+    def _update_step(self):
+        total = len(self._steps)
+        self._step_label.setText(f"{self._step + 1}  /  {total}")
+        self._prev_btn.setEnabled(self._step > 0)
+        self._next_btn.setEnabled(self._step < total - 1)
+        step = self._steps[self._step]
+        self._bubble.setText(step["text"])
+        if step.get("on_show"):
+            step["on_show"]()
+        self.update()
+        QTimer.singleShot(30, self._position_bubble)
+
+    def _position_bubble(self):
+        if self._step >= len(self._steps):
+            return
+        bubble_w = self._bubble.width()
+        bubble_h = self._bubble.height()
+
+        spot = self._spotlight_rect()
+        content_top = self.NAV_H + 12
+        content_bottom = self.height() - 12
+        usable_h = content_bottom - content_top
+
+        if spot:
+            # 오른쪽 여유 있으면 오른쪽, 없으면 왼쪽, 둘 다 없으면 아래
+            bx = spot.right() + 18
+            by = spot.top()
+            if bx + bubble_w > self.width() - 8:
+                bx = spot.left() - bubble_w - 18
+            if bx < 8:
+                bx = max(8, (self.width() - bubble_w) // 2)
+                by = spot.bottom() + 16
+            by = max(content_top, min(by, content_bottom - bubble_h))
+        else:
+            bx = (self.width() - bubble_w) // 2
+            by = content_top + (usable_h - bubble_h) // 2
+        self._bubble.move(bx, by)
+
+    def paintEvent(self, _event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        ov = QColor(0, 0, 0, 170)
+        r = self.rect()
+        content_top = self.NAV_H
+
+        spot = self._spotlight_rect()
+        if spot:
+            painter.fillRect(QRect(r.left(), content_top, r.width(), spot.top() - content_top), ov)
+            painter.fillRect(QRect(r.left(), spot.top(), spot.left(), spot.height()), ov)
+            painter.fillRect(QRect(spot.right(), spot.top(), r.right() - spot.right(), spot.height()), ov)
+            painter.fillRect(QRect(r.left(), spot.bottom(), r.width(), r.bottom() - spot.bottom()), ov)
+            painter.setPen(QPen(QColor("#E56020"), 2.5))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(QRectF(spot), 8, 8)
+        else:
+            painter.fillRect(QRect(r.left(), content_top, r.width(), r.height() - content_top), ov)
+
+    def _go_prev(self):
+        if self._step > 0:
+            self._step -= 1
+            self._update_step()
+
+    def _go_next(self):
+        if self._step < len(self._steps) - 1:
+            self._step += 1
+            self._update_step()
 
 
 class MainWindow(QMainWindow):
@@ -1304,7 +1476,10 @@ class MainWindow(QMainWindow):
             "QMenuBar::item { background: transparent; padding: 5px 10px; }"
             "QMenuBar::item:selected { background: #3A4048; color: #FFFFFF; }"
         )
-        for name in ["파일", "편집", "보기", "데이터", "분석", "도구", "도움말"]:
+        file_menu = mb.addMenu("파일")
+        file_menu.addAction("분석 기록 저장", self._save_workspace_from_menu)
+        file_menu.addAction("분석 기록 불러오기", self._open_workspace_dialog)
+        for name in ["편집", "보기", "데이터", "분석", "도구", "도움말"]:
             mb.addMenu(name)
 
         central_widget = QWidget()
@@ -1338,7 +1513,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
         splitter.addWidget(self.tabs)
-        splitter.setSizes([190, 270, 860])
+        splitter.setSizes([190, 300, 860])
 
         user_layout.addWidget(splitter, 1)
         self.main_mode_stack.addWidget(self.user_page)
@@ -1480,6 +1655,20 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(24, 24, 24, 24)
         outer.setSpacing(18)
 
+        # 상단 가이드 버튼 행
+        top_row = QHBoxLayout()
+        top_row.addStretch()
+        guide_btn = QPushButton("사용 가이드")
+        guide_btn.setFixedHeight(30)
+        guide_btn.setStyleSheet(
+            "QPushButton { background: #EEF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; "
+            "border-radius: 14px; font-size: 11px; font-weight: 700; padding: 0 14px; }"
+            "QPushButton:hover { background: #DBEAFE; }"
+        )
+        guide_btn.clicked.connect(lambda: self._show_prediction_guide(page))
+        top_row.addWidget(guide_btn)
+        outer.addLayout(top_row)
+
         content_row = QHBoxLayout()
         content_row.setSpacing(18)
 
@@ -1509,7 +1698,8 @@ class MainWindow(QMainWindow):
         )
         self.pretrained_predict_btn.clicked.connect(self.on_pretrained_predict_clicked)
         input_layout.addWidget(self.pretrained_predict_btn)
-        content_row.addWidget(input_card, 1)
+        input_card.setFixedWidth(340)
+        content_row.addWidget(input_card)
 
         result_card = QGroupBox("예측 결과")
         result_layout = QVBoxLayout(result_card)
@@ -1564,6 +1754,53 @@ class MainWindow(QMainWindow):
 
         outer.addLayout(content_row, 1)
         return page
+
+    def _show_prediction_guide(self, _page):
+        steps = [
+            {
+                "widget": self.pretrained_inputs.get(
+                    list(self.pretrained_inputs.keys())[0]
+                ).parent().parent().parent().parent()
+                if self.pretrained_inputs else None,
+                "text": "① 합금 조성 입력\n\n각 원소의 wt% 값을 입력하세요.\nFe는 보통 96% 이상, 나머지는 소량.\n\n기본값은 오스테나이트계 스테인리스강 기준입니다.",
+            },
+            {
+                "widget": self.pretrained_predict_btn,
+                "text": "② 예측 실행\n\n버튼 클릭 시 RF·GBM·MLP·TFP\n4개 AI 모델이 물성을 예측합니다.\n\n평균값과 불확실도를 함께 제공합니다.",
+            },
+            {
+                "widget": self.pretrained_result_tabs,
+                "text": "③ 예측 결과 탭\n\nYield Stress / UTS / 연신율 /\n단면감소율 예측값을 확인합니다.\n\n오차 범위가 좁을수록 신뢰도가 높습니다.",
+                "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(0),
+            },
+            {
+                "widget": self.pretrained_result_tabs,
+                "text": "④ Stress-Strain Curve 탭\n\n예측 물성 기반 응력-변형률 곡선.\n• 초록: 탄성 구간 (복원 가능)\n• 주황: 소성 구간 (영구 변형)\n• 빨강: 네킹→파단 구간",
+                "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(1),
+            },
+            {
+                "widget": self.pretrained_result_tabs,
+                "text": "⑤ Simulation 탭\n\n핸들 드래그로 인장 하중을 조절하며\n탄성/소성 변형을 실시간 확인.\n\nStress-Strain 그래프에 현재 위치가 표시됩니다.",
+                "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(2),
+            },
+        ]
+        # pretrained_inputs가 없으면 첫 번째 스텝 widget을 None으로
+        if not self.pretrained_inputs:
+            steps[0]["widget"] = None
+        else:
+            try:
+                first_key = list(self.pretrained_inputs.keys())[0]
+                le = self.pretrained_inputs[first_key]
+                # scroll area → form_container → input_card 방향으로 올라가기
+                steps[0]["widget"] = le.parent().parent().parent().parent()
+            except Exception:
+                steps[0]["widget"] = None
+
+        cw = self.centralWidget()
+        toolbar_h = self._toolbar_widget.height()
+        overlay = PredictionGuideOverlay(steps, parent=cw, toolbar_h=toolbar_h)
+        overlay.raise_()
+        overlay.show()
 
     def _build_prediction_input_sections(self, parent_layout, input_store):
         comp_group = QGroupBox("합금 조성 (wt%)")
@@ -1948,22 +2185,6 @@ class MainWindow(QMainWindow):
             self.inference_right_frame.setStyleSheet(
                 f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px;"
             )
-        if hasattr(self, "ws_detail_widget"):
-            self.ws_detail_widget.setStyleSheet(
-                f"background-color: {c['muted_bg']}; border-top: 1px solid {c['divider']};"
-            )
-        if hasattr(self, "ws_detail_thumb"):
-            self.ws_detail_thumb.setStyleSheet(
-                f"border: 1px solid {c['border']}; background: {c['panel_bg']}; border-radius: 8px; color: {c['text_label']};"
-            )
-        if hasattr(self, "ws_detail_perf_thumb"):
-            self.ws_detail_perf_thumb.setStyleSheet(
-                f"border: 1px solid {c['border']}; background: {c['panel_bg']}; border-radius: 8px; color: {c['text_label']};"
-            )
-        if hasattr(self, "ws_detail_info"):
-            self.ws_detail_info.setStyleSheet(
-                f"font-size: 12px; color: {c['text_sec']}; padding-left: 12px;"
-            )
         if hasattr(self, "ws_hint_label"):
             self.ws_hint_label.setStyleSheet(
                 f"color: {c['text_label']}; font-size: 11px; font-weight: 600; margin-top: 4px;"
@@ -1983,14 +2204,6 @@ class MainWindow(QMainWindow):
         if hasattr(self, "ws_list_title"):
             self.ws_list_title.setStyleSheet(
                 f"font-size: 14px; font-weight: 700; color: {c['text_primary']};"
-            )
-        if hasattr(self, "ws_train_thumb_label"):
-            self.ws_train_thumb_label.setStyleSheet(
-                f"font-size: 11px; color: {c['text_sec']}; font-weight: 600;"
-            )
-        if hasattr(self, "ws_perf_thumb_label"):
-            self.ws_perf_thumb_label.setStyleSheet(
-                f"font-size: 11px; color: {c['text_sec']}; font-weight: 600;"
             )
         if hasattr(self, "ws_compare_btn"):
             self.ws_compare_btn.setStyleSheet(
@@ -2024,12 +2237,6 @@ class MainWindow(QMainWindow):
                 "QPushButton { background: #DC2626; color: white; border: none; border-radius: 10px; "
                 "font-weight: 700; padding: 7px 12px; }"
                 "QPushButton:hover { background: #EF4444; }"
-            )
-        if hasattr(self, "ws_panel_load_btn"):
-            self.ws_panel_load_btn.setStyleSheet(
-                "QPushButton { background: #0F766E; color: white; border: none; border-radius: 10px; "
-                "font-weight: 700; padding: 8px 14px; }"
-                "QPushButton:hover { background: #0D9488; }"
             )
         if hasattr(self, "preprocessing_tab"):
             self.preprocessing_tab.setStyleSheet(f"background: {c['panel_bg']};")
@@ -2079,7 +2286,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        header = QLabel("프로젝트 탐색기")
+        header = QLabel("분석 기록 탐색기")
         header.setStyleSheet(
             "font-size: 11px; color: #5B6470; padding: 10px 14px; letter-spacing: 0.8px; "
             "font-weight: 600; border-bottom: 1px solid #E1E5EA;"
@@ -2176,6 +2383,7 @@ class MainWindow(QMainWindow):
 
     def _create_settings_panel(self):
         panel = QWidget()
+        panel.setMinimumWidth(280)
         panel.setStyleSheet("background: #FFFFFF;")
         self._panel_widgets.append(panel)
         outer = QVBoxLayout(panel)
@@ -2683,7 +2891,8 @@ class MainWindow(QMainWindow):
             self.stress_strain_placeholder_label,
         )
 
-        layout.addWidget(self.inference_left_frame, 1)
+        self.inference_left_frame.setFixedWidth(340)
+        layout.addWidget(self.inference_left_frame)
         layout.addWidget(self.inference_right_frame, 1)
         self.tabs.addTab(tab, "물성 예측")
 
@@ -2701,7 +2910,7 @@ class MainWindow(QMainWindow):
         self.ws_name_label = QLabel("이름:")
         self.ws_name_label.setStyleSheet("font-size: 12px; color: #475569; font-weight: 600;")
         self.ws_name_input = QLineEdit()
-        self.ws_name_input.setPlaceholderText("분석 저장 이름 입력 (예: 실험A)")
+        self.ws_name_input.setPlaceholderText("분석 기록 이름 입력 (예: 실험A)")
         self.ws_name_input.setFixedWidth(200)
         self.ws_name_input.setStyleSheet("QLineEdit { background: #FFFFFF; color: #111827; border: 1px solid #D3D7DC; border-radius: 6px; padding: 6px 10px; }")
         self.ws_save_btn = QPushButton("저장")
@@ -2743,7 +2952,7 @@ class MainWindow(QMainWindow):
 
         # ── 목록 헤더 ──────────────────────────────────────────────────
         header_row = QHBoxLayout()
-        self.ws_list_title = QLabel("분석 저장 목록")
+        self.ws_list_title = QLabel("분석 기록 목록")
         self.ws_list_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #111827;")
         header_row.addWidget(self.ws_list_title)
         header_row.addStretch()
@@ -2767,14 +2976,10 @@ class MainWindow(QMainWindow):
         header_row.addWidget(self.ws_refresh_btn)
         layout.addLayout(header_row)
 
-        # 상단 테이블 + 하단 상세 패널을 QSplitter로 분리
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.setHandleWidth(2)
-
-        # ── 상단: 목록 테이블 ──
+        # ── 목록 테이블 ──
         self.ws_table = QTableWidget()
-        self.ws_table.setColumnCount(5)
-        self.ws_table.setHorizontalHeaderLabels(["이름", "모델", "데이터 파일", "저장 날짜", "R2 평균"])
+        self.ws_table.setColumnCount(7)
+        self.ws_table.setHorizontalHeaderLabels(["이름", "모델", "저장 날짜", "초기값", "회복_구간", "복원불가_구간", "끊기는_구간"])
         self.ws_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.ws_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.ws_table.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)
@@ -2783,82 +2988,20 @@ class MainWindow(QMainWindow):
         self.ws_table.horizontalHeader().setStretchLastSection(True)
         self.ws_table.setColumnWidth(0, 160)
         self.ws_table.setColumnWidth(1, 130)
-        self.ws_table.setColumnWidth(2, 200)
-        self.ws_table.setColumnWidth(3, 160)
+        self.ws_table.setColumnWidth(2, 160)
+        self.ws_table.setColumnWidth(3, 120)
+        self.ws_table.setColumnWidth(4, 140)
+        self.ws_table.setColumnWidth(5, 150)
+        self.ws_table.setColumnWidth(6, 140)
         self.ws_table.cellClicked.connect(self._on_ws_table_clicked)
         self.ws_table.cellDoubleClicked.connect(self._on_ws_table_double_clicked)
-        splitter.addWidget(self.ws_table)
+        layout.addWidget(self.ws_table)
 
-        # ── 하단: 상세 정보 패널 ──
-        self.ws_detail_widget = QWidget()
-        self.ws_detail_widget.setStyleSheet("background-color: #F8FAFC; border-top: 1px solid #CBD5E1;")
-        detail_layout = QHBoxLayout(self.ws_detail_widget)
-        detail_layout.setContentsMargins(12, 10, 12, 10)
-
-        # 그래프 썸네일 영역 (학습 + 상세 성능)
-        thumb_col = QVBoxLayout()
-        thumb_col.setSpacing(4)
-
-        # 학습 그래프 썸네일
-        self.ws_train_thumb_label = QLabel("학습 그래프")
-        self.ws_train_thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_train_thumb_label.setStyleSheet("font-size: 11px; color: #475569; font-weight: 600;")
-        thumb_col.addWidget(self.ws_train_thumb_label)
-        self.ws_detail_thumb = QLabel()
-        self.ws_detail_thumb.setFixedSize(200, 120)
-        self.ws_detail_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_detail_thumb.setStyleSheet("border: 1px solid #CBD5E1; background: white; border-radius: 8px;")
-        self.ws_detail_thumb.setText("없음")
-        self.ws_detail_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.ws_detail_thumb.mousePressEvent = self._on_thumb_clicked
-        self._ws_thumb_full_path = None
-        thumb_col.addWidget(self.ws_detail_thumb)
-
-        # 상세 성능 그래프 썸네일
-        self.ws_perf_thumb_label = QLabel("상세 성능")
-        self.ws_perf_thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_perf_thumb_label.setStyleSheet("font-size: 11px; color: #475569; font-weight: 600;")
-        thumb_col.addWidget(self.ws_perf_thumb_label)
-        self.ws_detail_perf_thumb = QLabel()
-        self.ws_detail_perf_thumb.setFixedSize(200, 120)
-        self.ws_detail_perf_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.ws_detail_perf_thumb.setStyleSheet("border: 1px solid #CBD5E1; background: white; border-radius: 8px;")
-        self.ws_detail_perf_thumb.setText("없음")
-        self.ws_detail_perf_thumb.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.ws_detail_perf_thumb.mousePressEvent = self._on_perf_thumb_clicked
-        self._ws_perf_thumb_full_path = None
-        thumb_col.addWidget(self.ws_detail_perf_thumb)
-
-        detail_layout.addLayout(thumb_col)
-
-        # 상세 텍스트
-        self.ws_detail_info = QLabel()
-        self.ws_detail_info.setWordWrap(True)
-        self.ws_detail_info.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.ws_detail_info.setStyleSheet("font-size: 12px; color: #334155; padding-left: 12px;")
-        self.ws_detail_info.setText("저장된 분석을 클릭하면 상세 정보가 표시됩니다.")
-        detail_layout.addWidget(self.ws_detail_info, 1)
-
-        # 불러오기 버튼
-        self.ws_panel_load_btn = QPushButton("분석 불러오기")
-        self.ws_panel_load_btn.setFixedSize(130, 40)
-        self.ws_panel_load_btn.setStyleSheet(
-            "QPushButton { background: #0F766E; color: white; border: none; border-radius: 10px; "
-            "font-weight: 700; padding: 8px 14px; }"
-            "QPushButton:hover { background: #0D9488; }"
-        )
-        self.ws_panel_load_btn.clicked.connect(self._load_selected_ws)
-        detail_layout.addWidget(self.ws_panel_load_btn, 0, Qt.AlignmentFlag.AlignBottom)
-
-        splitter.addWidget(self.ws_detail_widget)
-        splitter.setSizes([400, 180])
-        layout.addWidget(splitter)
-
-        self.ws_hint_label = QLabel("※ 행 클릭 → 상세 보기  |  더블클릭 → 바로 불러오기  |  Ctrl+클릭으로 여러 행 선택 후 [비교 보기] 클릭")
+        self.ws_hint_label = QLabel("※ 더블클릭 → 바로 불러오기  |  Ctrl+클릭으로 여러 행 선택 후 [비교 보기] 클릭")
         self.ws_hint_label.setStyleSheet("color: #475569; font-size: 11px; font-weight: 600; margin-top: 4px;")
         layout.addWidget(self.ws_hint_label)
 
-        self.tabs.addTab(tab, "워크스페이스")
+        self._workspace_widget = tab
         self.refresh_workspace_table()
 
     def refresh_domain_range_status(self):
@@ -3197,6 +3340,38 @@ class MainWindow(QMainWindow):
             f"background: {colors['muted_bg']}; border: 1px solid {colors['border']}; "
             "border-radius: 10px; padding: 12px 14px;"
         )
+        current_strain = payload.get("current_strain", None)
+        if current_strain is not None:
+            self._update_stress_strain_marker(prefix, current_strain)
+
+    def _update_stress_strain_marker(self, prefix, strain):
+        canvas = getattr(self, "pretrained_curve_canvas" if prefix == "pretrained" else "stress_strain_canvas", None)
+        if canvas is None or getattr(canvas, "_view_mode", None) != "curve":
+            return
+        ax = getattr(canvas, "axes", None)
+        if ax is None:
+            return
+
+        for attr in ("_sim_marker_line", "_sim_marker_dot"):
+            obj = getattr(canvas, attr, None)
+            if obj is not None:
+                try:
+                    obj.remove()
+                except Exception:
+                    pass
+            setattr(canvas, attr, None)
+
+        if strain > 0 and hasattr(canvas, "_strain_data") and canvas._strain_data is not None:
+            stress_at = float(np.interp(strain, canvas._strain_data, canvas._stress_data))
+            canvas._sim_marker_line = ax.axvline(
+                x=strain, color="#E56020", linestyle="--", linewidth=1.6, alpha=0.85, zorder=4
+            )
+            canvas._sim_marker_dot = ax.plot(
+                strain, stress_at, "o", color="#E56020", markersize=8, zorder=6,
+                markeredgecolor="white", markeredgewidth=1.5
+            )[0]
+
+        canvas.draw_idle()
 
     def _sync_simulation_assumptions(self, prefix, preserve_state=False):
         widget = getattr(self, f"{prefix}_simulation_widget", None)
@@ -3545,6 +3720,10 @@ class MainWindow(QMainWindow):
         ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
         ax.set_ylim(0.0, max_stress * 1.14)
         canvas.fig.tight_layout()
+        canvas._strain_data = strain
+        canvas._stress_data = stress
+        canvas._sim_marker_line = None
+        canvas._sim_marker_dot = None
         canvas.draw()
 
         label.setText(
@@ -4322,10 +4501,10 @@ class MainWindow(QMainWindow):
         import shutil
         name = self.ws_combo.currentText()
         if not name:
-            self.status_label.setText("상태: 삭제할 분석 저장을 선택해 주세요")
+            self.status_label.setText("상태: 삭제할 분석 기록를 선택해 주세요")
             return
         reply = QMessageBox.question(self, "삭제 확인",
-            f"'{name}' 분석 저장을 삭제하시겠습니까?\n(폴더 전체가 삭제됩니다)",
+            f"'{name}' 분석 기록를 삭제하시겠습니까?\n(폴더 전체가 삭제됩니다)",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.No:
             return
@@ -4333,7 +4512,7 @@ class MainWindow(QMainWindow):
         if os.path.exists(folder):
             shutil.rmtree(folder)  # [WORKSPACE] 폴더 단위로 삭제
         self.refresh_workspace_list()
-        self.status_label.setText(f"상태: 분석 저장 '{name}' 삭제 완료")
+        self.status_label.setText(f"상태: 분석 기록 '{name}' 삭제 완료")
     # ================================================================
 
     # ================================================================
@@ -4377,90 +4556,34 @@ class MainWindow(QMainWindow):
             model_key = model_keys[model_idx] if 0 <= model_idx < len(model_keys) else "-"
             self.ws_table.setItem(row, 1, QTableWidgetItem(model_name_map.get(model_key, "-")))
 
-            # 데이터 파일
-            fp = state.get("file_path") or ""
-            self.ws_table.setItem(row, 2, QTableWidgetItem(os.path.basename(fp) if fp else "-"))
-
-            # 저장 날짜 / R2 (각 워크스페이스 state.json 기준)
+            # 저장 날짜
             saved_date = state.get("saved_date", "-")
-            r2_val = state.get("r2_avg")
-            r2_text = f"{r2_val * 100:.1f}%" if r2_val is not None else "-"
-            self.ws_table.setItem(row, 3, QTableWidgetItem(saved_date))
-            self.ws_table.setItem(row, 4, QTableWidgetItem(r2_text))
+            self.ws_table.setItem(row, 2, QTableWidgetItem(saved_date))
 
-    def _on_ws_table_clicked(self, row, _):
-        """행 클릭 시 하단 상세 패널에 썸네일 + 정보 표시"""
-        name_item = self.ws_table.item(row, 0)
-        if not name_item:
-            return
-        name = name_item.text()
-        folder = os.path.join("workspaces", name)
+            # stress-strain 구간별 stress 값 (stress_strain_log.json)
+            ss_log_path = os.path.join(folder, "stress_strain_log.json")
+            초기값_text = 회복_text = 복원_text = 끊김_text = "-"
+            if os.path.exists(ss_log_path):
+                try:
+                    with open(ss_log_path, "r", encoding="utf-8") as f:
+                        ss = json.load(f)
+                    초기 = ss.get("초기값", {})
+                    yield_s = 초기.get("yield_stress_MPa", "-")
+                    uts_s = 초기.get("UTS_MPa", "-")
+                    초기값_text = f"{yield_s} MPa"
+                    회복_text = f"0 ~ {yield_s} MPa"
+                    복원_text = f"{yield_s} ~ {uts_s} MPa"
+                    frac_s = ss.get("끊기는_구간", {}).get("Fracture_point", {}).get("stress_MPa", "-")
+                    끊김_text = f"{uts_s} → {frac_s} MPa"
+                except Exception:
+                    pass
+            self.ws_table.setItem(row, 3, QTableWidgetItem(초기값_text))
+            self.ws_table.setItem(row, 4, QTableWidgetItem(회복_text))
+            self.ws_table.setItem(row, 5, QTableWidgetItem(복원_text))
+            self.ws_table.setItem(row, 6, QTableWidgetItem(끊김_text))
 
-        # 썸네일 (training.png)
-        thumb_path = os.path.join(folder, "training.png")
-        if os.path.exists(thumb_path):
-            pix = QPixmap(thumb_path).scaled(
-                200, 120,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            self.ws_detail_thumb.setPixmap(pix)
-            self._ws_thumb_full_path = thumb_path
-        else:
-            self.ws_detail_thumb.clear()
-            self.ws_detail_thumb.setText("없음")
-            self._ws_thumb_full_path = None
-
-        # 상세 성능 썸네일 (performance.png)
-        perf_path = os.path.join(folder, "performance.png")
-        if os.path.exists(perf_path):
-            pix2 = QPixmap(perf_path).scaled(
-                200, 120,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            self.ws_detail_perf_thumb.setPixmap(pix2)
-            self._ws_perf_thumb_full_path = perf_path
-        else:
-            self.ws_detail_perf_thumb.clear()
-            self.ws_detail_perf_thumb.setText("없음")
-            self._ws_perf_thumb_full_path = None
-
-        # 상세 정보 텍스트
-        state = {}
-        state_path = os.path.join(folder, "state.json")
-        if os.path.exists(state_path):
-            with open(state_path, "r", encoding="utf-8") as f:
-                state = json.load(f)
-        model_keys = ["RF", "GBM", "MLP", "TFP"]
-        model_name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
-        model_idx = state.get("model_combo_index", -1)
-        model_key = model_keys[model_idx] if 0 <= model_idx < len(model_keys) else "-"
-        fp = os.path.basename(state.get("file_path") or "") or "-"
-        max_iter = state.get("max_iter", "-")
-        pre = state.get("preprocessing", {})
-        missing_labels = ["평균값", "중앙값", "KNN", "행 제거"]
-        outlier_labels = ["범위 보정", "이상치 제거", "플래그"]
-        missing_txt = missing_labels[pre.get("missing_combo", 0)] if pre else "-"
-        outlier_txt = outlier_labels[pre.get("outlier_combo", 0)] if pre else "-"
-        iqr_txt = str(pre.get("iqr_spin", "-")) if pre else "-"
-        has_pre_csv = os.path.exists(os.path.join(folder, "preprocessed_data.csv"))
-        has_eng_csv = os.path.exists(os.path.join(folder, "engineered_data.csv"))
-
-        info = (
-            f"<b>이름:</b> {name}<br>"
-            f"<b>모델:</b> {model_name_map.get(model_key, '-')}<br>"
-            f"<b>데이터 파일:</b> {fp}<br>"
-            f"<b>최대 반복 횟수:</b> {max_iter}<br><br>"
-            f"<b>[전처리 설정]</b><br>"
-            f"누락값 처리: {missing_txt}<br>"
-            f"이상치 처리: {outlier_txt}<br>"
-            f"IQR 민감도: {iqr_txt}<br><br>"
-            f"<b>[저장된 파일]</b><br>"
-            f"전처리 결과 CSV: {'✔' if has_pre_csv else '✘'}<br>"
-            f"합금 지표 CSV: {'✔' if has_eng_csv else '✘'}"
-        )
-        self.ws_detail_info.setText(info)
+    def _on_ws_table_clicked(self, *_):
+        pass
 
     def _show_full_graph_dialog(self, path):
         """그래프 원본을 크게 보여주는 다이얼로그 (확대/축소 + 휠 줌)"""
@@ -4655,18 +4778,55 @@ class MainWindow(QMainWindow):
         self.load_workspace()
         self.tabs.setCurrentIndex(0)
 
+    def _open_workspace_dialog(self):
+        if not hasattr(self, "_ws_dialog") or not self._ws_dialog:
+            from PyQt6.QtWidgets import QDialog
+            dlg = QDialog(self)
+            dlg.setWindowTitle("분석 기록")
+            dlg.resize(1100, 660)
+            dlg.setWindowFlags(
+                Qt.WindowType.Window |
+                Qt.WindowType.WindowCloseButtonHint |
+                Qt.WindowType.WindowMinMaxButtonsHint
+            )
+            dlg_layout = QVBoxLayout(dlg)
+            dlg_layout.setContentsMargins(0, 0, 0, 0)
+            self._workspace_widget.setParent(dlg)
+            dlg_layout.addWidget(self._workspace_widget)
+            self._ws_dialog = dlg
+        self._workspace_widget.show()
+        self._ws_dialog.show()
+        self._ws_dialog.raise_()
+        self._ws_dialog.activateWindow()
+        self.refresh_workspace_table()
+
+    def _save_workspace_from_menu(self):
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(
+            self, "분석 기록 저장", "저장할 이름을 입력하세요:",
+            text=self.ws_name_input.text().strip()
+        )
+        if not ok:
+            return
+        name = name.strip()
+        if not name:
+            QMessageBox.warning(self, "이름 필요", "분석 기록 이름을 입력해 주세요.")
+            return
+        self.ws_name_input.setText(name)
+        self.save_workspace()
+
     # ================================================================
     # [WORKSPACE] 이름 입력 후 저장 → workspaces/{이름}/ 폴더에 저장
     # ================================================================
     def save_workspace(self):
         name = self.ws_name_input.text().strip()
         if not name:
-            self.status_label.setText("상태: 분석 저장 이름을 입력해 주세요")
+            self.status_label.setText("상태: 분석 기록 이름을 입력해 주세요")
             return
         folder = os.path.join("workspaces", name)
         if os.path.exists(folder):
             reply = QMessageBox.question(self, "덮어쓰기 확인",
-                f"'{name}' 분석 저장이 이미 존재합니다.\n덮어쓰시겠습니까?",
+                f"'{name}' 분석 기록가 이미 존재합니다.\n덮어쓰시겠습니까?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.No:
                 return
@@ -4703,8 +4863,54 @@ class MainWindow(QMainWindow):
         eng_df = self.data_engine.get_engineered_display_df()
         if not eng_df.empty:
             eng_df.to_csv(os.path.join(folder, "engineered_data.csv"), index=False, encoding="utf-8-sig")
+        # [WORKSPACE] stress-strain 구간 로그 저장
+        pred_state = getattr(self, "_user_prediction_state", None) or getattr(self, "_pretrained_prediction_state", None)
+        if pred_state:
+            try:
+                mean = pred_state.get("mean")
+                input_dict = pred_state.get("input_dict", {})
+                _, _, points, meta, _ = self._build_stress_strain_profile(mean, input_dict)
+                ss_log = {
+                    "초기값": {
+                        "yield_stress_MPa": round(meta["yield_stress"], 2),
+                        "UTS_MPa": round(meta["uts"], 2),
+                        "elongation_pct": round(meta["elongation_pct"], 2),
+                        "area_reduction_pct": round(meta["area_reduction_pct"], 2),
+                        "elastic_modulus_GPa": round(meta["elastic_modulus_gpa"], 1),
+                    },
+                    "회복_구간": {
+                        "설명": "하중 제거 시 완전 복원 가능한 탄성 구간",
+                        "strain_범위": [0.0, round(meta["yield_strain"], 5)],
+                        "stress_범위_MPa": [0.0, round(meta["yield_stress"], 2)],
+                        "Yield_point": {
+                            "strain": round(points["Yield"][0], 5),
+                            "stress_MPa": round(points["Yield"][1], 2),
+                        },
+                    },
+                    "복원불가_구간": {
+                        "설명": "소성 변형 → 영구 변형 구간 (Yield ~ UTS)",
+                        "strain_범위": [round(meta["yield_strain"], 5), round(points["UTS"][0], 5)],
+                        "UTS_point": {
+                            "strain": round(points["UTS"][0], 5),
+                            "stress_MPa": round(points["UTS"][1], 2),
+                        },
+                    },
+                    "끊기는_구간": {
+                        "설명": "네킹 시작 → 파단 완료 구간 (UTS 이후 응력 감소, 재료 분리)",
+                        "strain_범위": [round(points["UTS"][0], 5), round(meta["fracture_strain"], 5)],
+                        "Fracture_point": {
+                            "strain": round(points["Fracture"][0], 5),
+                            "stress_MPa": round(points["Fracture"][1], 2),
+                        },
+                    },
+                }
+                with open(os.path.join(folder, "stress_strain_log.json"), "w", encoding="utf-8") as f:
+                    json.dump(ss_log, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                print("stress_strain_log 저장 실패:", e)
+
         self.refresh_workspace_list()  # [WORKSPACE] 저장 후 드롭다운 목록 갱신
-        self.status_label.setText(f"상태: 분석 저장 '{name}' 저장 완료")
+        self.status_label.setText(f"상태: 분석 기록 '{name}' 저장 완료")
     # ================================================================
 
     # ================================================================
@@ -4713,12 +4919,12 @@ class MainWindow(QMainWindow):
     def load_workspace(self):
         name = self.ws_combo.currentText()
         if not name:
-            self.status_label.setText("상태: 불러올 분석 저장을 선택해 주세요")
+            self.status_label.setText("상태: 불러올 분석 기록를 선택해 주세요")
             return
         folder = os.path.join("workspaces", name)
         state_path = os.path.join(folder, "state.json")
         if not os.path.exists(state_path):
-            self.status_label.setText("상태: 분석 저장 파일을 찾을 수 없습니다")
+            self.status_label.setText("상태: 분석 기록 파일을 찾을 수 없습니다")
             return
         with open(state_path, "r", encoding="utf-8") as f:
             state = json.load(f)
@@ -4788,7 +4994,7 @@ class MainWindow(QMainWindow):
             path = os.path.join(folder, img_file)
             if os.path.exists(path):
                 canvas_fn(plt.imread(path))
-        self.status_label.setText(f"상태: 분석 저장 '{name}' 복원 완료")
+        self.status_label.setText(f"상태: 분석 기록 '{name}' 복원 완료")
     # ================================================================
 
     def resizeEvent(self, event):
