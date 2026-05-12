@@ -1427,7 +1427,11 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AI Materials Discovery Platform")
-        self.resize(1400, 900)
+        screen = QApplication.primaryScreen().availableGeometry()
+        init_w = min(1400, max(960, int(screen.width() * 0.88)))
+        init_h = min(900, max(680, int(screen.height() * 0.88)))
+        self.resize(init_w, init_h)
+        self.setMinimumSize(900, 650)
 
         self.data_engine = DataEngine(None)
         self.model_engine = None
@@ -1514,6 +1518,9 @@ class MainWindow(QMainWindow):
         self.tabs.setDocumentMode(True)
         splitter.addWidget(self.tabs)
         splitter.setSizes([190, 300, 860])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 0)
+        splitter.setStretchFactor(2, 1)
 
         user_layout.addWidget(splitter, 1)
         self.main_mode_stack.addWidget(self.user_page)
@@ -1652,8 +1659,8 @@ class MainWindow(QMainWindow):
     def _create_material_prediction_page(self):
         page = QWidget()
         outer = QVBoxLayout(page)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(18)
+        outer.setContentsMargins(12, 12, 12, 12)
+        outer.setSpacing(12)
 
         # 상단 가이드 버튼 행
         top_row = QHBoxLayout()
@@ -1669,8 +1676,9 @@ class MainWindow(QMainWindow):
         top_row.addWidget(guide_btn)
         outer.addLayout(top_row)
 
-        content_row = QHBoxLayout()
-        content_row.setSpacing(18)
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        content_splitter.setChildrenCollapsible(False)
+        content_splitter.setHandleWidth(4)
 
         input_card = QGroupBox("사전학습 모델 입력")
         input_layout = QVBoxLayout(input_card)
@@ -1698,8 +1706,8 @@ class MainWindow(QMainWindow):
         )
         self.pretrained_predict_btn.clicked.connect(self.on_pretrained_predict_clicked)
         input_layout.addWidget(self.pretrained_predict_btn)
-        input_card.setFixedWidth(340)
-        content_row.addWidget(input_card)
+        input_card.setMinimumWidth(280)
+        content_splitter.addWidget(input_card)
 
         result_card = QGroupBox("예측 결과")
         result_layout = QVBoxLayout(result_card)
@@ -1750,9 +1758,12 @@ class MainWindow(QMainWindow):
         self.pretrained_model_summary_label = QLabel("")
         self.pretrained_model_summary_label.setWordWrap(True)
         self.pretrained_model_summary_label.hide()
-        content_row.addWidget(result_card, 1)
+        content_splitter.addWidget(result_card)
+        content_splitter.setStretchFactor(0, 0)
+        content_splitter.setStretchFactor(1, 1)
+        content_splitter.setSizes([340, 900])
 
-        outer.addLayout(content_row, 1)
+        outer.addWidget(content_splitter, 1)
         return page
 
     def _show_prediction_guide(self, _page):
@@ -2279,7 +2290,8 @@ class MainWindow(QMainWindow):
         self._tree_section_title_lbls = []
 
         panel = QWidget()
-        panel.setFixedWidth(190)
+        panel.setMinimumWidth(160)
+        panel.setMaximumWidth(240)
         panel.setStyleSheet("background: #FFFFFF;")
         self._panel_widgets.append(panel)
         layout = QVBoxLayout(panel)
@@ -2891,8 +2903,9 @@ class MainWindow(QMainWindow):
             self.stress_strain_placeholder_label,
         )
 
-        self.inference_left_frame.setFixedWidth(340)
-        layout.addWidget(self.inference_left_frame)
+        self.inference_left_frame.setMinimumWidth(300)
+        self.inference_left_frame.setMaximumWidth(420)
+        layout.addWidget(self.inference_left_frame, 0)
         layout.addWidget(self.inference_right_frame, 1)
         self.tabs.addTab(tab, "물성 예측")
 
@@ -3138,7 +3151,8 @@ class MainWindow(QMainWindow):
 
     def _create_curve_legend_card(self):
         card = QFrame()
-        card.setFixedWidth(220)
+        card.setMinimumWidth(180)
+        card.setMaximumWidth(260)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(5)
@@ -3210,8 +3224,9 @@ class MainWindow(QMainWindow):
         info_scroll.setFrameShape(QFrame.Shape.NoFrame)
         info_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         info_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        info_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        info_scroll.setFixedHeight(126)
+        info_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        info_scroll.setMinimumHeight(100)
+        info_scroll.setMaximumHeight(200)
         info_scroll.setWidget(info_panel)
 
         control_card = QFrame()
