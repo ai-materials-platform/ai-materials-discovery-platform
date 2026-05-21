@@ -1695,6 +1695,7 @@ class MainWindow(QMainWindow):
 
         self.pretrained_inputs = {}
         self._build_prediction_input_sections(form_layout, self.pretrained_inputs)
+        self._setup_fe_auto_update(self.pretrained_inputs)
         scroll.setWidget(form_container)
         input_layout.addWidget(scroll, 1)
 
@@ -1910,6 +1911,53 @@ class MainWindow(QMainWindow):
             )
         for field in self._prediction_input_fields:
             field.setStyleSheet(line_edit_style)
+        if hasattr(self, "_fe_readonly_fields"):
+            for fe_field in self._fe_readonly_fields:
+                self._apply_fe_readonly_style(fe_field)
+
+    def _apply_fe_readonly_style(self, field):
+        if self._dark_mode:
+            bg, color, border = "#1E2229", "#64748B", "#3A4048"
+        else:
+            bg, color, border = "#F1F5F9", "#64748B", "#CBD5E1"
+        field.setStyleSheet(
+            f"QLineEdit {{ background: {bg}; color: {color}; border: 1px solid {border}; "
+            "border-radius: 8px; padding: 7px 10px; }"
+            f"QLineEdit:focus {{ border-color: {border}; }}"
+        )
+
+    _COMPOSITION_KEYS = ["Fe", "C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo", "Cu", "V", "N", "Nb", "Ti", "B", "Al"]
+
+    def _setup_fe_auto_update(self, input_store):
+        fe_field = input_store.get("Fe")
+        if not fe_field:
+            return
+        fe_field.setReadOnly(True)
+        if not hasattr(self, "_fe_readonly_fields"):
+            self._fe_readonly_fields = []
+        self._fe_readonly_fields.append(fe_field)
+        self._apply_fe_readonly_style(fe_field)
+
+        other_keys = [k for k in self._COMPOSITION_KEYS if k != "Fe" and k in input_store]
+
+        def _update_fe():
+            total = 0.0
+            for key in other_keys:
+                try:
+                    total += float(input_store[key].text())
+                except ValueError:
+                    pass
+            fe_val = 100.0 - total
+            fe_str = f"{fe_val:.4f}".rstrip("0")
+            if fe_str.endswith("."):
+                fe_str += "0"
+            fe_field.blockSignals(True)
+            fe_field.setText(fe_str)
+            fe_field.blockSignals(False)
+
+        for key in other_keys:
+            input_store[key].textChanged.connect(_update_fe)
+        _update_fe()
 
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
@@ -2834,6 +2882,7 @@ class MainWindow(QMainWindow):
         left_panel.addWidget(self.active_model_info)
 
         self._build_prediction_input_sections(left_panel, self.inputs)
+        self._setup_fe_auto_update(self.inputs)
 
         self.predict_btn = QPushButton("물성 예측 실행")
         self.predict_btn.setFixedHeight(46)
