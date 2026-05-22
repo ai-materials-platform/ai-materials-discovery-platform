@@ -8,6 +8,7 @@ from src.gui.mixins import (
     FeatureSelectionMixin,
     InferenceMixin,
     PreprocessingMixin,
+    ProcessConditionMixin,
     SettingsPanelMixin,
     ThemeMixin,
     TrainingMixin,
@@ -33,6 +34,7 @@ class MainWindow(
     InferenceMixin,
     ChartsMixin,
     WorkspaceMixin,
+    ProcessConditionMixin,
 ):
     def __init__(self):
         super().__init__()

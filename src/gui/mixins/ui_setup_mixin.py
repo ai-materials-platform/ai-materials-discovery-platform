@@ -104,6 +104,7 @@ class UISetupMixin:
         self.setup_performance_tab()
         self.setup_inference_tab()
         self.setup_workspace_tab()
+        self.setup_process_condition_tab()
         self.refresh_workspace_list()
         self._apply_theme_colors()
         self.prepare_pretrained_model()
