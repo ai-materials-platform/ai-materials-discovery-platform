@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 from src.gui.constants import APP_FONT_SIZE, GLOBAL_QSS
 from src.gui.widgets import MplCanvas, PredictionGuideOverlay
+from src.gui.mixins.process_condition_mixin import ProcessConditionPanel
 
 
 class UISetupMixin:
@@ -210,8 +211,17 @@ class UISetupMixin:
     def _create_material_prediction_page(self):
         page = QWidget()
         outer = QVBoxLayout(page)
-        outer.setContentsMargins(12, 12, 12, 12)
-        outer.setSpacing(12)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        self._mp_mode_tabs = QTabWidget()
+        self._mp_mode_tabs.setDocumentMode(True)
+
+        # ── 탭 1: 사전학습 예측 ──
+        pretrained_tab = QWidget()
+        pretrained_layout = QVBoxLayout(pretrained_tab)
+        pretrained_layout.setContentsMargins(12, 12, 12, 12)
+        pretrained_layout.setSpacing(12)
 
         top_row = QHBoxLayout()
         top_row.addStretch()
@@ -224,7 +234,7 @@ class UISetupMixin:
         )
         guide_btn.clicked.connect(lambda: self._show_prediction_guide(page))
         top_row.addWidget(guide_btn)
-        outer.addLayout(top_row)
+        pretrained_layout.addLayout(top_row)
 
         content_splitter = QSplitter(Qt.Orientation.Horizontal)
         content_splitter.setChildrenCollapsible(False)
@@ -314,7 +324,13 @@ class UISetupMixin:
         content_splitter.setStretchFactor(1, 1)
         content_splitter.setSizes([340, 900])
 
-        outer.addWidget(content_splitter, 1)
+        pretrained_layout.addWidget(content_splitter, 1)
+        self._mp_mode_tabs.addTab(pretrained_tab, "사전학습 예측")
+
+        # ── 탭 2: 공정 조건 예측기 ──
+        self._mp_mode_tabs.addTab(ProcessConditionPanel(), "공정 조건 예측기")
+
+        outer.addWidget(self._mp_mode_tabs, 1)
         return page
 
     def _show_prediction_guide(self, _page):
