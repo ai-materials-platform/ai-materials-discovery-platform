@@ -1,4 +1,4 @@
-"""공정 조건 예측기 GUI 믹스인 — 공정/조직 조건으로 기계적 물성 예측."""
+"""공정 조건 예측기 GUI — ProcessConditionPanel(QWidget) + ProcessConditionMixin."""
 import numpy as np
 from PyQt6.QtCore import QThread, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -50,41 +50,38 @@ class _PCTrainingThread(QThread):
             self.finished.emit(f"오류: {exc}")
 
 
-class ProcessConditionMixin:
-    """공정 조건 예측기 탭을 MainWindow에 추가하는 믹스인."""
+class ProcessConditionPanel(QWidget):
+    """공정 조건 예측기 패널 — 독립적으로 재사용 가능한 자급식 위젯."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._engine = ProcessConditionEngine()
+        self._extra_features: list[str] = []
+        self._extra_widgets: dict[str, QLineEdit] = {}
+        self._thread: _PCTrainingThread | None = None
+        self._build_ui()
 
     # ------------------------------------------------------------------
-    # 탭 초기화
+    # UI 구성
     # ------------------------------------------------------------------
 
-    def setup_process_condition_tab(self):
-        self._pc_engine = ProcessConditionEngine()
-        self._pc_extra_features: list[str] = []
-        self._pc_extra_widgets: dict[str, QLineEdit] = {}
-        self._pc_thread: _PCTrainingThread | None = None
-
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(0)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.setHandleWidth(4)
-        splitter.addWidget(self._pc_build_input_panel())
-        splitter.addWidget(self._pc_build_result_panel())
+        splitter.addWidget(self._build_input_panel())
+        splitter.addWidget(self._build_result_panel())
         splitter.setSizes([340, 820])
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
 
         layout.addWidget(splitter, 1)
-        self.tabs.addTab(tab, "공정 조건 예측기")
 
-    # ------------------------------------------------------------------
-    # 입력 패널 (좌측)
-    # ------------------------------------------------------------------
-
-    def _pc_build_input_panel(self) -> QWidget:
+    def _build_input_panel(self) -> QWidget:
         panel = QWidget()
         panel.setMinimumWidth(280)
         panel.setMaximumWidth(380)
@@ -108,17 +105,15 @@ class ProcessConditionMixin:
         core_form.setVerticalSpacing(8)
         core_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
-        self._pc_core_inputs: dict[str, QLineEdit | None] = {}
+        self._core_inputs: dict[str, QLineEdit | None] = {}
 
-        # 냉각 방식 — QComboBox (특수 처리)
-        self._pc_cooling_combo = QComboBox()
-        self._pc_cooling_combo.addItems(['0 — 로냉 (furnace)', '1 — 공냉 (air)', '2 — 수냉 (water)'])
-        self._pc_cooling_combo.setCurrentIndex(2)
-        self._pc_cooling_combo.currentIndexChanged.connect(self._pc_sync_cooling)
-        core_form.addRow(QLabel("냉각 방식"), self._pc_cooling_combo)
-        self._pc_core_inputs['cooling_method'] = None  # combo로 처리
+        self._cooling_combo = QComboBox()
+        self._cooling_combo.addItems(['0 — 로냉 (furnace)', '1 — 공냉 (air)', '2 — 수냉 (water)'])
+        self._cooling_combo.setCurrentIndex(2)
+        self._cooling_combo.currentIndexChanged.connect(self._sync_cooling)
+        core_form.addRow(QLabel("냉각 방식"), self._cooling_combo)
+        self._core_inputs['cooling_method'] = None
 
-        # 나머지 핵심 피처
         text_fields = [
             ('solution_treatment_temp', '고용화 열처리 온도 (K)'),
             ('annealed',               '어닐링 여부 (0/1)'),
@@ -130,22 +125,22 @@ class ProcessConditionMixin:
         for key, label in text_fields:
             le = QLineEdit(CORE_DEFAULTS.get(key, '0'))
             core_form.addRow(QLabel(label), le)
-            self._pc_core_inputs[key] = le
+            self._core_inputs[key] = le
 
         content_layout.addWidget(core_group)
 
         # ── 추가 특성 그룹 ──
-        self._pc_extra_group = QGroupBox("추가 특성")
-        extra_outer = QVBoxLayout(self._pc_extra_group)
+        self._extra_group = QGroupBox("추가 특성")
+        extra_outer = QVBoxLayout(self._extra_group)
         extra_outer.setContentsMargins(12, 14, 12, 10)
         extra_outer.setSpacing(6)
 
-        self._pc_extra_form_widget = QWidget()
-        self._pc_extra_form_layout = QFormLayout(self._pc_extra_form_widget)
-        self._pc_extra_form_layout.setContentsMargins(0, 0, 0, 0)
-        self._pc_extra_form_layout.setVerticalSpacing(6)
-        self._pc_extra_form_layout.setHorizontalSpacing(10)
-        extra_outer.addWidget(self._pc_extra_form_widget)
+        self._extra_form_widget = QWidget()
+        self._extra_form_layout = QFormLayout(self._extra_form_widget)
+        self._extra_form_layout.setContentsMargins(0, 0, 0, 0)
+        self._extra_form_layout.setVerticalSpacing(6)
+        self._extra_form_layout.setHorizontalSpacing(10)
+        extra_outer.addWidget(self._extra_form_widget)
 
         add_btn = QPushButton("＋ 컬럼 추가")
         add_btn.setFixedHeight(30)
@@ -154,10 +149,10 @@ class ProcessConditionMixin:
             "border-radius:8px; font-size:11px; font-weight:700; }"
             "QPushButton:hover { background:#DBEAFE; }"
         )
-        add_btn.clicked.connect(self._pc_open_add_feature_dialog)
+        add_btn.clicked.connect(self._open_add_feature_dialog)
         extra_outer.addWidget(add_btn)
 
-        content_layout.addWidget(self._pc_extra_group)
+        content_layout.addWidget(self._extra_group)
         content_layout.addStretch()
         scroll.setWidget(content)
         outer.addWidget(scroll, 1)
@@ -170,53 +165,49 @@ class ProcessConditionMixin:
             "border-radius:8px; font-size:11px; font-weight:600; }"
             "QPushButton:hover { background:#E2E8F0; }"
         )
-        test_btn.clicked.connect(self._pc_fill_test_data)
+        test_btn.clicked.connect(self._fill_test_data)
         outer.addWidget(test_btn)
 
         # ── 학습 버튼 ──
-        self._pc_train_btn = QPushButton("모델 학습")
-        self._pc_train_btn.setFixedHeight(42)
-        self._pc_train_btn.setStyleSheet(
+        self._train_btn = QPushButton("모델 학습")
+        self._train_btn.setFixedHeight(42)
+        self._train_btn.setStyleSheet(
             "QPushButton { background:#1D4ED8; color:white; border:none; "
             "border-radius:10px; font-size:13px; font-weight:700; }"
             "QPushButton:hover { background:#1E40AF; }"
             "QPushButton:disabled { background:#93C5FD; }"
         )
-        self._pc_train_btn.clicked.connect(self._on_pc_train_clicked)
-        outer.addWidget(self._pc_train_btn)
+        self._train_btn.clicked.connect(self._on_train_clicked)
+        outer.addWidget(self._train_btn)
 
         # ── 예측 버튼 ──
-        self._pc_predict_btn = QPushButton("물성 예측")
-        self._pc_predict_btn.setFixedHeight(42)
-        self._pc_predict_btn.setEnabled(False)
-        self._pc_predict_btn.setStyleSheet(
+        self._predict_btn = QPushButton("물성 예측")
+        self._predict_btn.setFixedHeight(42)
+        self._predict_btn.setEnabled(False)
+        self._predict_btn.setStyleSheet(
             "QPushButton { background:#16A34A; color:white; border:none; "
             "border-radius:10px; font-size:13px; font-weight:700; }"
             "QPushButton:hover { background:#15803D; }"
             "QPushButton:disabled { background:#86EFAC; }"
         )
-        self._pc_predict_btn.clicked.connect(self._on_pc_predict_clicked)
-        outer.addWidget(self._pc_predict_btn)
+        self._predict_btn.clicked.connect(self._on_predict_clicked)
+        outer.addWidget(self._predict_btn)
 
         # ── 상태 레이블 ──
-        self._pc_status_label = QLabel("데이터 파일을 자동 탐색 후 학습합니다.")
-        self._pc_status_label.setWordWrap(True)
-        self._pc_status_label.setStyleSheet("font-size:11px; color:#64748B; padding:4px 2px;")
-        outer.addWidget(self._pc_status_label)
+        self._status_label = QLabel("데이터 파일을 자동 탐색 후 학습합니다.")
+        self._status_label.setWordWrap(True)
+        self._status_label.setStyleSheet("font-size:11px; color:#64748B; padding:4px 2px;")
+        outer.addWidget(self._status_label)
 
         return panel
 
-    # ------------------------------------------------------------------
-    # 결과 패널 (우측)
-    # ------------------------------------------------------------------
-
-    def _pc_build_result_panel(self) -> QWidget:
+    def _build_result_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(0)
 
-        self._pc_result_tabs = QTabWidget()
+        self._result_tabs = QTabWidget()
 
         # 탭 1 — 예측 결과
         pred_tab = QWidget()
@@ -224,57 +215,71 @@ class ProcessConditionMixin:
         pred_layout.setContentsMargins(14, 12, 14, 12)
         pred_layout.setSpacing(10)
 
-        self._pc_result_label = QLabel(
+        self._result_label = QLabel(
             "<b>예측 대기 중</b><br>왼쪽에서 모델을 학습한 뒤 물성 예측을 실행하세요."
         )
-        self._pc_result_label.setWordWrap(True)
-        self._pc_result_label.setStyleSheet("font-size:13px; color:#334155;")
-        pred_layout.addWidget(self._pc_result_label)
+        self._result_label.setWordWrap(True)
+        self._result_label.setStyleSheet("font-size:13px; color:#334155;")
+        pred_layout.addWidget(self._result_label)
 
-        self._pc_pred_canvas = MplCanvas(self, width=5, height=3, dpi=100)
-        pred_layout.addWidget(self._pc_pred_canvas, 1)
-        self._pc_result_tabs.addTab(pred_tab, "예측 결과")
+        self._pred_canvas = MplCanvas(self, width=5, height=3, dpi=100)
+        pred_layout.addWidget(self._pred_canvas, 1)
+        self._result_tabs.addTab(pred_tab, "예측 결과")
 
-        # 탭 2 — 모델 성능 비교
+        # 탭 2 — 모델 성능 비교 (스크롤 가능)
         perf_tab = QWidget()
-        perf_layout = QVBoxLayout(perf_tab)
+        perf_tab_layout = QVBoxLayout(perf_tab)
+        perf_tab_layout.setContentsMargins(0, 0, 0, 0)
+        perf_tab_layout.setSpacing(0)
+
+        perf_scroll = QScrollArea()
+        perf_scroll.setWidgetResizable(True)
+        perf_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+
+        perf_content = QWidget()
+        perf_layout = QVBoxLayout(perf_content)
         perf_layout.setContentsMargins(14, 12, 14, 12)
         perf_layout.setSpacing(10)
 
-        self._pc_model_status_label = QLabel(
+        self._model_status_label = QLabel(
             "<b>모델 미학습</b><br>학습을 실행하면 4개 모델 비교 결과가 표시됩니다."
         )
-        self._pc_model_status_label.setWordWrap(True)
-        self._pc_model_status_label.setStyleSheet("font-size:12px; color:#334155;")
-        perf_layout.addWidget(self._pc_model_status_label)
+        self._model_status_label.setWordWrap(True)
+        self._model_status_label.setStyleSheet("font-size:12px; color:#334155;")
+        perf_layout.addWidget(self._model_status_label)
 
-        self._pc_perf_canvas = MplCanvas(self, width=5, height=3, dpi=100)
-        perf_layout.addWidget(self._pc_perf_canvas, 1)
-        self._pc_result_tabs.addTab(perf_tab, "모델 성능 비교")
+        self._perf_canvas = MplCanvas(self, width=6, height=4, dpi=100)
+        self._perf_canvas.setMinimumHeight(400)
+        perf_layout.addWidget(self._perf_canvas)
+        perf_layout.addStretch()
+
+        perf_scroll.setWidget(perf_content)
+        perf_tab_layout.addWidget(perf_scroll, 1)
+        self._result_tabs.addTab(perf_tab, "모델 성능 비교")
 
         # 탭 3 — 특성 중요도
         fi_tab = QWidget()
         fi_layout = QVBoxLayout(fi_tab)
         fi_layout.setContentsMargins(14, 12, 14, 12)
 
-        self._pc_fi_label = QLabel("학습 후 최적 모델의 특성 중요도가 표시됩니다.")
-        self._pc_fi_label.setStyleSheet("font-size:12px; color:#64748B;")
-        fi_layout.addWidget(self._pc_fi_label)
+        self._fi_label = QLabel("학습 후 최적 모델의 특성 중요도가 표시됩니다.")
+        self._fi_label.setStyleSheet("font-size:12px; color:#64748B;")
+        fi_layout.addWidget(self._fi_label)
 
-        self._pc_fi_canvas = MplCanvas(self, width=5, height=3, dpi=100)
-        fi_layout.addWidget(self._pc_fi_canvas, 1)
-        self._pc_result_tabs.addTab(fi_tab, "특성 중요도")
+        self._fi_canvas = MplCanvas(self, width=5, height=3, dpi=100)
+        fi_layout.addWidget(self._fi_canvas, 1)
+        self._result_tabs.addTab(fi_tab, "특성 중요도")
 
-        layout.addWidget(self._pc_result_tabs, 1)
+        layout.addWidget(self._result_tabs, 1)
         return panel
 
     # ------------------------------------------------------------------
     # 냉각 방식 동기화
     # ------------------------------------------------------------------
 
-    def _pc_sync_cooling(self, index: int):
-        annealed = self._pc_core_inputs.get('annealed')
-        quenched = self._pc_core_inputs.get('quenched')
+    def _sync_cooling(self, index: int):
+        annealed = self._core_inputs.get('annealed')
+        quenched = self._core_inputs.get('quenched')
         if annealed:
             annealed.setText('1' if index == 0 else '0')
         if quenched:
@@ -284,17 +289,17 @@ class ProcessConditionMixin:
     # 입력값 수집
     # ------------------------------------------------------------------
 
-    def _pc_get_input_dict(self) -> dict:
+    def _get_input_dict(self) -> dict:
         d: dict[str, float] = {}
-        for key, widget in self._pc_core_inputs.items():
+        for key, widget in self._core_inputs.items():
             if widget is None:
                 continue
             try:
                 d[key] = float(widget.text())
             except (ValueError, AttributeError):
                 d[key] = 0.0
-        d['cooling_method'] = float(self._pc_cooling_combo.currentIndex())
-        for key, widget in self._pc_extra_widgets.items():
+        d['cooling_method'] = float(self._cooling_combo.currentIndex())
+        for key, widget in self._extra_widgets.items():
             try:
                 d[key] = float(widget.text())
             except (ValueError, AttributeError):
@@ -305,9 +310,9 @@ class ProcessConditionMixin:
     # 임의 테스트 데이터 (316 SS 기준)
     # ------------------------------------------------------------------
 
-    def _pc_fill_test_data(self):
+    def _fill_test_data(self):
         test_values = {
-            'solution_treatment_temp': '1323',  # 1050°C
+            'solution_treatment_temp': '1323',
             'annealed': '0',
             'tempered': '0',
             'quenched': '1',
@@ -315,11 +320,11 @@ class ProcessConditionMixin:
             'Cr_eq': '19.7',
         }
         for key, val in test_values.items():
-            widget = self._pc_core_inputs.get(key)
+            widget = self._core_inputs.get(key)
             if widget:
                 widget.setText(val)
-        self._pc_cooling_combo.setCurrentIndex(2)  # 수냉
-        self._pc_status_label.setText(
+        self._cooling_combo.setCurrentIndex(2)
+        self._status_label.setText(
             "임의 테스트 데이터 입력 완료 (316 SS 기준). 학습 후 예측 실행 가능."
         )
 
@@ -327,14 +332,14 @@ class ProcessConditionMixin:
     # 추가 특성 관리
     # ------------------------------------------------------------------
 
-    def _pc_open_add_feature_dialog(self):
+    def _open_add_feature_dialog(self):
         try:
-            available = self._pc_engine.get_available_extra_features()
+            available = self._engine.get_available_extra_features()
         except Exception as exc:
-            self._pc_status_label.setText(f"데이터 로드 오류: {exc}")
+            self._status_label.setText(f"데이터 로드 오류: {exc}")
             return
 
-        already = set(self._pc_extra_features)
+        already = set(self._extra_features)
         dlg = QDialog(self)
         dlg.setWindowTitle("추가 특성 선택")
         dlg.resize(360, 440)
@@ -368,21 +373,21 @@ class ProcessConditionMixin:
                 for i in range(list_widget.count())
                 if list_widget.item(i).checkState() == Qt.CheckState.Checked
             ]
-            self._pc_extra_features = selected
-            self._pc_refresh_extra_ui()
+            self._extra_features = selected
+            self._refresh_extra_ui()
 
-    def _pc_refresh_extra_ui(self):
-        while self._pc_extra_form_layout.rowCount() > 0:
-            self._pc_extra_form_layout.removeRow(0)
-        self._pc_extra_widgets = {}
+    def _refresh_extra_ui(self):
+        while self._extra_form_layout.rowCount() > 0:
+            self._extra_form_layout.removeRow(0)
+        self._extra_widgets = {}
 
-        for feat in self._pc_extra_features:
+        for feat in self._extra_features:
             le = QLineEdit('0')
 
             def _make_remove(f=feat):
                 def _remove():
-                    self._pc_extra_features = [x for x in self._pc_extra_features if x != f]
-                    self._pc_refresh_extra_ui()
+                    self._extra_features = [x for x in self._extra_features if x != f]
+                    self._refresh_extra_ui()
                 return _remove
 
             rm_btn = QPushButton('×')
@@ -401,28 +406,28 @@ class ProcessConditionMixin:
             row_l.addWidget(le, 1)
             row_l.addWidget(rm_btn)
 
-            self._pc_extra_form_layout.addRow(QLabel(feat), row_w)
-            self._pc_extra_widgets[feat] = le
+            self._extra_form_layout.addRow(QLabel(feat), row_w)
+            self._extra_widgets[feat] = le
 
     # ------------------------------------------------------------------
     # 학습
     # ------------------------------------------------------------------
 
-    def _on_pc_train_clicked(self):
-        self._pc_train_btn.setEnabled(False)
-        self._pc_predict_btn.setEnabled(False)
-        self._pc_status_label.setText("학습 중... 잠시만 기다려 주세요.")
+    def _on_train_clicked(self):
+        self._train_btn.setEnabled(False)
+        self._predict_btn.setEnabled(False)
+        self._status_label.setText("학습 중... 잠시만 기다려 주세요.")
 
-        self._pc_thread = _PCTrainingThread(self._pc_engine, list(self._pc_extra_features))
-        self._pc_thread.progress.connect(self._pc_status_label.setText)
-        self._pc_thread.finished.connect(self._on_pc_training_finished)
-        self._pc_thread.start()
+        self._thread = _PCTrainingThread(self._engine, list(self._extra_features))
+        self._thread.progress.connect(self._status_label.setText)
+        self._thread.finished.connect(self._on_training_finished)
+        self._thread.start()
 
-    def _on_pc_training_finished(self, result):
-        self._pc_train_btn.setEnabled(True)
+    def _on_training_finished(self, result):
+        self._train_btn.setEnabled(True)
 
         if isinstance(result, str):
-            self._pc_status_label.setText(result)
+            self._status_label.setText(result)
             return
 
         results: dict = result['results']
@@ -431,12 +436,11 @@ class ProcessConditionMixin:
         best_r2 = results[best]['r2_avg']
         best_mae = results[best]['mae_avg']
 
-        self._pc_predict_btn.setEnabled(True)
-        self._pc_status_label.setText(
+        self._predict_btn.setEnabled(True)
+        self._status_label.setText(
             f"학습 완료 ★ {best}  R²={best_r2:.4f}  MAE={best_mae:.2f}"
         )
 
-        # 모델 성능 탭 텍스트
         lines = [f"<b>모델 비교 결과 — 최적: {best}</b><br><br>"]
         for name, res in results.items():
             star = "★ " if name == best else "　 "
@@ -449,18 +453,18 @@ class ProcessConditionMixin:
                     f"&nbsp;&nbsp;&nbsp;{short}: R²={res['r2_per_target'][i]:.4f}, "
                     f"MAE={res['mae_per_target'][i]:.2f}<br>"
                 )
-        self._pc_model_status_label.setText("".join(lines))
+        self._model_status_label.setText("".join(lines))
 
-        self._pc_draw_model_comparison(results, engine)
-        self._pc_draw_feature_importance(engine)
-        self._pc_result_tabs.setCurrentIndex(1)  # 학습 직후 성능 탭으로
+        self._draw_model_comparison(results, engine)
+        self._draw_feature_importance(engine)
+        self._result_tabs.setCurrentIndex(1)
 
     # ------------------------------------------------------------------
     # 차트 — 모델 성능 비교
     # ------------------------------------------------------------------
 
-    def _pc_draw_model_comparison(self, results: dict, engine: ProcessConditionEngine):
-        ax = self._pc_perf_canvas.axes
+    def _draw_model_comparison(self, results: dict, engine: ProcessConditionEngine):
+        ax = self._perf_canvas.axes
         ax.clear()
 
         model_names = list(results.keys())
@@ -489,21 +493,21 @@ class ProcessConditionMixin:
         ax.set_title(f'모델 성능 비교 (최적: {best})', fontsize=11, fontweight='bold')
         ax.legend(fontsize=8, loc='lower right')
         ax.grid(axis='y', linestyle=':', alpha=0.5)
-        self._pc_perf_canvas.figure.tight_layout()
-        self._pc_perf_canvas.draw()
+        self._perf_canvas.figure.tight_layout()
+        self._perf_canvas.draw()
 
     # ------------------------------------------------------------------
     # 차트 — 특성 중요도
     # ------------------------------------------------------------------
 
-    def _pc_draw_feature_importance(self, engine: ProcessConditionEngine):
+    def _draw_feature_importance(self, engine: ProcessConditionEngine):
         imp = engine.get_feature_importance()
         if not imp:
-            self._pc_fi_label.setText("이 모델은 특성 중요도를 지원하지 않습니다.")
+            self._fi_label.setText("이 모델은 특성 중요도를 지원하지 않습니다.")
             return
 
-        self._pc_fi_label.setText("")
-        ax = self._pc_fi_canvas.axes
+        self._fi_label.setText("")
+        ax = self._fi_canvas.axes
         ax.clear()
 
         items = sorted(imp.items(), key=lambda kv: kv[1], reverse=True)
@@ -516,25 +520,25 @@ class ProcessConditionMixin:
         ax.set_title(f'특성 중요도 ({engine.best_model_name})', fontsize=11, fontweight='bold')
         ax.invert_yaxis()
         ax.grid(axis='x', linestyle=':', alpha=0.5)
-        self._pc_fi_canvas.figure.tight_layout()
-        self._pc_fi_canvas.draw()
+        self._fi_canvas.figure.tight_layout()
+        self._fi_canvas.draw()
 
     # ------------------------------------------------------------------
     # 예측
     # ------------------------------------------------------------------
 
-    def _on_pc_predict_clicked(self):
+    def _on_predict_clicked(self):
         try:
-            input_dict = self._pc_get_input_dict()
-            pred = self._pc_engine.predict(input_dict)
+            input_dict = self._get_input_dict()
+            pred = self._engine.predict(input_dict)
         except Exception as exc:
-            self._pc_result_label.setText(f"<b>예측 오류</b><br>{exc}")
+            self._result_label.setText(f"<b>예측 오류</b><br>{exc}")
             return
 
-        values = [pred.get(t, 0.0) for t in self._pc_engine.used_targets]
+        values = [pred.get(t, 0.0) for t in self._engine.used_targets]
         labels = [
             TARGET_DISPLAY[TARGETS.index(t)] if t in TARGETS else t
-            for t in self._pc_engine.used_targets
+            for t in self._engine.used_targets
         ]
 
         cooling_names = ['로냉', '공냉', '수냉']
@@ -542,8 +546,8 @@ class ProcessConditionMixin:
         cooling_str = cooling_names[cooling_idx] if 0 <= cooling_idx <= 2 else str(cooling_idx)
 
         lines = [
-            f"<b>물성 예측 결과  ({self._pc_engine.best_model_name})</b><br><br>",
-            f"<b>강도</b><br>",
+            f"<b>물성 예측 결과  ({self._engine.best_model_name})</b><br><br>",
+            "<b>강도</b><br>",
         ]
         for lbl, val in zip(labels[:2], values[:2]):
             lines.append(f"&nbsp;&nbsp;{lbl}: <b>{val:.1f}</b><br>")
@@ -558,23 +562,32 @@ class ProcessConditionMixin:
             f"Cr당량: {input_dict.get('Cr_eq', 0):.2f}"
             f"</span>"
         )
-        self._pc_result_label.setText("".join(lines))
-        self._pc_draw_prediction_chart(values, labels)
-        self._pc_result_tabs.setCurrentIndex(0)
+        self._result_label.setText("".join(lines))
+        self._draw_prediction_chart(values, labels)
+        self._result_tabs.setCurrentIndex(0)
 
-    def _pc_draw_prediction_chart(self, values: list, labels: list):
-        ax = self._pc_pred_canvas.axes
+    def _draw_prediction_chart(self, values: list, labels: list):
+        ax = self._pred_canvas.axes
         ax.clear()
         palette = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B']
         ax.bar(labels, values, color=palette[:len(values)], alpha=0.85)
         ax.set_ylabel('예측값')
         ax.set_title(
-            f'물성 예측 결과  ({self._pc_engine.best_model_name})',
+            f'물성 예측 결과  ({self._engine.best_model_name})',
             fontsize=11, fontweight='bold'
         )
         for i, v in enumerate(values):
             ax.text(i, v * 1.02 if v > 0 else 0.5, f'{v:.1f}',
                     ha='center', va='bottom', fontsize=9, fontweight='bold')
         ax.grid(axis='y', linestyle=':', alpha=0.5)
-        self._pc_pred_canvas.figure.tight_layout()
-        self._pc_pred_canvas.draw()
+        self._pred_canvas.figure.tight_layout()
+        self._pred_canvas.draw()
+
+
+class ProcessConditionMixin:
+    """공정 조건 예측기 탭을 MainWindow User 페이지에 추가하는 믹스인."""
+
+    def setup_process_condition_tab(self):
+        panel = ProcessConditionPanel()
+        self.tabs.addTab(panel, "공정 조건 예측기")
+        self._pc_panel = panel
