@@ -7,6 +7,7 @@ from .training_mixin import TrainingMixin
 from .inference_mixin import InferenceMixin
 from .charts_mixin import ChartsMixin
 from .workspace_mixin import WorkspaceMixin
+from .process_condition_mixin import ProcessConditionMixin
 
 __all__ = [
     "UISetupMixin",
@@ -18,4 +19,5 @@ __all__ = [
     "InferenceMixin",
     "ChartsMixin",
     "WorkspaceMixin",
+    "ProcessConditionMixin",
 ]
