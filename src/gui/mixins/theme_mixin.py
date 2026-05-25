@@ -272,6 +272,17 @@ class ThemeMixin:
             self.user_page.setStyleSheet(f"background: {c['app_bg']};")
         if hasattr(self, "main_mode_stack"):
             self.main_mode_stack.setStyleSheet(f"background: {c['app_bg']};")
+        if hasattr(self, "_mp_prediction_guide_corner"):
+            tab_bg = "#25282D" if self._dark_mode else "#E9EEF3"
+            self._mp_prediction_guide_corner.setStyleSheet(
+                f"background: {tab_bg}; border: none;"
+            )
+        if hasattr(self, "_mp_prediction_guide_btn"):
+            self._mp_prediction_guide_btn.setStyleSheet(
+                "QPushButton { background: #EEF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; "
+                "border-radius: 14px; font-size: 11px; font-weight: 700; padding: 0 14px; }"
+                "QPushButton:hover { background: #DBEAFE; }"
+            )
         if hasattr(self, "inference_left_frame"):
             self.inference_left_frame.setStyleSheet(
                 f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px;"

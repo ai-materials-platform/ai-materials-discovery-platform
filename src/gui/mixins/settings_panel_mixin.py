@@ -42,7 +42,7 @@ class SettingsPanelMixin:
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        header = QLabel("분析 기록 탐색기")
+        header = QLabel("분석 기록 탐색기")
         header.setStyleSheet(
             "font-size: 11px; color: #5B6470; padding: 10px 14px; letter-spacing: 0.8px; "
             "font-weight: 600; border-bottom: 1px solid #E1E5EA;"
