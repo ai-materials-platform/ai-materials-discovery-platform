@@ -5,11 +5,14 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QScrollArea,
     QSplitter,
@@ -22,10 +25,48 @@ from PyQt6.QtWidgets import (
 
 from src.gui.constants import APP_FONT_SIZE, GLOBAL_QSS
 from src.gui.widgets import MplCanvas, PredictionGuideOverlay
-from src.gui.mixins.process_condition_mixin import ProcessConditionPanel
 
 
 class UISetupMixin:
+    _COMPOSITION_KEYS = ["Fe", "C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo", "Cu", "V", "N", "Nb", "Ti", "B", "Al"]
+    _PRETRAINED_EXTRA_FEATURE_ORDER = [
+        "Solution_treatment_time(s)",
+        "Grains mm-2",
+        "Type of melting",
+        "Size of ingot",
+        "Product form",
+        "Temperature (K)",
+        "Ni_eq",
+        "Cr_eq",
+        "Cr_Ni_ratio",
+        "C_plus_N",
+    ]
+    _PRETRAINED_EXTRA_FEATURE_DEFAULTS = {
+        "Solution_treatment_time(s)": "3600",
+        "Grains mm-2": "500",
+        "Type of melting": "2",
+        "Size of ingot": "50",
+        "Product form": "3",
+        "Temperature (K)": "300",
+        "Ni_eq": "0.0",
+        "Cr_eq": "0.0",
+        "Cr_Ni_ratio": "0.0",
+        "C_plus_N": "0.0",
+    }
+    _PRETRAINED_EXTRA_FEATURE_LABELS = {
+        "Solution_treatment_time(s)": "고용화 열처리 시간 (s)",
+        "Grains mm-2": "결정립 수 (mm^-2)",
+        "Type of melting": "용해 방식",
+        "Size of ingot": "잉곳 크기",
+        "Product form": "제품 형상",
+        "Temperature (K)": "시험 온도 (K)",
+        "Ni_eq": "Ni 당량",
+        "Cr_eq": "Cr 당량",
+        "Cr_Ni_ratio": "Cr/Ni 비율",
+        "C_plus_N": "C+N",
+    }
+    _PRETRAINED_CALCULATED_FEATURES = {"Ni_eq", "Cr_eq", "Cr_Ni_ratio", "C_plus_N"}
+
     def init_ui(self):
         self.setStyleSheet(GLOBAL_QSS)
         self._apply_ui_font()
@@ -39,8 +80,12 @@ class UISetupMixin:
         file_menu = mb.addMenu("파일")
         file_menu.addAction("분석 기록 저장", self._save_workspace_from_menu)
         file_menu.addAction("분석 기록 불러오기", self._open_workspace_dialog)
-        for name in ["편집", "보기", "데이터", "분석", "도구", "도움말"]:
+        for name in ["편집", "보기", "데이터", "분석", "도구"]:
             mb.addMenu(name)
+        self._prediction_guide_action = mb.addAction("도움말")
+        self._prediction_guide_action.triggered.connect(
+            lambda: self._show_prediction_guide(self.material_prediction_page)
+        )
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -105,7 +150,6 @@ class UISetupMixin:
         self.setup_performance_tab()
         self.setup_inference_tab()
         self.setup_workspace_tab()
-        self.setup_process_condition_tab()
         self.refresh_workspace_list()
         self._apply_theme_colors()
         self.prepare_pretrained_model()
@@ -216,6 +260,27 @@ class UISetupMixin:
 
         self._mp_mode_tabs = QTabWidget()
         self._mp_mode_tabs.setDocumentMode(True)
+        corner_widget = QWidget()
+        corner_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        corner_widget.setFixedHeight(36)
+        self._mp_prediction_guide_corner = corner_widget
+        corner_layout = QHBoxLayout(corner_widget)
+        corner_layout.setContentsMargins(0, 0, 10, 0)
+        corner_layout.setSpacing(0)
+        corner_layout.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._mp_prediction_guide_btn = QPushButton("사용자 가이드")
+        self._mp_prediction_guide_btn.setFixedHeight(28)
+        self._mp_prediction_guide_btn.setStyleSheet(
+            "QPushButton { background: #EEF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; "
+            "border-radius: 14px; font-size: 11px; font-weight: 700; padding: 0 14px; }"
+            "QPushButton:hover { background: #DBEAFE; }"
+        )
+        self._mp_prediction_guide_btn.clicked.connect(lambda: self._show_prediction_guide(page))
+        corner_layout.addWidget(self._mp_prediction_guide_btn)
+        self._mp_mode_tabs.setCornerWidget(corner_widget, Qt.Corner.TopRightCorner)
+        corner_widget.hide()
+        corner_widget.setFixedSize(0, 0)
+        self._mp_prediction_guide_btn.hide()
 
         # ── 탭 1: 사전학습 예측 ──
         pretrained_tab = QWidget()
@@ -235,6 +300,8 @@ class UISetupMixin:
         guide_btn.clicked.connect(lambda: self._show_prediction_guide(page))
         top_row.addWidget(guide_btn)
         pretrained_layout.addLayout(top_row)
+        guide_btn.hide()
+        pretrained_layout.takeAt(pretrained_layout.count() - 1)
 
         content_splitter = QSplitter(Qt.Orientation.Horizontal)
         content_splitter.setChildrenCollapsible(False)
@@ -254,7 +321,11 @@ class UISetupMixin:
         form_layout.setSpacing(12)
 
         self.pretrained_inputs = {}
-        self._build_prediction_input_sections(form_layout, self.pretrained_inputs)
+        self._pretrained_extra_feature_names = []
+        self._pretrained_extra_feature_widgets = {}
+        self._pretrained_extra_feature_labels = []
+        self._pretrained_extra_feature_fields = []
+        self._build_pretrained_prediction_input_sections(form_layout, self.pretrained_inputs)
         self._setup_fe_auto_update(self.pretrained_inputs)
         scroll.setWidget(form_container)
         input_layout.addWidget(scroll, 1)
@@ -328,10 +399,246 @@ class UISetupMixin:
         self._mp_mode_tabs.addTab(pretrained_tab, "사전학습 예측")
 
         # ── 탭 2: 공정 조건 예측기 ──
-        self._mp_mode_tabs.addTab(ProcessConditionPanel(), "공정 조건 예측기")
 
         outer.addWidget(self._mp_mode_tabs, 1)
         return page
+
+    def _build_pretrained_prediction_input_sections(self, parent_layout, input_store):
+        comp_group = QGroupBox("합금 조성 (wt%)")
+        comp_group_layout = QVBoxLayout(comp_group)
+        comp_group_layout.setContentsMargins(12, 12, 12, 12)
+        comp_group_layout.setSpacing(12)
+        composition_defaults = {
+            "Fe": "96.0",
+            "C": "0.08",
+            "Si": "0.4",
+            "Mn": "1.5",
+            "P": "0.01",
+            "S": "0.005",
+            "Ni": "0.2",
+            "Cr": "0.3",
+            "Mo": "0.05",
+            "Cu": "0.1",
+            "V": "0.01",
+            "N": "0.005",
+            "Nb": "0.02",
+            "Ti": "0.01",
+            "B": "0.0005",
+            "Al": "0.03",
+        }
+        composition_items = list(composition_defaults.items())
+        midpoint = (len(composition_items) + 1) // 2
+        comp_columns = QHBoxLayout()
+        comp_columns.setContentsMargins(0, 0, 0, 0)
+        comp_columns.setSpacing(16)
+        comp_columns.addLayout(self._create_prediction_form(composition_items[:midpoint], input_store))
+        comp_columns.addLayout(self._create_prediction_form(composition_items[midpoint:], input_store))
+        comp_group_layout.addLayout(comp_columns)
+        parent_layout.addWidget(comp_group)
+        self._prediction_input_groups.append(comp_group)
+
+        proc_group = QGroupBox("공정 및 조직")
+        proc_group_layout = QVBoxLayout(proc_group)
+        proc_group_layout.setContentsMargins(12, 12, 12, 12)
+        proc_group_layout.setSpacing(12)
+
+        proc_form = QFormLayout()
+        proc_form.setContentsMargins(0, 0, 0, 0)
+        proc_form.setHorizontalSpacing(14)
+        proc_form.setVerticalSpacing(10)
+        proc_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+
+        solution_label = QLabel("고용화 열처리 온도 (K)")
+        solution_field = QLineEdit("1323")
+        proc_form.addRow(solution_label, solution_field)
+        input_store["Solution_treatment_temperature"] = solution_field
+        self._prediction_input_labels.append(solution_label)
+        self._prediction_input_fields.append(solution_field)
+
+        cooling_label = QLabel("냉각 방식")
+        self.pretrained_cooling_combo = QComboBox()
+        self.pretrained_cooling_combo.addItems(["로냉 (furnace)", "공냉 (air)", "수냉 (water)"])
+        self.pretrained_cooling_combo.setCurrentIndex(2)
+        self.pretrained_cooling_combo.currentIndexChanged.connect(self._sync_pretrained_cooling_inputs)
+        proc_form.addRow(cooling_label, self.pretrained_cooling_combo)
+        self._prediction_input_labels.append(cooling_label)
+
+        water_field = QLineEdit("1")
+        air_field = QLineEdit("0")
+        water_field.hide()
+        air_field.hide()
+        input_store["Water_Quenched_after_s.t."] = water_field
+        input_store["Air_Quenched_after_s.t."] = air_field
+
+        ni_eq_label = QLabel("Ni 당량")
+        ni_eq_field = QLineEdit("0.0")
+        proc_form.addRow(ni_eq_label, ni_eq_field)
+        input_store["Ni_eq"] = ni_eq_field
+        self._prediction_input_labels.append(ni_eq_label)
+        self._prediction_input_fields.append(ni_eq_field)
+
+        cr_eq_label = QLabel("Cr 당량")
+        cr_eq_field = QLineEdit("0.0")
+        proc_form.addRow(cr_eq_label, cr_eq_field)
+        input_store["Cr_eq"] = cr_eq_field
+        self._prediction_input_labels.append(cr_eq_label)
+        self._prediction_input_fields.append(cr_eq_field)
+
+        proc_group_layout.addLayout(proc_form)
+        parent_layout.addWidget(proc_group)
+        self._prediction_input_groups.append(proc_group)
+
+        extra_group = QGroupBox("추가 특성")
+        extra_group_layout = QVBoxLayout(extra_group)
+        extra_group_layout.setContentsMargins(12, 12, 12, 12)
+        extra_group_layout.setSpacing(10)
+
+        info_label = QLabel("위 입력과 겹치지 않는 공정 및 조직 관련 특성만 선택해서 추가할 수 있습니다.")
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("font-size: 11px; color: #64748B;")
+        extra_group_layout.addWidget(info_label)
+
+        self._pretrained_extra_form_widget = QWidget()
+        self._pretrained_extra_form_layout = QFormLayout(self._pretrained_extra_form_widget)
+        self._pretrained_extra_form_layout.setContentsMargins(0, 0, 0, 0)
+        self._pretrained_extra_form_layout.setHorizontalSpacing(14)
+        self._pretrained_extra_form_layout.setVerticalSpacing(10)
+        self._pretrained_extra_form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        extra_group_layout.addWidget(self._pretrained_extra_form_widget)
+
+        add_btn = QPushButton("추가 특성 선택")
+        add_btn.setFixedHeight(30)
+        add_btn.setStyleSheet(
+            "QPushButton { background: #EEF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; "
+            "border-radius: 8px; font-size: 11px; font-weight: 700; }"
+            "QPushButton:hover { background: #DBEAFE; }"
+        )
+        add_btn.clicked.connect(self._open_pretrained_add_feature_dialog)
+        extra_group_layout.addWidget(add_btn)
+
+        parent_layout.addWidget(extra_group)
+        self._prediction_input_groups.append(extra_group)
+        self._sync_pretrained_cooling_inputs(self.pretrained_cooling_combo.currentIndex())
+        self._refresh_pretrained_extra_feature_ui()
+
+    def _sync_pretrained_cooling_inputs(self, index):
+        water_value, air_value = ("0", "0")
+        if index == 1:
+            air_value = "1"
+        elif index == 2:
+            water_value = "1"
+
+        for key, value in (
+            ("Water_Quenched_after_s.t.", water_value),
+            ("Air_Quenched_after_s.t.", air_value),
+        ):
+            field = getattr(self, "pretrained_inputs", {}).get(key)
+            if field:
+                self._set_prediction_field_value(field, value)
+
+    def _get_pretrained_extra_feature_candidates(self):
+        reserved = set(self._COMPOSITION_KEYS) | {
+            "Solution_treatment_temperature",
+            "Water_Quenched_after_s.t.",
+            "Air_Quenched_after_s.t.",
+            "Ni_eq",
+            "Cr_eq",
+        }
+        return [name for name in self._PRETRAINED_EXTRA_FEATURE_ORDER if name not in reserved]
+
+    def _open_pretrained_add_feature_dialog(self):
+        available = self._get_pretrained_extra_feature_candidates()
+        already = set(getattr(self, "_pretrained_extra_feature_names", []))
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("추가 특성 선택")
+        dialog.resize(360, 440)
+        layout = QVBoxLayout(dialog)
+
+        info = QLabel("사전학습 예측에 사용할 추가 특성을 선택하세요.")
+        info.setWordWrap(True)
+        info.setStyleSheet("font-size: 12px; margin-bottom: 6px;")
+        layout.addWidget(info)
+
+        list_widget = QListWidget()
+        for name in available:
+            item = QListWidgetItem(self._PRETRAINED_EXTRA_FEATURE_LABELS.get(name, name))
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if name in already else Qt.CheckState.Unchecked)
+            list_widget.addItem(item)
+        layout.addWidget(list_widget, 1)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._pretrained_extra_feature_names = [
+                list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+                for i in range(list_widget.count())
+                if list_widget.item(i).checkState() == Qt.CheckState.Checked
+            ]
+            self._refresh_pretrained_extra_feature_ui()
+
+    def _refresh_pretrained_extra_feature_ui(self):
+        input_store = getattr(self, "pretrained_inputs", {})
+        for name in list(getattr(self, "_pretrained_extra_feature_widgets", {})):
+            input_store.pop(name, None)
+
+        self._discard_prediction_widgets(
+            getattr(self, "_pretrained_extra_feature_labels", []),
+            getattr(self, "_pretrained_extra_feature_fields", []),
+        )
+
+        while self._pretrained_extra_form_layout.rowCount() > 0:
+            self._pretrained_extra_form_layout.removeRow(0)
+
+        self._pretrained_extra_feature_widgets = {}
+        self._pretrained_extra_feature_labels = []
+        self._pretrained_extra_feature_fields = []
+
+        for name in getattr(self, "_pretrained_extra_feature_names", []):
+            label = QLabel(self._PRETRAINED_EXTRA_FEATURE_LABELS.get(name, name))
+            field = QLineEdit(self._PRETRAINED_EXTRA_FEATURE_DEFAULTS.get(name, "0"))
+            if name in self._PRETRAINED_CALCULATED_FEATURES:
+                self._register_readonly_field(field)
+
+            remove_btn = QPushButton("X")
+            remove_btn.setFixedSize(26, 26)
+            remove_btn.setStyleSheet(
+                "QPushButton { background: #FEE2E2; color: #DC2626; border: none; "
+                "border-radius: 4px; font-weight: 700; }"
+                "QPushButton:hover { background: #FECACA; }"
+            )
+            remove_btn.clicked.connect(lambda _checked=False, feature=name: self._remove_pretrained_extra_feature(feature))
+
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(4)
+            row_layout.addWidget(field, 1)
+            row_layout.addWidget(remove_btn)
+
+            self._pretrained_extra_form_layout.addRow(label, row_widget)
+            input_store[name] = field
+            self._pretrained_extra_feature_widgets[name] = field
+            self._pretrained_extra_feature_labels.append(label)
+            self._pretrained_extra_feature_fields.append(field)
+            self._prediction_input_labels.append(label)
+            self._prediction_input_fields.append(field)
+
+        self._apply_prediction_input_styles()
+        self._update_composition_derived_fields(input_store)
+
+    def _remove_pretrained_extra_feature(self, feature_name):
+        self._pretrained_extra_feature_names = [
+            name for name in getattr(self, "_pretrained_extra_feature_names", []) if name != feature_name
+        ]
+        self._refresh_pretrained_extra_feature_ui()
 
     def _show_prediction_guide(self, _page):
         steps = [
@@ -490,38 +797,88 @@ class UISetupMixin:
             f"QLineEdit:focus {{ border-color: {border}; }}"
         )
 
-    _COMPOSITION_KEYS = ["Fe", "C", "Si", "Mn", "P", "S", "Ni", "Cr", "Mo", "Cu", "V", "N", "Nb", "Ti", "B", "Al"]
-
     def _setup_fe_auto_update(self, input_store):
         fe_field = input_store.get("Fe")
         if not fe_field:
             return
-        fe_field.setReadOnly(True)
-        if not hasattr(self, "_fe_readonly_fields"):
-            self._fe_readonly_fields = []
-        self._fe_readonly_fields.append(fe_field)
-        self._apply_fe_readonly_style(fe_field)
+        self._register_readonly_field(fe_field)
 
         other_keys = [k for k in self._COMPOSITION_KEYS if k != "Fe" and k in input_store]
 
         def _update_fe():
-            total = 0.0
-            for key in other_keys:
-                try:
-                    total += float(input_store[key].text())
-                except ValueError:
-                    pass
-            fe_val = 100.0 - total
-            fe_str = f"{fe_val:.4f}".rstrip("0")
-            if fe_str.endswith("."):
-                fe_str += "0"
-            fe_field.blockSignals(True)
-            fe_field.setText(fe_str)
-            fe_field.blockSignals(False)
+            self._update_composition_derived_fields(input_store)
 
         for key in other_keys:
             input_store[key].textChanged.connect(_update_fe)
         _update_fe()
+
+    def _register_readonly_field(self, field):
+        field.setReadOnly(True)
+        if not hasattr(self, "_fe_readonly_fields"):
+            self._fe_readonly_fields = []
+        if field not in self._fe_readonly_fields:
+            self._fe_readonly_fields.append(field)
+        self._apply_fe_readonly_style(field)
+
+    def _discard_prediction_widgets(self, labels, fields):
+        for label in labels:
+            if label in self._prediction_input_labels:
+                self._prediction_input_labels.remove(label)
+        for field in fields:
+            if field in self._prediction_input_fields:
+                self._prediction_input_fields.remove(field)
+        if hasattr(self, "_fe_readonly_fields"):
+            self._fe_readonly_fields = [field for field in self._fe_readonly_fields if field not in fields]
+
+    def _format_prediction_number(self, value):
+        text = f"{float(value):.4f}".rstrip("0").rstrip(".")
+        return text or "0"
+
+    def _set_prediction_field_value(self, field, value):
+        if field is None:
+            return
+        field.blockSignals(True)
+        field.setText(str(value))
+        field.blockSignals(False)
+
+    def _update_composition_derived_fields(self, input_store):
+        def _value(key):
+            widget = input_store.get(key)
+            if widget is None:
+                return 0.0
+            try:
+                return float(widget.text())
+            except ValueError:
+                return 0.0
+
+        total = sum(_value(key) for key in self._COMPOSITION_KEYS if key != "Fe" and key in input_store)
+        self._set_prediction_field_value(
+            input_store.get("Fe"),
+            self._format_prediction_number(100.0 - total),
+        )
+
+        ni = _value("Ni")
+        cr = _value("Cr")
+        c = _value("C")
+        n = _value("N")
+        mn = _value("Mn")
+        mo = _value("Mo")
+        si = _value("Si")
+        nb = _value("Nb")
+        cu = _value("Cu")
+
+        derived_values = {
+            "Ni_eq": ni + (30.0 * c) + (0.5 * mn) + (30.0 * n) + (0.3 * cu),
+            "Cr_eq": cr + mo + (1.5 * si) + (0.5 * nb),
+            "Cr_Ni_ratio": (cr / ni) if abs(ni) > 1e-8 else 0.0,
+            "C_plus_N": c + n,
+        }
+        for key, value in derived_values.items():
+            field = input_store.get(key)
+            if field is None:
+                continue
+            self._register_readonly_field(field)
+            self._set_prediction_field_value(field, self._format_prediction_number(value))
 
     def resizeEvent(self, event):
         from PyQt6.QtWidgets import QMainWindow
