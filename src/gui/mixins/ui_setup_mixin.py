@@ -364,6 +364,15 @@ class UISetupMixin:
                 "pretrained_curve_legend_card",
             )
         )
+        _pretrained_explore_btn = QPushButton("자세하게 보기")
+        _pretrained_explore_btn.setFixedHeight(30)
+        _pretrained_explore_btn.setStyleSheet(
+            "QPushButton { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; "
+            "border-radius: 6px; font-size: 11px; font-weight: 600; padding: 0 12px; }"
+            "QPushButton:hover { background: #E2E8F0; }"
+        )
+        _pretrained_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("pretrained"))
+        curve_layout.addWidget(_pretrained_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.pretrained_curve_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         curve_layout.addWidget(self.pretrained_curve_canvas)
         self.pretrained_result_tabs.addTab(curve_tab, "Stress-Strain Curve")

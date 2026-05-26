@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.gui.constants import CURVE_SEGMENT_STYLES
-from src.gui.widgets import StressStrainSimulationWidget
+from src.gui.widgets import StressStrainSimulationWidget, StrainExploreDialog
 
 
 class ChartsMixin:
@@ -532,7 +532,7 @@ class ChartsMixin:
 
         point_styles = {
             "Yield": ("#2563EB", (12, 12)),
-            "UTS": ("#DC2626", (-28, 14)),
+            "UTS": ("#DC2626", (-70, -42)),
             "Fracture": ("#059669", (-82, -6)),
         }
         colors = self._theme()
@@ -643,3 +643,31 @@ class ChartsMixin:
         ax1.tick_params(axis="x", colors=colors["text_sec"])
         canvas.fig.tight_layout()
         canvas.draw()
+
+    def _open_strain_explore_dialog(self, prefix: str):
+        if prefix == "pretrained":
+            model_engine = getattr(self, "pretrained_model_engine", None)
+            data_engine = getattr(self, "pretrained_data_engine", None)
+            state = getattr(self, "_pretrained_prediction_state", None)
+            inputs = getattr(self, "pretrained_inputs", {})
+        else:
+            model_engine = getattr(self, "model_engine", None)
+            data_engine = getattr(self, "data_engine", None)
+            state = getattr(self, "_user_prediction_state", None)
+            inputs = getattr(self, "inputs", {})
+
+        if not model_engine or not data_engine:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self, "모델 없음",
+                "먼저 예측을 실행한 뒤 자세하게 보기를 사용할 수 있습니다.",
+            )
+            return
+
+        if state and state.get("input_dict"):
+            base_input = dict(state["input_dict"])
+        else:
+            base_input = {k: w.text() for k, w in inputs.items()}
+
+        dlg = StrainExploreDialog(model_engine, data_engine, base_input, self._build_stress_strain_profile, self)
+        dlg.show()
