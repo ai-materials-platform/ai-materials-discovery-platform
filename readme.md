@@ -23,16 +23,14 @@
 
 ```
 사용자
-  └→ Electron 데스크톱 앱 (HTML/CSS/JS)
-       └→ HTTP (localhost:5001)
-            └→ Flask API Server (Python)
-                 ├→ DataEngine  (전처리 / Feature Engineering)
-                 └→ ModelEngine (RF / GBM / MLP / TFP 앙상블)
+  └→ PyQt6 데스크톱 앱
+       ├→ DataEngine  (전처리 / Feature Engineering)
+       └→ ModelEngine (RF / GBM / MLP / TFP 앙상블)
 ```
 
-- **Electron**이 앱 실행 시 Python Flask 서버를 자식 프로세스로 기동
-- Flask 준비 완료까지 **스플래시 스크린** 표시
-- 이후 메인 UI와 Flask API 간 REST + SSE 통신
+- **PyQt6** 기반 네이티브 데스크톱 GUI
+- Python 엔진과 직접 통신 (별도 서버 불필요)
+- 학습 진행 상태를 QThread로 실시간 전달
 
 ---
 
@@ -42,7 +40,6 @@
 
 | 라이브러리 | 용도 |
 |-----------|------|
-| Flask + flask-cors | REST API 서버 (포트 5001) |
 | scikit-learn | RF, GBM, MLP 모델 / StandardScaler / KNNImputer |
 | TensorFlow | TFP 앙상블 기반 구조 |
 | TensorFlow Probability | 확률론적 예측, 불확실성 정량화 |
@@ -50,34 +47,25 @@
 | xlrd / openpyxl | `.xls` 및 `.xlsx` / `.xlsm` Excel 파일 파싱 |
 | joblib | 모델 직렬화 (.pkl) |
 
-### Electron 프론트엔드
+### PyQt6 프론트엔드
 
 | 기술 | 용도 |
 |------|------|
-| Electron 30+ | 크로스플랫폼 데스크톱 프레임워크 |
-| HTML / CSS / JS | 메인 UI 및 스플래시 스크린 |
-| Chart.js / Plotly.js | Parity Plot, 히트맵, 예측 그래프 |
-| EventSource (SSE) | 학습 진행 상태 실시간 수신 |
-| electron-builder | .exe / .dmg 배포 파일 생성 |
+| PyQt6 | 크로스플랫폼 데스크톱 GUI 프레임워크 |
+| matplotlib (QTAgg) | Parity Plot, Stress-Strain Curve, 예측 그래프 |
+| QThread / pyqtSignal | 학습 진행 상태 실시간 전달 |
 
 ### 패키징
 
 | 도구 | 결과물 |
 |------|--------|
-| PyInstaller | Python 백엔드 단일 실행파일 |
-| electron-builder | macOS `.dmg` / Windows `.exe` 인스톨러 |
+| PyInstaller | 단일 실행파일 (.exe / 바이너리) |
 
 ---
 
 ## 주요 기능
 
-### 1. 스플래시 스크린
-앱 실행 시 Word/Excel 수준의 로딩 창을 표시하여 Python 엔진 기동 시간을 자연스럽게 처리합니다.
-- 단계별 상태 텍스트 (`API 서버 시작 중...` → `데이터 엔진 준비 중...`)
-- 실시간 프로그레스 바
-- 준비 완료 시 페이드 아웃 → 메인 창 페이드 인
-
-### 2. 데이터 전처리
+### 1. 데이터 전처리
 
 **1차 전처리 (데이터 정제)**
 - 수치형 변환 및 형식 오류 처리
@@ -94,14 +82,14 @@
 | `Ni_eq` | `Ni + 30×C + 0.5×Mn` |
 | `Cr_eq` | `Cr + Mo + 1.5×Si + 0.5×Nb` |
 
-### 3. 피처 컬럼 선택
+### 2. 피처 컬럼 선택
 
 전처리 완료 후 학습 전에 사용할 입력 피처를 개별 선택/해제할 수 있습니다.
 - 원본 변수(29개) / 파생 변수(4개) 구분하여 체크박스 목록 표시
 - 선택 상태는 모델과 함께 저장되어 추론 시 자동 적용
 - 최소 1개 이상 선택해야 학습 가능
 
-### 4. 모델 학습
+### 3. 모델 학습
 
 | 모델 | 구현 | 불확실성 산출 |
 |------|------|--------------|
@@ -110,16 +98,22 @@
 | MLP Neural Network | `MLPRegressor` + Early Stopping | 휴리스틱 |
 | TFP 앙상블 | Bootstrap 5-MLP Ensemble | 앙상블 표준편차 |
 
-- 학습 진행 상태를 SSE(Server-Sent Events)로 실시간 전달
+- 학습 진행 상태를 QThread로 실시간 전달
 - 사용자 정의 반복 횟수 및 조기 종료(Early Stopping) 지원
 
-### 5. 성능 분석
+### 4. 성능 분석
 - **Parity Plot**: 실제값 vs 예측값 분포 (대각선 기준선 포함)
 - **상관관계 히트맵**: 반응형 (창 크기에 따라 수치 표시 자동 조절)
 - **이중 Y축 그래프**: 단위가 다른 강도(MPa)와 연성(%) 동시 비교
 
-### 6. 물성 추론
+### 5. 물성 추론
 화학 조성 및 공정 조건 입력 → 4개 물성 + 불확실성(표준편차) 즉시 예측
+
+### 6. Stress-Strain Curve
+예측된 물성 기반으로 응력-변형률 곡선 자동 생성 및 시각화
+
+### 7. 분석 기록
+예측 결과를 워크스페이스 단위로 저장, 불러오기, 비교 가능
 
 ---
 
@@ -127,102 +121,61 @@
 
 ```
 ai-materials-discovery-platform/
-├── python/                       # Python 백엔드
-│   ├── main_api.py               # Flask 진입점 (포트 5001)
-│   ├── config/
-│   │   └── settings.py           # 상수 / 경로 / 도메인 기준 중앙 관리
+├── src/
 │   ├── engine/
-│   │   ├── data_engine.py        # 전처리 엔진
-│   │   └── model_engine.py       # 모델 엔진
-│   └── api/
-│       ├── routes_preprocess.py  # 전처리 API
-│       ├── routes_train.py       # 학습 API (SSE)
-│       ├── routes_performance.py # 성능 분석 API
-│       └── routes_inference.py   # 추론 API
-│
-├── electron/                     # Electron 프론트엔드
-│   ├── main.js                   # 메인 프로세스 (Python 기동 / 스플래시 제어)
-│   ├── preload.js                # IPC 보안 브리지
-│   ├── splash.html               # 스플래시 스크린
-│   ├── assets/                   # 아이콘 (icns / ico / png)
-│   └── renderer/
-│       ├── index.html            # 메인 창
-│       └── pages/                # 탭별 JS
+│   │   ├── data_engine.py              # 전처리 엔진
+│   │   ├── model_engine.py             # 모델 엔진
+│   │   └── process_condition_engine.py # 공정 조건 예측 엔진
+│   └── gui/
+│       ├── main_window.py              # 메인 윈도우 진입점
+│       ├── constants.py                # 상수 정의
+│       ├── mixins/                     # 기능별 Mixin
+│       │   ├── ui_setup_mixin.py       # UI 구성
+│       │   ├── theme_mixin.py          # 테마/다크모드
+│       │   ├── inference_mixin.py      # 물성 추론
+│       │   ├── training_mixin.py       # 모델 학습
+│       │   ├── preprocessing_mixin.py  # 전처리
+│       │   ├── charts_mixin.py         # 그래프
+│       │   ├── workspace_mixin.py      # 분석 기록
+│       │   ├── settings_panel_mixin.py # 설정 패널
+│       │   └── process_condition_mixin.py # 공정 조건
+│       ├── widgets/                    # 커스텀 위젯
+│       │   ├── mpl_canvas.py           # Matplotlib 캔버스
+│       │   ├── prediction_guide.py     # 사용 가이드 오버레이
+│       │   └── stress_strain_widget.py # Stress-Strain Curve
+│       └── threads/
+│           └── training_thread.py      # 학습 QThread
 │
 ├── data/
-│   ├── raw/                      # 원본 Excel 데이터
-│   └── processed/                # 전처리 결과
-├── models/                       # 학습된 모델 .pkl (개발 환경)
-├── outputs/                      # 시각화 / 예측 결과
-├── notebooks/                    # 실험용 Jupyter 노트북
+│   ├── raw/                            # 원본 Excel 데이터
+│   └── processed/                      # 전처리 결과
+├── models/                             # 학습된 모델 .pkl
+├── workspaces/                         # 분석 기록 저장
 ├── docs/
 │   ├── 기술서.md
 │   └── 계획서.md
-├── requirements.txt
-└── requirements-dev.txt
+├── main.py                             # 앱 실행 진입점
+└── requirements.txt
 ```
 
 ---
 
 ## 실행 방법
 
-### 개발 환경
-
 ```bash
 # 1. Python 의존성 설치
 pip install -r requirements.txt
 
-# 2. Flask 백엔드 실행
-python python/main_api.py
-
-# 3. Electron 의존성 설치 및 실행 (별도 터미널)
-cd electron
-npm install
-npm start
+# 2. 앱 실행
+python main.py
 ```
-
-### 배포 빌드
-
-```bash
-# Python 백엔드 단일 실행파일 생성
-pyinstaller python/main_api.py --onefile --name main_api --distpath python/dist
-
-# macOS DMG 생성
-cd electron && npm run build:mac
-
-# Windows EXE 생성
-cd electron && npm run build:win
-```
-
----
-
-## API 엔드포인트
-
-| 엔드포인트 | 메서드 | 설명 |
-|-----------|--------|------|
-| `/health` | GET | 서버 상태 확인 |
-| `/preprocess/load` | POST | Excel 파일 로드 |
-| `/preprocess/run` | POST | 전처리 실행 |
-| `/preprocess/preview` | GET | 전처리 결과 미리보기 |
-| `/preprocess/domain-ranges` | GET/PUT | 도메인 기준 조회/수정 |
-| `/features/available` | GET | 선택 가능한 피처 컬럼 목록 |
-| `/features/select` | POST | 학습에 사용할 피처 컬럼 지정 |
-| `/features/selected` | GET | 현재 선택된 피처 컬럼 목록 |
-| `/train/start` | POST | 모델 학습 시작 |
-| `/train/status` | GET | 학습 진행 상태 (SSE) |
-| `/performance/metrics` | GET | R², MAE 지표 |
-| `/performance/parity` | GET | Parity Plot 데이터 |
-| `/performance/heatmap` | GET | 상관관계 히트맵 데이터 |
-| `/inference/predict` | POST | 4개 물성 예측 |
 
 ---
 
 ## 데이터 형식
 
 - **입력**: `.xls` (Excel 97-2003) 및 `.xlsx` / `.xlsm` (Excel 2007+) — 원본 조성/공정 변수 29개 포함
-- **모델 저장**: `joblib` 직렬화 `.pkl`
-  - macOS: `~/Library/Application Support/AIMaterialsDiscovery/`
-  - Windows: `%APPDATA%\AIMaterialsDiscovery\`
+- **모델 저장**: `joblib` 직렬화 `.pkl` (`models/` 폴더)
 
 ---
 
