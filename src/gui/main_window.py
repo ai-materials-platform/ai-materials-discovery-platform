@@ -7,6 +7,7 @@ from src.gui.mixins import (
     ChartsMixin,
     FeatureSelectionMixin,
     InferenceMixin,
+    LLMChatMixin,
     PreprocessingMixin,
     ProcessConditionMixin,
     SettingsPanelMixin,
@@ -35,6 +36,7 @@ class MainWindow(
     ChartsMixin,
     WorkspaceMixin,
     ProcessConditionMixin,
+    LLMChatMixin,
 ):
     def __init__(self):
         super().__init__()

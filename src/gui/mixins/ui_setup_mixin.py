@@ -380,6 +380,9 @@ class UISetupMixin:
         simulation_tab = self._create_simulation_tab("pretrained")
         self.pretrained_result_tabs.addTab(simulation_tab, "Simulation")
 
+        llm_tab = self._create_llm_chat_tab()
+        self.pretrained_result_tabs.addTab(llm_tab, "AI 문의")
+
         result_layout.addWidget(self.pretrained_result_tabs)
         self.render_prediction_placeholder(
             self.pretrained_prediction_canvas,
