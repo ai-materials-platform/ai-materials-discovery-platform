@@ -24,7 +24,8 @@ from PyQt6.QtWidgets import (
 )
 
 from src.gui.constants import APP_FONT_SIZE, GLOBAL_QSS
-from src.gui.widgets import MplCanvas, PredictionGuideOverlay
+from src.gui.widgets import FloatingChatbotIcon, MplCanvas, PredictionGuideOverlay
+
 
 
 class UISetupMixin:
@@ -153,6 +154,12 @@ class UISetupMixin:
         self.refresh_workspace_list()
         self._apply_theme_colors()
         self.prepare_pretrained_model()
+
+        from PyQt6.QtCore import QTimer  # noqa: PLC0415
+        self._floating_chatbot = FloatingChatbotIcon(self.centralWidget())
+        self._floating_chatbot.clicked.connect(self.toggle_llm_chat_dialog)
+        self._floating_chatbot.raise_()
+        QTimer.singleShot(0, self._reposition_floating_chatbot)
 
     def _apply_ui_font(self):
         font = QFont(self._ui_font_family)
@@ -364,6 +371,15 @@ class UISetupMixin:
                 "pretrained_curve_legend_card",
             )
         )
+        _pretrained_explore_btn = QPushButton("자세하게 보기")
+        _pretrained_explore_btn.setFixedHeight(30)
+        _pretrained_explore_btn.setStyleSheet(
+            "QPushButton { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; "
+            "border-radius: 6px; font-size: 11px; font-weight: 600; padding: 0 12px; }"
+            "QPushButton:hover { background: #E2E8F0; }"
+        )
+        _pretrained_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("pretrained"))
+        curve_layout.addWidget(_pretrained_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.pretrained_curve_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         curve_layout.addWidget(self.pretrained_curve_canvas)
         self.pretrained_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
@@ -880,9 +896,21 @@ class UISetupMixin:
             self._register_readonly_field(field)
             self._set_prediction_field_value(field, self._format_prediction_number(value))
 
+    def _reposition_floating_chatbot(self):
+        if not hasattr(self, "_floating_chatbot"):
+            return
+        cw = self.centralWidget()
+        if cw:
+            icon = self._floating_chatbot
+            x = cw.width() - icon.width() - 24
+            y = cw.height() - icon.height() - 24
+            icon.move(max(0, x), max(0, y))
+            icon.raise_()
+
     def resizeEvent(self, event):
         from PyQt6.QtWidgets import QMainWindow
         QMainWindow.resizeEvent(self, event)
+        self._reposition_floating_chatbot()
 
     def show_quality_help(self):
         help_text = """

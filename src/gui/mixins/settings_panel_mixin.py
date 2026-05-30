@@ -619,6 +619,15 @@ class SettingsPanelMixin:
                 "stress_strain_legend_card",
             )
         )
+        _user_explore_btn = QPushButton("자세하게 보기")
+        _user_explore_btn.setFixedHeight(30)
+        _user_explore_btn.setStyleSheet(
+            "QPushButton { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; "
+            "border-radius: 6px; font-size: 11px; font-weight: 600; padding: 0 12px; }"
+            "QPushButton:hover { background: #E2E8F0; }"
+        )
+        _user_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("user"))
+        curve_group_layout.addWidget(_user_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.stress_strain_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         curve_group_layout.addWidget(self.stress_strain_canvas)
         curve_tab_layout.addWidget(curve_group)
@@ -700,7 +709,7 @@ class SettingsPanelMixin:
         layout.addLayout(ws_save_row)
 
         header_row = QHBoxLayout()
-        self.ws_list_title = QLabel("분析 기록 목록")
+        self.ws_list_title = QLabel("분석 기록 목록")
         self.ws_list_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #111827;")
         header_row.addWidget(self.ws_list_title)
         header_row.addStretch()

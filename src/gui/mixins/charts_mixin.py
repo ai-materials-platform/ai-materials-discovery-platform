@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.gui.constants import CURVE_SEGMENT_STYLES
-from src.gui.widgets import StressStrainSimulationWidget
+from src.gui.widgets import StressStrainSimulationWidget, StrainExploreDialog
 
 
 class ChartsMixin:
@@ -376,7 +376,10 @@ class ChartsMixin:
             color=colors["text_label"],
             transform=ax.transAxes,
         )
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas.draw()
 
     def render_stress_strain_placeholder(self, canvas, label, title_fontsize=14.0, body_fontsize=11.8):
@@ -408,7 +411,10 @@ class ChartsMixin:
             color=colors["text_label"],
             transform=ax.transAxes,
         )
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas.draw()
 
     def _style_prediction_axes(self, ax, title=None, xlabel=None, ylabel=None):
@@ -532,7 +538,7 @@ class ChartsMixin:
 
         point_styles = {
             "Yield": ("#2563EB", (12, 12)),
-            "UTS": ("#DC2626", (-28, 14)),
+            "UTS": ("#DC2626", (-70, -42)),
             "Fracture": ("#059669", (-82, -6)),
         }
         colors = self._theme()
@@ -595,7 +601,10 @@ class ChartsMixin:
         )
         ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
         ax.set_ylim(0.0, max_stress * 1.14)
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas._strain_data = strain
         canvas._stress_data = stress
         canvas._sim_marker_line = None
@@ -641,5 +650,39 @@ class ChartsMixin:
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels)
         ax1.tick_params(axis="x", colors=colors["text_sec"])
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas.draw()
+
+    def _open_strain_explore_dialog(self, prefix: str):
+        if prefix == "pretrained":
+            model_engine = getattr(self, "pretrained_model_engine", None)
+            data_engine = getattr(self, "pretrained_data_engine", None)
+            state = getattr(self, "_pretrained_prediction_state", None)
+        else:
+            model_engine = getattr(self, "model_engine", None)
+            data_engine = getattr(self, "data_engine", None)
+            state = getattr(self, "_user_prediction_state", None)
+
+        if not model_engine or not data_engine:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self, "모델 없음",
+                "먼저 예측을 실행한 뒤 자세하게 보기를 사용할 수 있습니다.",
+            )
+            return
+
+        if not state or not state.get("input_dict"):
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self, "예측 필요",
+                "먼저 예측을 실행한 뒤 자세하게 보기를 사용할 수 있습니다.",
+            )
+            return
+
+        base_input = dict(state["input_dict"])
+
+        dlg = StrainExploreDialog(model_engine, data_engine, base_input, self._build_stress_strain_profile, self)
+        dlg.show()

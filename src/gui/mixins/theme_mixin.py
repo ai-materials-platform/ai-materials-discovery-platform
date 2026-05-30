@@ -377,3 +377,5 @@ class ThemeMixin:
         if hasattr(self, "_tree_file_label"):
             self._update_project_tree()
         self._refresh_prediction_views_for_theme()
+        if hasattr(self, "_apply_llm_chat_theme"):
+            self._apply_llm_chat_theme()
