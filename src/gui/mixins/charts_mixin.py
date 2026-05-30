@@ -376,7 +376,10 @@ class ChartsMixin:
             color=colors["text_label"],
             transform=ax.transAxes,
         )
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas.draw()
 
     def render_stress_strain_placeholder(self, canvas, label, title_fontsize=14.0, body_fontsize=11.8):
@@ -408,7 +411,10 @@ class ChartsMixin:
             color=colors["text_label"],
             transform=ax.transAxes,
         )
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas.draw()
 
     def _style_prediction_axes(self, ax, title=None, xlabel=None, ylabel=None):
@@ -595,7 +601,10 @@ class ChartsMixin:
         )
         ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
         ax.set_ylim(0.0, max_stress * 1.14)
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas._strain_data = strain
         canvas._stress_data = stress
         canvas._sim_marker_line = None
@@ -641,7 +650,10 @@ class ChartsMixin:
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels)
         ax1.tick_params(axis="x", colors=colors["text_sec"])
-        canvas.fig.tight_layout()
+        try:
+            canvas.fig.tight_layout()
+        except Exception:
+            pass
         canvas.draw()
 
     def _open_strain_explore_dialog(self, prefix: str):

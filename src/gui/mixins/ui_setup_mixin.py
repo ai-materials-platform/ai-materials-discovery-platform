@@ -24,7 +24,8 @@ from PyQt6.QtWidgets import (
 )
 
 from src.gui.constants import APP_FONT_SIZE, GLOBAL_QSS
-from src.gui.widgets import MplCanvas, PredictionGuideOverlay
+from src.gui.widgets import FloatingChatbotIcon, MplCanvas, PredictionGuideOverlay
+
 
 
 class UISetupMixin:
@@ -153,6 +154,12 @@ class UISetupMixin:
         self.refresh_workspace_list()
         self._apply_theme_colors()
         self.prepare_pretrained_model()
+
+        from PyQt6.QtCore import QTimer  # noqa: PLC0415
+        self._floating_chatbot = FloatingChatbotIcon(self.centralWidget())
+        self._floating_chatbot.clicked.connect(self.toggle_llm_chat_dialog)
+        self._floating_chatbot.raise_()
+        QTimer.singleShot(0, self._reposition_floating_chatbot)
 
     def _apply_ui_font(self):
         font = QFont(self._ui_font_family)
@@ -379,9 +386,6 @@ class UISetupMixin:
 
         simulation_tab = self._create_simulation_tab("pretrained")
         self.pretrained_result_tabs.addTab(simulation_tab, "Simulation")
-
-        llm_tab = self._create_llm_chat_tab()
-        self.pretrained_result_tabs.addTab(llm_tab, "AI 문의")
 
         result_layout.addWidget(self.pretrained_result_tabs)
         self.render_prediction_placeholder(
@@ -892,9 +896,21 @@ class UISetupMixin:
             self._register_readonly_field(field)
             self._set_prediction_field_value(field, self._format_prediction_number(value))
 
+    def _reposition_floating_chatbot(self):
+        if not hasattr(self, "_floating_chatbot"):
+            return
+        cw = self.centralWidget()
+        if cw:
+            icon = self._floating_chatbot
+            x = cw.width() - icon.width() - 24
+            y = cw.height() - icon.height() - 24
+            icon.move(max(0, x), max(0, y))
+            icon.raise_()
+
     def resizeEvent(self, event):
         from PyQt6.QtWidgets import QMainWindow
         QMainWindow.resizeEvent(self, event)
+        self._reposition_floating_chatbot()
 
     def show_quality_help(self):
         help_text = """
