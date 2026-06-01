@@ -4,5 +4,6 @@ from .prediction_guide import PredictionGuideOverlay
 from .strain_explore_dialog import StrainExploreDialog
 from .floating_chatbot import FloatingChatbotIcon, RobotAvatarWidget
 from .maps_logo import MAPSLogoWidget
+from .custom_titlebar import CustomTitleBar
 
-__all__ = ["MplCanvas", "StressStrainSimulationWidget", "PredictionGuideOverlay", "StrainExploreDialog", "FloatingChatbotIcon", "RobotAvatarWidget", "MAPSLogoWidget"]
+__all__ = ["MplCanvas", "StressStrainSimulationWidget", "PredictionGuideOverlay", "StrainExploreDialog", "FloatingChatbotIcon", "RobotAvatarWidget", "MAPSLogoWidget", "CustomTitleBar"]
