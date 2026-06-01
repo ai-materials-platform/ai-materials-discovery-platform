@@ -21,32 +21,11 @@ def _load_env():
                 os.environ[key] = value
 
 
-def _apply_rounded_corners(window):
-    """Windows 11 DWM API로 네이티브 둥근 모서리 적용."""
-    if sys.platform != "win32":
-        return
-    import ctypes
-    DWMWA_WINDOW_CORNER_PREFERENCE = 33
-    DWMWCP_ROUND = 2  # 둥근 모서리
-    try:
-        hwnd = int(window.winId())
-        pref = ctypes.c_int(DWMWCP_ROUND)
-        ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_WINDOW_CORNER_PREFERENCE,
-            ctypes.byref(pref),
-            ctypes.sizeof(pref),
-        )
-    except Exception:
-        pass
-
-
 def main():
     _load_env()
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    _apply_rounded_corners(window)
     sys.exit(app.exec())
 
 if __name__ == "__main__":

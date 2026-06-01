@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from src.engine.data_engine import DataEngine
@@ -42,7 +41,6 @@ class MainWindow(
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MAPS — Microstructure & Alloy Prediction System")
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
         from src.gui.widgets.maps_logo import MAPSLogoWidget  # noqa: PLC0415
         self.setWindowIcon(MAPSLogoWidget.as_icon(64))
         screen = QApplication.primaryScreen().availableGeometry()
