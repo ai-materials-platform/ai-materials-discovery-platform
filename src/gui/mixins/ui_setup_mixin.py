@@ -14,17 +14,19 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QMenu,
     QScrollArea,
     QSplitter,
     QStackedWidget,
     QTabWidget,
     QTextBrowser,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from src.gui.constants import APP_FONT_SIZE, GLOBAL_QSS
-from src.gui.widgets import FloatingChatbotIcon, MAPSLogoWidget, MplCanvas, PredictionGuideOverlay
+from src.gui.widgets import CustomTitleBar, FloatingChatbotIcon, MAPSLogoWidget, MplCanvas, PredictionGuideOverlay
 
 
 
@@ -72,20 +74,20 @@ class UISetupMixin:
         self.setStyleSheet(GLOBAL_QSS)
         self._apply_ui_font()
 
-        mb = self.menuBar()
-        mb.setStyleSheet(
-            "QMenuBar { background: #252525; color: #D7DCE3; font-size: 12px; padding: 3px 6px; border-bottom: 1px solid #363636; }"
-            "QMenuBar::item { background: transparent; padding: 5px 10px; }"
-            "QMenuBar::item:selected { background: #3A4048; color: #FFFFFF; }"
-        )
-        file_menu = mb.addMenu("파일")
+        # 네이티브 메뉴바 숨김 — 커스텀 타이틀바에 통합
+        self.menuBar().hide()
+
+        from PyQt6.QtWidgets import QMenu  # noqa: PLC0415
+        file_menu = QMenu("파일", self)
         file_menu.addAction("분석 기록 저장", self._save_workspace_from_menu)
         file_menu.addAction("분석 기록 불러오기", self._open_workspace_dialog)
-        for name in ["편집", "보기", "데이터", "분석", "도구"]:
-            mb.addMenu(name)
-        self._prediction_guide_action = mb.addAction("도움말")
-        self._prediction_guide_action.triggered.connect(
-            lambda: self._show_prediction_guide(self.material_prediction_page)
+        help_menu = QMenu("도움말", self)
+        help_menu.addAction("사용자 가이드",
+                            lambda: self._show_prediction_guide(self.material_prediction_page))
+        self._custom_menus = (
+            [("파일", file_menu)]
+            + [(n, QMenu(n, self)) for n in ["편집", "보기", "데이터", "분석", "도구"]]
+            + [("도움말", help_menu)]
         )
 
         central_widget = QWidget()
@@ -94,6 +96,8 @@ class UISetupMixin:
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
+        self._custom_titlebar = CustomTitleBar(self, self._custom_menus)
+        root_layout.addWidget(self._custom_titlebar)
         root_layout.addWidget(self._create_toolbar())
 
         self.main_mode_stack = QStackedWidget()
@@ -163,7 +167,7 @@ class UISetupMixin:
 
     def _apply_ui_font(self):
         font = QFont(self._ui_font_family)
-        font.setPixelSize(self._ui_font_size)
+        font.setPointSize(self._ui_font_size)   # pointSize 사용 — pixelSize 시 -1 경고 방지
         font.setStyleHint(QFont.StyleHint.SansSerif)
         QApplication.instance().setFont(font)
         self.setFont(font)
@@ -216,7 +220,7 @@ class UISetupMixin:
         )
         title_layout.addWidget(self._toolbar_title)
         title_layout.addWidget(self._toolbar_subtitle)
-        # 로고 + 타이틀 묶음
+
         brand_widget = QWidget()
         brand_layout = QHBoxLayout(brand_widget)
         brand_layout.setContentsMargins(0, 0, 0, 0)
@@ -401,9 +405,6 @@ class UISetupMixin:
         self.pretrained_curve_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         curve_layout.addWidget(self.pretrained_curve_canvas)
         self.pretrained_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
-
-        simulation_tab = self._create_simulation_tab("pretrained")
-        self.pretrained_result_tabs.addTab(simulation_tab, "Simulation")
 
         result_layout.addWidget(self.pretrained_result_tabs)
         self.render_prediction_placeholder(
@@ -696,11 +697,6 @@ class UISetupMixin:
                 "widget": self.pretrained_result_tabs,
                 "text": "④ Stress-Strain Curve 탭\n\n예측 물성 기반 응력-변형률 곡선.\n• 초록: 탄성 구간 (복원 가능)\n• 주황: 소성 구간 (영구 변형)\n• 빨강: 네킹→파단 구간",
                 "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(1),
-            },
-            {
-                "widget": self.pretrained_result_tabs,
-                "text": "⑤ Simulation 탭\n\n핸들 드래그로 인장 하중을 조절하며\n탄성/소성 변형을 실시간 확인.\n\nStress-Strain 그래프에 현재 위치가 표시됩니다.",
-                "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(2),
             },
         ]
         if not self.pretrained_inputs:

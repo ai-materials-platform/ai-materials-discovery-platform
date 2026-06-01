@@ -84,16 +84,7 @@ class ThemeMixin:
                 "border-radius: 16px; font-size: 11px; font-weight: 700; padding: 0 14px; }"
                 f"QPushButton:hover {{ background: {theme_hover}; border-color: {theme_hover_border}; }}"
             )
-        menu_bg = c["tb_bg"] if self._dark_mode else "#FFFFFF"
-        menu_text = c["text_sec"] if self._dark_mode else "#111827"
-        menu_border = c["tb_border"] if self._dark_mode else c["border"]
-        menu_hover_bg = c["tb_border"] if self._dark_mode else "#EEF2F6"
-        menu_hover_text = "#FFFFFF" if self._dark_mode else "#111827"
-        self.menuBar().setStyleSheet(
-            f"QMenuBar {{ background: {menu_bg}; color: {menu_text}; font-size: 12px; padding: 3px 6px; border-bottom: 1px solid {menu_border}; }}"
-            f"QMenuBar::item {{ background: transparent; padding: 5px 10px; color: {menu_text}; }}"
-            f"QMenuBar::item:selected {{ background: {menu_hover_bg}; color: {menu_hover_text}; }}"
-        )
+        # 메뉴바 숨김 — 커스텀 타이틀바에 통합됨
         self.statusBar().setStyleSheet(
             f"QStatusBar {{ background: {c['status_bg']}; color: {c['status_text']}; font-size: 11px; "
             f"padding: 0 8px; border-top: 1px solid {c['border']}; }}"
