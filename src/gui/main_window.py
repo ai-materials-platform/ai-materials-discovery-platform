@@ -40,7 +40,9 @@ class MainWindow(
 ):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AI Materials Discovery Platform")
+        self.setWindowTitle("MAPS — Microstructure & Alloy Prediction System")
+        from src.gui.widgets.maps_logo import MAPSLogoWidget  # noqa: PLC0415
+        self.setWindowIcon(MAPSLogoWidget.as_icon(64))
         screen = QApplication.primaryScreen().availableGeometry()
         init_w = min(1400, max(960, int(screen.width() * 0.88)))
         init_h = min(900, max(680, int(screen.height() * 0.88)))

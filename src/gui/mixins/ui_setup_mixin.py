@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.gui.constants import APP_FONT_SIZE, GLOBAL_QSS
-from src.gui.widgets import FloatingChatbotIcon, MplCanvas, PredictionGuideOverlay
+from src.gui.widgets import FloatingChatbotIcon, MAPSLogoWidget, MplCanvas, PredictionGuideOverlay
 
 
 
@@ -201,11 +201,29 @@ class UISetupMixin:
         layout.addWidget(self._mode_nav_widget)
         layout.addStretch()
 
-        self._toolbar_title = QLabel("AI Materials Discovery Platform")
+        title_widget = QWidget()
+        title_layout = QVBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(0)
+
+        self._toolbar_title = QLabel("MAPS")
         self._toolbar_title.setStyleSheet(
-            "color: #111827; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;"
+            "color: #111827; font-size: 16px; font-weight: 800; letter-spacing: 0.5px;"
         )
-        layout.addWidget(self._toolbar_title)
+        self._toolbar_subtitle = QLabel("Microstructure & Alloy Prediction System")
+        self._toolbar_subtitle.setStyleSheet(
+            "color: #64748B; font-size: 9px; font-weight: 500; letter-spacing: 0.3px;"
+        )
+        title_layout.addWidget(self._toolbar_title)
+        title_layout.addWidget(self._toolbar_subtitle)
+        # 로고 + 타이틀 묶음
+        brand_widget = QWidget()
+        brand_layout = QHBoxLayout(brand_widget)
+        brand_layout.setContentsMargins(0, 0, 0, 0)
+        brand_layout.setSpacing(8)
+        brand_layout.addWidget(MAPSLogoWidget(size=40))
+        brand_layout.addWidget(title_widget)
+        layout.addWidget(brand_widget)
 
         self._theme_btn = QPushButton("다크 모드")
         self._theme_btn.setFixedHeight(32)
