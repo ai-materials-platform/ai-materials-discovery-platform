@@ -69,7 +69,7 @@ class _ChatHeader(QWidget):
         clear_btn.setStyleSheet(
             "QPushButton{background:#3B82F6;color:white;border:none;"
             "font-size:11px;font-weight:700;border-radius:6px;padding:0 10px;}"
-            "QPushButton:hover{background:#2563EB;}"
+            "QPushButton:hover{background:#1E293B;}"
         )
         clear_btn.clicked.connect(self.clear_requested)
         layout.addWidget(clear_btn)
@@ -301,7 +301,7 @@ class FloatingChatDialog(QDialog):
         self._send_btn.setStyleSheet(
             "QPushButton{background:#3B82F6;color:white;border:none;"
             "border-radius:19px;font-size:13px;}"
-            "QPushButton:hover{background:#2563EB;}"
+            "QPushButton:hover{background:#1E293B;}"
             "QPushButton:disabled{background:#D1D5DB;}"
         )
         self._send_btn.clicked.connect(self._send)

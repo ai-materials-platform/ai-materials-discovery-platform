@@ -174,7 +174,7 @@ class StrainExploreDialog(QDialog):
         self._val_label = QLabel("—")
         self._val_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._val_label.setStyleSheet(
-            "font-size: 22px; font-weight: 700; color: #E56020; "
+            "font-size: 22px; font-weight: 700; color: #1E293B; "
             "padding: 4px 0;"
         )
         slider_layout.addWidget(self._val_label)
@@ -185,8 +185,8 @@ class StrainExploreDialog(QDialog):
         self._slider.setStyleSheet(
             "QSlider::groove:horizontal { height: 6px; background: #E2E8F0; border-radius: 3px; }"
             "QSlider::handle:horizontal { width: 18px; height: 18px; margin: -6px 0; "
-            "background: #E56020; border-radius: 9px; }"
-            "QSlider::sub-page:horizontal { background: #E56020; border-radius: 3px; }"
+            "background: #1E293B; border-radius: 9px; }"
+            "QSlider::sub-page:horizontal { background: #1E293B; border-radius: 3px; }"
         )
         self._slider.valueChanged.connect(self._on_slider_changed)
         slider_layout.addWidget(self._slider)

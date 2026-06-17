@@ -43,10 +43,13 @@ def _apply_rounded_corners(window):
 
 def main():
     _load_env()
+    from src.gui.constants import LIGHT_QSS
     app = QApplication(sys.argv)
+    app.setStyleSheet(LIGHT_QSS)
     window = MainWindow()
     window.show()
     _apply_rounded_corners(window)
+    window._apply_theme_colors()
     sys.exit(app.exec())
 
 if __name__ == "__main__":

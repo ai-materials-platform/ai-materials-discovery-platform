@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.gui.widgets import MplCanvas
+from src.gui.widgets import MplCanvas, RichComboDelegate, WidePopupComboBox
 
 
 class SettingsPanelMixin:
@@ -199,7 +199,7 @@ class SettingsPanelMixin:
         self.select_file_btn = QPushButton("파일 열기  (.xls / .xlsx)")
         self.select_file_btn.setFixedHeight(34)
         self.select_file_btn.setStyleSheet(
-            "background: #E56020; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 700;"
+            "background: #1E293B; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 700;"
         )
         self.select_file_btn.clicked.connect(self.on_select_file_clicked)
         layout.addWidget(self.select_file_btn)
@@ -216,15 +216,34 @@ class SettingsPanelMixin:
         )
         self.domain_rule_label.setWordWrap(True)
         self.domain_rule_label.setStyleSheet(
-            "font-size: 12px; color: #374151; background: #F4F5F7; padding: 10px; border-left: 3px solid #E56020; border-radius: 6px;"
+            "font-size: 12px; color: #374151; background: #F4F5F7; padding: 10px; border-left: 3px solid #1E293B; border-radius: 6px;"
         )
         self._info_box_widgets.append(self.domain_rule_label)
         layout.addWidget(self.domain_rule_label)
         domain_row = QHBoxLayout()
-        self.austenite_domain_btn = QPushButton("오스테나이트")
-        self.austenite_domain_btn.clicked.connect(self.show_austenite_domain_dialog)
-        self.high_temp_domain_btn = QPushButton("고온 특성")
-        self.high_temp_domain_btn.clicked.connect(self.show_high_temp_domain_dialog)
+        domain_row.setSpacing(8)
+
+        def _make_domain_card(title, subtitle, on_click):
+            card = QWidget()
+            card.setCursor(Qt.CursorShape.PointingHandCursor)
+            card.setStyleSheet(
+                "QWidget { background: #FFFFFF; border: 1px solid #C9D2DC; border-radius: 10px; }"
+                "QWidget:hover { background: #F1F5F9; border-color: #1E293B; }"
+            )
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(10, 8, 10, 8)
+            card_layout.setSpacing(2)
+            title_lbl = QLabel(title)
+            title_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #111827; border: none; background: transparent;")
+            sub_lbl = QLabel(subtitle)
+            sub_lbl.setStyleSheet("font-size: 10px; color: #64748B; border: none; background: transparent;")
+            card_layout.addWidget(title_lbl)
+            card_layout.addWidget(sub_lbl)
+            card.mousePressEvent = lambda _: on_click()
+            return card
+
+        self.austenite_domain_btn = _make_domain_card("오스테나이트", "조성 범위 확인", self.show_austenite_domain_dialog)
+        self.high_temp_domain_btn = _make_domain_card("고온 특성", "온도 범위 확인", self.show_high_temp_domain_dialog)
         domain_row.addWidget(self.austenite_domain_btn)
         domain_row.addWidget(self.high_temp_domain_btn)
         layout.addLayout(domain_row)
@@ -241,15 +260,23 @@ class SettingsPanelMixin:
         form.setSpacing(10)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         form.setFormAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.missing_combo = QComboBox()
+        self._quality_delegate = RichComboDelegate(dark_mode=False)
+
+        self.missing_combo = WidePopupComboBox()
         self.missing_combo.addItems(["평균값으로 채우기", "중앙값으로 채우기", "주변 값으로 예측(KNN)", "해당 행 제거"])
+        self.missing_combo.view().setItemDelegate(self._quality_delegate)
         form.addRow("결측값:", self.missing_combo)
-        self.outlier_combo = QComboBox()
+
+        self.outlier_combo = WidePopupComboBox()
         self.outlier_combo.addItems(["감지 범위로 보정", "이상치 행 제거", "표시만 하고 유지"])
+        self.outlier_combo.view().setItemDelegate(self._quality_delegate)
         form.addRow("이상치:", self.outlier_combo)
-        self.invalid_type_combo = QComboBox()
+
+        self.invalid_type_combo = WidePopupComboBox()
         self.invalid_type_combo.addItems(["잘못된 값을 NaN으로 변환", "잘못된 값이 있는 행 제거"])
+        self.invalid_type_combo.view().setItemDelegate(self._quality_delegate)
         form.addRow("형식 검증:", self.invalid_type_combo)
+
         self.iqr_spin = QDoubleSpinBox()
         self.iqr_spin.setRange(0.5, 5.0)
         self.iqr_spin.setSingleStep(0.1)
@@ -267,7 +294,7 @@ class SettingsPanelMixin:
         self.feature_engineering_label = QLabel("Cr/Ni, C+N, Ni_eq, Cr_eq를 자동 생성합니다.")
         self.feature_engineering_label.setWordWrap(True)
         self.feature_engineering_label.setStyleSheet(
-            "font-size: 12px; color: #374151; background: #F4F5F7; padding: 10px; border-left: 3px solid #E56020; border-radius: 6px;"
+            "font-size: 12px; color: #374151; background: #F4F5F7; padding: 10px; border-left: 3px solid #1E293B; border-radius: 6px;"
         )
         self._info_box_widgets.append(self.feature_engineering_label)
         layout.addWidget(self.feature_engineering_label)
@@ -285,7 +312,7 @@ class SettingsPanelMixin:
         self.preprocess_btn = QPushButton("전처리 실행")
         self.preprocess_btn.setFixedHeight(38)
         self.preprocess_btn.setStyleSheet(
-            "background: #E56020; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;"
+            "background: #1E293B; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;"
         )
         self.preprocess_btn.clicked.connect(self.on_preprocess_clicked)
         layout.addWidget(self.preprocess_btn)
@@ -496,8 +523,8 @@ class SettingsPanelMixin:
         self.train_btn.setFixedHeight(45)
         self.train_btn.setEnabled(False)
         self.train_btn.setStyleSheet(
-            "QPushButton { background-color: #2563EB; color: white; font-weight: 700; border: none; border-radius: 10px; }"
-            "QPushButton:hover { background-color: #1D4ED8; }"
+            "QPushButton { background-color: #1E293B; color: white; font-weight: 700; border: none; border-radius: 10px; }"
+            "QPushButton:hover { background-color: #334155; }"
         )
         self.train_btn.clicked.connect(self.on_train_clicked)
         info_layout.addWidget(self.train_btn)
@@ -674,9 +701,9 @@ class SettingsPanelMixin:
         self.ws_save_btn = QPushButton("저장")
         self.ws_save_btn.setFixedHeight(34)
         self.ws_save_btn.setStyleSheet(
-            "QPushButton { background: #E56020; color: white; border: none; border-radius: 10px; "
+            "QPushButton { background: #1E293B; color: white; border: none; border-radius: 10px; "
             "font-weight: 700; padding: 7px 16px; }"
-            "QPushButton:hover { background: #F97316; }"
+            "QPushButton:hover { background: #334155; }"
         )
         self.ws_save_btn.clicked.connect(self.save_workspace)
         self.ws_combo = QComboBox()
@@ -716,9 +743,9 @@ class SettingsPanelMixin:
         self.ws_compare_btn = QPushButton("비교 보기")
         self.ws_compare_btn.setFixedSize(98, 34)
         self.ws_compare_btn.setStyleSheet(
-            "QPushButton { background: #E56020; color: white; border: none; "
+            "QPushButton { background: #1E293B; color: white; border: none; "
             "border-radius: 17px; font-weight: 700; padding: 6px 12px; }"
-            "QPushButton:hover { background: #F97316; }"
+            "QPushButton:hover { background: #334155; }"
         )
         self.ws_compare_btn.clicked.connect(self._on_compare_clicked)
         header_row.addWidget(self.ws_compare_btn)

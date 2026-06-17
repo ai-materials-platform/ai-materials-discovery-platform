@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QPoint, QPropertyAnimation, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QRadialGradient
-from PyQt6.QtWidgets import QGraphicsOpacityEffect, QLabel
+from PyQt6.QtWidgets import QLabel
 
 
 class _PopupBubble(QLabel):
@@ -181,18 +181,14 @@ class FloatingChatbotIcon(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("AI 문의")
         self._drag_pos: QPoint | None = None
-
-        self._opacity_effect = QGraphicsOpacityEffect(self)
-        self._opacity_effect.setOpacity(self._OPACITY_DIM)
-        self.setGraphicsEffect(self._opacity_effect)
-
-        self._anim = QPropertyAnimation(self._opacity_effect, b"opacity", self)
-        self._anim.setDuration(150)
+        self._opacity = self._OPACITY_DIM  # QGraphicsOpacityEffect 대신 직접 관리
 
     # ── 아이콘 그리기 ──────────────────────────────────────────────────────────
 
     def paintEvent(self, event):
-        _paint_robot(QPainter(self), self.SIZE)
+        p = QPainter(self)
+        p.setOpacity(self._opacity)
+        _paint_robot(p, self.SIZE)
         return
         S = self.SIZE
         cx = S / 2
@@ -276,10 +272,8 @@ class FloatingChatbotIcon(QLabel):
     # ── 호버 ──────────────────────────────────────────────────────────────────
 
     def _set_opacity(self, value: float):
-        self._anim.stop()
-        self._anim.setStartValue(self._opacity_effect.opacity())
-        self._anim.setEndValue(value)
-        self._anim.start()
+        self._opacity = value
+        self.update()
 
     def enterEvent(self, event):
         self._set_opacity(self._OPACITY_BRIGHT)

@@ -21,7 +21,7 @@ class PredictionGuideOverlay(QWidget):
         self._bubble.setWordWrap(True)
         self._bubble.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._bubble.setStyleSheet(
-            "background: #FFFFFF; color: #1E293B; border: 2px solid #E56020; "
+            "background: #FFFFFF; color: #1E293B; border: 2px solid #1E293B; "
             "border-radius: 12px; padding: 14px 16px; font-size: 12px;"
         )
         self._bubble.setFixedSize(280, 210)
@@ -47,7 +47,7 @@ class PredictionGuideOverlay(QWidget):
         self._step_label.setStyleSheet("color: #CBD5E1; font-size: 13px; font-weight: 700;")
 
         self._next_btn = QPushButton("다음  ▶")
-        self._next_btn.setStyleSheet(btn_base.format(bg="#E56020", hv="#F97316"))
+        self._next_btn.setStyleSheet(btn_base.format(bg="#1E293B", hv="#334155"))
         self._next_btn.clicked.connect(self._go_next)
 
         self._close_btn = QPushButton("✕  닫기")
@@ -155,7 +155,7 @@ class PredictionGuideOverlay(QWidget):
             painter.fillRect(QRect(r.left(), spot.top(), spot.left(), spot.height()), ov)
             painter.fillRect(QRect(spot.right(), spot.top(), r.right() - spot.right(), spot.height()), ov)
             painter.fillRect(QRect(r.left(), spot.bottom(), r.width(), r.bottom() - spot.bottom()), ov)
-            painter.setPen(QPen(QColor("#E56020"), 2.5))
+            painter.setPen(QPen(QColor("#1E293B"), 2.5))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(QRectF(spot), 8, 8)
         else:

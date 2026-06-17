@@ -268,7 +268,7 @@ class PreprocessingMixin:
             self.refresh_feature_selection_summary()
             self._update_project_tree()
             self._sb_status.setText("● 전처리 완료")
-            self._sb_status.setStyleSheet("color: #E56020; font-size: 11px; font-weight: 700; padding: 0 10px;")
+            self._sb_status.setStyleSheet("color: #1E293B; font-size: 11px; font-weight: 700; padding: 0 10px;")
         except Exception as exc:
             self.preprocessing_ready = False
             self.train_btn.setEnabled(False)

@@ -67,9 +67,12 @@ class CustomTitleBar(QWidget):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor("#FFFFFF"))
+        dark = getattr(self._win, "_dark_mode", False)
+        bg     = QColor("#1E1E1E") if dark else QColor("#FFFFFF")
+        border = QColor("#3B4350") if dark else QColor("#C9D2DC")
+        p.fillRect(self.rect(), bg)
         # 하단 구분선
-        p.fillRect(0, self.height() - 1, self.width(), 1, QColor("#C9D2DC"))
+        p.fillRect(0, self.height() - 1, self.width(), 1, border)
 
     # ── 창 드래그 이동 ────────────────────────────────────────────────────────
 

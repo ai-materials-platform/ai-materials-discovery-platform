@@ -8,7 +8,9 @@ class ThemeMixin:
     def _toggle_theme(self):
         self._dark_mode = not self._dark_mode
         self._theme_btn.setText("라이트 모드" if self._dark_mode else "다크 모드")
-        self.setStyleSheet(DARK_QSS if self._dark_mode else LIGHT_QSS)
+        qss = DARK_QSS if self._dark_mode else LIGHT_QSS
+        QApplication.instance().setStyleSheet(qss)
+        self.setStyleSheet(qss)
         self._apply_theme_colors()
         if hasattr(self, "canvas") and self.last_r2_avg is None:
             self.render_training_placeholder()
@@ -33,7 +35,7 @@ class ThemeMixin:
             "status_text": "#F8FAFC" if d else "#111827",
             "status_muted":"#D7DCE3" if d else "#334155",
             "input_bg":    "#2F3339" if d else "#FFFFFF",
-            "accent":      "#E56020",
+            "accent":      "#1E293B",
         }
 
     def _apply_theme_colors(self):
@@ -48,7 +50,7 @@ class ThemeMixin:
             palette.setColor(QPalette.ColorRole.Text,            QColor("#D8D8D8"))
             palette.setColor(QPalette.ColorRole.Button,          QColor("#3A3A3A"))
             palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#D8D8D8"))
-            palette.setColor(QPalette.ColorRole.Highlight,       QColor("#E56020"))
+            palette.setColor(QPalette.ColorRole.Highlight,       QColor("#1E293B"))
             palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
             palette.setColor(QPalette.ColorRole.ToolTipBase,     QColor("#323232"))
             palette.setColor(QPalette.ColorRole.ToolTipText,     QColor("#D8D8D8"))
@@ -60,7 +62,7 @@ class ThemeMixin:
             palette.setColor(QPalette.ColorRole.Text,            QColor("#1A1A1A"))
             palette.setColor(QPalette.ColorRole.Button,          QColor("#EBEBEA"))
             palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#1A1A1A"))
-            palette.setColor(QPalette.ColorRole.Highlight,       QColor("#E56020"))
+            palette.setColor(QPalette.ColorRole.Highlight,       QColor("#1E293B"))
             palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
         QApplication.instance().setPalette(palette)
 
@@ -143,7 +145,7 @@ class ThemeMixin:
             )
 
         info_bg = "#15324A" if self._dark_mode else "#EFF6FF"
-        info_border = "#2563EB" if self._dark_mode else "#BFDBFE"
+        info_border = "#1E293B" if self._dark_mode else "#BFDBFE"
         info_text = "#DBEAFE" if self._dark_mode else "#1D4ED8"
         warn_bg = "#4A3818" if self._dark_mode else "#FFF7D6"
         warn_border = "#D4A72C" if self._dark_mode else "#FACC15"
@@ -159,6 +161,26 @@ class ThemeMixin:
             )
         if self._prediction_input_groups or self._prediction_input_fields or self._prediction_input_labels:
             self._apply_prediction_input_styles()
+        if hasattr(self, "_quality_delegate"):
+            self._quality_delegate.dark_mode = self._dark_mode
+        from PyQt6.QtWidgets import QLabel as _QLabel
+        title_color = "#F3F4F6" if self._dark_mode else "#111827"
+        sub_color = "#94A3B8" if self._dark_mode else "#64748B"
+        for card_attr in ("austenite_domain_btn", "high_temp_domain_btn"):
+            if hasattr(self, card_attr):
+                card = getattr(self, card_attr)
+                card_bg = "#2F3339" if self._dark_mode else "#FFFFFF"
+                card_border = "#4F5965" if self._dark_mode else "#C9D2DC"
+                card_hover = "#3A4048" if self._dark_mode else "#F1F5F9"
+                card.setStyleSheet(
+                    f"QWidget {{ background: {card_bg}; border: 1px solid {card_border}; border-radius: 10px; }}"
+                    f"QWidget:hover {{ background: {card_hover}; border-color: #1E293B; }}"
+                )
+                labels = card.findChildren(_QLabel)
+                if len(labels) >= 1:
+                    labels[0].setStyleSheet(f"font-size: 12px; font-weight: 700; color: {title_color}; border: none; background: transparent;")
+                if len(labels) >= 2:
+                    labels[1].setStyleSheet(f"font-size: 10px; color: {sub_color}; border: none; background: transparent;")
         if hasattr(self, "feature_selection_status_label"):
             self.feature_selection_status_label.setStyleSheet(
                 f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
@@ -225,13 +247,13 @@ class ThemeMixin:
                     "QDoubleSpinBox { "
                     f"background: {c['input_bg']}; color: {c['text_primary']}; border: 1px solid {c['border']}; "
                     "border-radius: 8px; padding: 7px 10px; min-height: 20px; }"
-                    "QDoubleSpinBox:focus { border-color: #E56020; }"
+                    "QDoubleSpinBox:focus { border-color: #1E293B; }"
                 )
         for button in self._simulation_reset_buttons:
             button.setStyleSheet(
-                "QPushButton { background: #E56020; color: white; border: none; border-radius: 9px; "
+                "QPushButton { background: #1E293B; color: white; border: none; border-radius: 9px; "
                 "font-weight: 700; padding: 8px 14px; }"
-                "QPushButton:hover { background: #F97316; }"
+                "QPushButton:hover { background: #334155; }"
             )
         for widget in self._simulation_widgets:
             widget.set_theme(c, self._dark_mode)
@@ -307,7 +329,7 @@ class ThemeMixin:
                 "QPushButton { "
                 f"background: {c['accent']}; color: white; border: none; border-radius: 17px; "
                 "font-weight: 700; padding: 6px 12px; }"
-                "QPushButton:hover { background: #F97316; }"
+                "QPushButton:hover { background: #334155; }"
             )
         if hasattr(self, "ws_refresh_btn"):
             self.ws_refresh_btn.setStyleSheet(
@@ -318,9 +340,9 @@ class ThemeMixin:
             )
         if hasattr(self, "ws_save_btn"):
             self.ws_save_btn.setStyleSheet(
-                "QPushButton { background: #E56020; color: white; border: none; border-radius: 10px; "
+                "QPushButton { background: #1E293B; color: white; border: none; border-radius: 10px; "
                 "font-weight: 700; padding: 7px 16px; }"
-                "QPushButton:hover { background: #F97316; }"
+                "QPushButton:hover { background: #334155; }"
             )
         if hasattr(self, "ws_load_btn"):
             self.ws_load_btn.setStyleSheet(
@@ -370,3 +392,16 @@ class ThemeMixin:
         self._refresh_prediction_views_for_theme()
         if hasattr(self, "_apply_llm_chat_theme"):
             self._apply_llm_chat_theme()
+        self._apply_mode_button_styles()
+        # 커스텀 타이틀바 다크모드 업데이트
+        if hasattr(self, "_custom_titlebar"):
+            self._custom_titlebar.update()
+            from PyQt6.QtWidgets import QToolButton  # noqa: PLC0415
+            c = self._theme()
+            for btn in self._custom_titlebar.findChildren(QToolButton):
+                btn.setStyleSheet(
+                    f"QToolButton{{background:transparent;color:{c['text_sec']};border:none;"
+                    f"font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;}}"
+                    f"QToolButton:hover{{background:{c['muted_bg']};color:{c['text_primary']};}}"
+                    "QToolButton::menu-indicator{image:none;}"
+                )
