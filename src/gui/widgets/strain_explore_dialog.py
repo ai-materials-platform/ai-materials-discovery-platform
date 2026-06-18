@@ -461,5 +461,5 @@ class StrainExploreDialog(QDialog):
         frac_x = points["Fracture"][0]
         ax.set_xlim(0.0, frac_x * 1.08)
         ax.set_ylim(0.0, uts_y * 1.18)
-        self._canvas_fig.tight_layout()
+        self._canvas_fig.tight_layout(pad=0.4)
         self._canvas.draw()

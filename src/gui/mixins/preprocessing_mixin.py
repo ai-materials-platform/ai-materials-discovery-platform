@@ -147,7 +147,7 @@ class PreprocessingMixin:
         self.perf_canvas.figure.patch.set_facecolor(colors["panel_bg"])
         ax.text(0.5, 0.56, "모델 학습이 끝나면 상세 성능 분석 그래프가 여기에 표시됩니다.", ha="center", va="center", fontsize=14, color=colors["text_sec"], transform=ax.transAxes)
         ax.text(0.5, 0.40, "실제값과 예측값이 얼마나 비슷한지 특성별로 확인할 수 있습니다.", ha="center", va="center", fontsize=11, color=colors["text_label"], transform=ax.transAxes)
-        self.perf_canvas.figure.tight_layout()
+        self.perf_canvas.figure.tight_layout(pad=0.4)
         self.perf_canvas.draw()
 
     def reset_preprocessing_state(self, keep_file=True):

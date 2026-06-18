@@ -140,5 +140,5 @@ class TrainingMixin:
                 spine.set_color(border)
             ax.tick_params(axis="both", colors=text_sec, labelcolor=text_sec)
 
-        self.perf_canvas.figure.tight_layout()
+        self.perf_canvas.figure.tight_layout(pad=0.4)
         self.perf_canvas.draw()

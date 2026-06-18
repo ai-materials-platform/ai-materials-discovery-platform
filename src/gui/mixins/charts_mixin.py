@@ -377,7 +377,7 @@ class ChartsMixin:
             transform=ax.transAxes,
         )
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas.draw()
@@ -412,7 +412,7 @@ class ChartsMixin:
             transform=ax.transAxes,
         )
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas.draw()
@@ -602,7 +602,7 @@ class ChartsMixin:
         ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
         ax.set_ylim(0.0, max_stress * 1.14)
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas._strain_data = strain
@@ -651,7 +651,7 @@ class ChartsMixin:
         ax1.set_xticklabels(labels)
         ax1.tick_params(axis="x", colors=colors["text_sec"])
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas.draw()

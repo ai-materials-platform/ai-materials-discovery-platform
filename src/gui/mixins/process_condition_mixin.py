@@ -493,7 +493,7 @@ class ProcessConditionPanel(QWidget):
         ax.set_title(f'모델 성능 비교 (최적: {best})', fontsize=11, fontweight='bold')
         ax.legend(fontsize=8, loc='lower right')
         ax.grid(axis='y', linestyle=':', alpha=0.5)
-        self._perf_canvas.figure.tight_layout()
+        self._perf_canvas.figure.tight_layout(pad=0.4)
         self._perf_canvas.draw()
 
     # ------------------------------------------------------------------
@@ -520,7 +520,7 @@ class ProcessConditionPanel(QWidget):
         ax.set_title(f'특성 중요도 ({engine.best_model_name})', fontsize=11, fontweight='bold')
         ax.invert_yaxis()
         ax.grid(axis='x', linestyle=':', alpha=0.5)
-        self._fi_canvas.figure.tight_layout()
+        self._fi_canvas.figure.tight_layout(pad=0.4)
         self._fi_canvas.draw()
 
     # ------------------------------------------------------------------
@@ -580,7 +580,7 @@ class ProcessConditionPanel(QWidget):
             ax.text(i, v * 1.02 if v > 0 else 0.5, f'{v:.1f}',
                     ha='center', va='bottom', fontsize=9, fontweight='bold')
         ax.grid(axis='y', linestyle=':', alpha=0.5)
-        self._pred_canvas.figure.tight_layout()
+        self._pred_canvas.figure.tight_layout(pad=0.4)
         self._pred_canvas.draw()
 
 

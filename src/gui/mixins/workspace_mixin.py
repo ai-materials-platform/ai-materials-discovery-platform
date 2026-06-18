@@ -353,7 +353,7 @@ class WorkspaceMixin:
         canvas._view_mode = "image"
         ax.imshow(image)
         ax.axis("off")
-        canvas.fig.tight_layout()
+        canvas.fig.tight_layout(pad=0.4)
         canvas.draw()
 
     def _on_compare_clicked(self):
