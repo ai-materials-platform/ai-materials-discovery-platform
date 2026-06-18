@@ -423,6 +423,17 @@ class ThemeMixin:
                 f"QHeaderView::section {{ background: {c['muted_bg']}; color: {c['text_label']}; font-size: 11px; font-weight: 600; "
                 f"padding: 8px 12px; border: none; border-bottom: 1px solid {c['divider']}; }}"
             )
+        if hasattr(self, "_settings_scroll"):
+            handle = "#4F5965" if self._dark_mode else "#CBD5E1"
+            handle_hv = "#6B7280" if self._dark_mode else "#94A3B8"
+            self._settings_scroll.setStyleSheet(
+                "QScrollArea { background: transparent; border: none; }"
+                f"QScrollBar:vertical {{ width: 6px; background: transparent; }}"
+                f"QScrollBar::handle:vertical {{ background: {handle}; border-radius: 3px; min-height: 20px; }}"
+                f"QScrollBar::handle:vertical:hover {{ background: {handle_hv}; }}"
+                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+                "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
+            )
         if hasattr(self, "preprocessing_tab"):
             self.preprocessing_tab.setStyleSheet(f"background: {c['panel_bg']};")
         if hasattr(self, "workspace_tab"):

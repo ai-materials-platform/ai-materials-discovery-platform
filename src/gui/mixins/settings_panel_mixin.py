@@ -168,11 +168,19 @@ class SettingsPanelMixin:
         hdr_row.addWidget(self._settings_help_btn)
         outer.addWidget(self._settings_header_row)
 
-        scroll = QScrollArea()
+        self._settings_scroll = QScrollArea()
+        scroll = self._settings_scroll
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
+        scroll.setStyleSheet(
+            "QScrollArea { background: transparent; border: none; }"
+            "QScrollBar:vertical { width: 6px; background: transparent; }"
+            "QScrollBar::handle:vertical { background: #CBD5E1; border-radius: 3px; min-height: 20px; }"
+            "QScrollBar::handle:vertical:hover { background: #94A3B8; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+            "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
+        )
 
         content = QWidget()
         content.setStyleSheet("background: #FFFFFF;")
