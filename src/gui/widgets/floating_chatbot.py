@@ -181,7 +181,12 @@ class FloatingChatbotIcon(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("AI 문의")
         self._drag_pos: QPoint | None = None
-        self._opacity = self._OPACITY_DIM  # QGraphicsOpacityEffect 대신 직접 관리
+        self._opacity = self._OPACITY_DIM
+        self._bounds_window = None  # 경계 기준이 되는 메인 윈도우
+
+    def set_bounds_window(self, window):
+        """드래그 경계를 이 윈도우의 frameGeometry로 제한한다."""
+        self._bounds_window = window
 
     # ── 아이콘 그리기 ──────────────────────────────────────────────────────────
 
@@ -295,10 +300,11 @@ class FloatingChatbotIcon(QLabel):
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
             new_pos = event.globalPosition().toPoint() - self._drag_pos
-            if self.parent():
-                pr = self.parent().rect()
-                new_pos.setX(max(0, min(new_pos.x(), pr.width() - self.width())))
-                new_pos.setY(max(0, min(new_pos.y(), pr.height() - self.height())))
+            if self._bounds_window is not None:
+                geo = self._bounds_window.frameGeometry()
+                pad = 8
+                new_pos.setX(max(geo.left() + pad, min(new_pos.x(), geo.right()  - self.width()  - pad)))
+                new_pos.setY(max(geo.top()  + pad, min(new_pos.y(), geo.bottom() - self.height() - pad)))
             if (new_pos - self.pos()).manhattanLength() > 4:
                 self._did_drag = True
             self.move(new_pos)

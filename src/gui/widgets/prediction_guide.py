@@ -70,6 +70,19 @@ class PredictionGuideOverlay(QWidget):
             self.parent().installEventFilter(self)
         self._relayout()
         self._position_bubble()
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setFocus()
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key in (Qt.Key.Key_Left, Qt.Key.Key_Up):
+            self._go_prev()
+        elif key in (Qt.Key.Key_Right, Qt.Key.Key_Down, Qt.Key.Key_Space):
+            self._go_next()
+        elif key == Qt.Key.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
 
     def hideEvent(self, event):
         super().hideEvent(event)

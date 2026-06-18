@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 import os
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QMenu,
     QMessageBox,
     QPushButton,
     QScrollArea,
@@ -96,14 +98,30 @@ class WorkspaceMixin:
 
     def refresh_workspace_table(self):
         ws_dir = "workspaces"
+        search_text = getattr(self, "_ws_search_text", "").lower().strip()
+
+        all_names = []
+        if os.path.exists(ws_dir):
+            all_names = sorted([d for d in os.listdir(ws_dir)
+                                if os.path.isdir(os.path.join(ws_dir, d)) and d != "auto_save"])
+
+        filtered = [n for n in all_names if search_text in n.lower()] if search_text else list(all_names)
+        total = len(filtered)
+
+        page = getattr(self, "_ws_page", 0)
+        per_page = getattr(self, "_ws_rows_per_page", 10)
+        max_page = max(0, (total - 1) // per_page) if total > 0 else 0
+        page = min(page, max_page)
+        self._ws_page = page
+
+        start = page * per_page
+        end = min(start + per_page, total)
+        page_names = filtered[start:end]
+
         self.ws_table.setRowCount(0)
-        if not os.path.exists(ws_dir):
-            return
-        names = sorted([d for d in os.listdir(ws_dir)
-                        if os.path.isdir(os.path.join(ws_dir, d)) and d != "auto_save"])
         model_name_map = {"RF": "Random Forest", "GBM": "Gradient Boosting", "MLP": "Neural Network", "TFP": "TFP"}
 
-        for row, name in enumerate(names):
+        for row, name in enumerate(page_names):
             self.ws_table.insertRow(row)
             folder = os.path.join(ws_dir, name)
             state_path = os.path.join(folder, "state.json")
@@ -119,8 +137,7 @@ class WorkspaceMixin:
             model_key = model_keys[model_idx] if 0 <= model_idx < len(model_keys) else "-"
             self.ws_table.setItem(row, 1, QTableWidgetItem(model_name_map.get(model_key, "-")))
 
-            saved_date = state.get("saved_date", "-")
-            self.ws_table.setItem(row, 2, QTableWidgetItem(saved_date))
+            self.ws_table.setItem(row, 2, QTableWidgetItem(state.get("saved_date", "-")))
 
             ss_log_path = os.path.join(folder, "stress_strain_log.json")
             초기값_text = 회복_text = 복원_text = 끊김_text = "-"
@@ -142,9 +159,130 @@ class WorkspaceMixin:
             self.ws_table.setItem(row, 4, QTableWidgetItem(회복_text))
             self.ws_table.setItem(row, 5, QTableWidgetItem(복원_text))
             self.ws_table.setItem(row, 6, QTableWidgetItem(끊김_text))
+            self._ws_add_action_btn(row, name, folder)
+
+        if hasattr(self, "ws_count_badge"):
+            self.ws_count_badge.setText(f"({total})")
+        if hasattr(self, "ws_page_info_label"):
+            self.ws_page_info_label.setText(f"{start + 1}–{end} / {total}" if total > 0 else "0 / 0")
+        if hasattr(self, "ws_prev_page_btn"):
+            self.ws_prev_page_btn.setEnabled(page > 0)
+        if hasattr(self, "ws_next_page_btn"):
+            self.ws_next_page_btn.setEnabled(end < total)
+
+    def _ws_add_action_btn(self, row, name, folder):
+        btn = QPushButton("···")
+        btn.setFixedSize(36, 28)
+        btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #6B7280; border: none; "
+            "border-radius: 4px; font-size: 14px; font-weight: 900; letter-spacing: 2px; }"
+            "QPushButton:hover { background: #F3F4F6; color: #111827; }"
+        )
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        _name, _folder = name, folder
+
+        def show_menu():
+            menu = QMenu(self)
+            load_action = menu.addAction("불러오기")
+            menu.addSeparator()
+            pred_path = os.path.join(_folder, "prediction_result.csv")
+            curve_path = os.path.join(_folder, "stress_strain_curve.csv")
+            pred_action = menu.addAction("예측 CSV 열기")
+            pred_action.setEnabled(os.path.exists(pred_path))
+            curve_action = menu.addAction("커브 CSV 열기")
+            curve_action.setEnabled(os.path.exists(curve_path))
+            menu.addSeparator()
+            delete_action = menu.addAction("삭제")
+            action = menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+            if action == load_action:
+                self._load_workspace_by_name(_name)
+            elif action == pred_action and os.path.exists(pred_path):
+                os.startfile(pred_path)
+            elif action == curve_action and os.path.exists(curve_path):
+                os.startfile(curve_path)
+            elif action == delete_action:
+                self._delete_workspace_by_name(_name)
+
+        btn.clicked.connect(show_menu)
+        cell_w = QWidget()
+        cell_l = QHBoxLayout(cell_w)
+        cell_l.setContentsMargins(4, 2, 4, 2)
+        cell_l.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        cell_l.addWidget(btn)
+        self.ws_table.setCellWidget(row, 7, cell_w)
+
+    def _ws_on_search_changed(self, text):
+        self._ws_search_text = text
+        self._ws_page = 0
+        self.refresh_workspace_table()
+
+    def _ws_prev_page(self):
+        if getattr(self, "_ws_page", 0) > 0:
+            self._ws_page -= 1
+            self.refresh_workspace_table()
+
+    def _ws_next_page(self):
+        self._ws_page = getattr(self, "_ws_page", 0) + 1
+        self.refresh_workspace_table()
+
+    def _load_workspace_by_name(self, name):
+        reply = QMessageBox.question(
+            self, "불러오기 확인",
+            f"'{name}' 분석을 불러오시겠습니까?\n현재 작업 중인 내용이 변경될 수 있습니다.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self.ws_combo.setCurrentText(name)
+        self.load_workspace()
+        self.tabs.setCurrentIndex(0)
 
     def _on_ws_table_clicked(self, *_):
         pass
+
+    def _on_ws_table_context_menu(self, pos):
+        row = self.ws_table.rowAt(pos.y())
+        if row < 0:
+            return
+        name_item = self.ws_table.item(row, 0)
+        if not name_item:
+            return
+        folder = os.path.join("workspaces", name_item.text())
+        menu = QMenu(self)
+        load_action = menu.addAction("불러오기")
+        menu.addSeparator()
+        pred_path = os.path.join(folder, "prediction_result.csv")
+        curve_path = os.path.join(folder, "stress_strain_curve.csv")
+        pred_action = menu.addAction("예측 CSV 열기")
+        pred_action.setEnabled(os.path.exists(pred_path))
+        curve_action = menu.addAction("커브 CSV 열기")
+        curve_action.setEnabled(os.path.exists(curve_path))
+        menu.addSeparator()
+        delete_action = menu.addAction("삭제")
+        action = menu.exec(self.ws_table.viewport().mapToGlobal(pos))
+        name = name_item.text()
+        if action == load_action:
+            self._load_workspace_by_name(name)
+        elif action == pred_action and os.path.exists(pred_path):
+            os.startfile(pred_path)
+        elif action == curve_action and os.path.exists(curve_path):
+            os.startfile(curve_path)
+        elif action == delete_action:
+            self._delete_workspace_by_name(name)
+
+    def _delete_workspace_by_name(self, name):
+        reply = QMessageBox.question(
+            self, "삭제 확인",
+            f"'{name}' 분석 기록을 삭제하시겠습니까?\n(폴더 전체가 삭제됩니다)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        folder = os.path.join("workspaces", name)
+        if os.path.exists(folder):
+            shutil.rmtree(folder)
+        self.refresh_workspace_list()
+        self.status_label.setText(f"상태: 분석 기록 '{name}' 삭제 완료")
 
     def _show_full_graph_dialog(self, path):
         if not path or not os.path.exists(path):
@@ -318,19 +456,13 @@ class WorkspaceMixin:
         row = self.ws_table.currentRow()
         self._on_ws_table_double_clicked(row, 0)
 
-    def _on_ws_table_double_clicked(self, row, _):
+    def _on_ws_table_double_clicked(self, row, col):
+        if col == 7:
+            return
         name_item = self.ws_table.item(row, 0)
         if not name_item:
             return
-        name = name_item.text()
-        reply = QMessageBox.question(self, "불러오기 확인",
-            f"'{name}' 분석을 불러오시겠습니까?\n현재 작업 중인 내용이 변경될 수 있습니다.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.No:
-            return
-        self.ws_combo.setCurrentText(name)
-        self.load_workspace()
-        self.tabs.setCurrentIndex(0)
+        self._load_workspace_by_name(name_item.text())
 
     def _open_workspace_dialog(self):
         if not hasattr(self, "_ws_dialog") or not self._ws_dialog:
@@ -453,6 +585,49 @@ class WorkspaceMixin:
                     json.dump(ss_log, f, ensure_ascii=False, indent=2)
             except Exception as e:
                 print("stress_strain_log 저장 실패:", e)
+
+        pred_csv_state = getattr(self, "_user_prediction_state", None) or getattr(self, "_pretrained_prediction_state", None)
+        if pred_csv_state:
+            try:
+                mean = pred_csv_state["mean"]
+                std  = pred_csv_state["std"]
+                inputs = pred_csv_state["input_dict"]
+                targets = [
+                    ("0.2% 항복강도 (MPa)", mean[0], std[0]),
+                    ("인장강도 UTS (MPa)",   mean[1], std[1]),
+                    ("연신율 (%)",           mean[2], std[2]),
+                    ("단면감소율 (%)",        mean[3], std[3]),
+                ]
+                with open(os.path.join(folder, "prediction_result.csv"), "w", newline="", encoding="utf-8-sig") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["=== 입력 조성 / 공정 조건 ==="])
+                    writer.writerow(["항목", "값"])
+                    for k, v in inputs.items():
+                        writer.writerow([k, v])
+                    writer.writerow([])
+                    writer.writerow(["=== 예측 결과 ==="])
+                    writer.writerow(["항목", "예측값", "불확실도 (±)"])
+                    for label, m, s in targets:
+                        writer.writerow([label, f"{m:.2f}", f"{s:.2f}"])
+            except Exception as e:
+                print("prediction_result.csv 저장 실패:", e)
+            try:
+                strain_arr, stress_arr, points, meta, segments = self._build_stress_strain_profile(
+                    pred_csv_state["mean"], pred_csv_state["input_dict"]
+                )
+                with open(os.path.join(folder, "stress_strain_curve.csv"), "w", newline="", encoding="utf-8-sig") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Strain", "Stress (MPa)", "구간"])
+                    for s, st in zip(*segments["elastic"]):
+                        writer.writerow([f"{s:.6f}", f"{st:.4f}", "탄성"])
+                    hx, hy = segments["hardening"]
+                    for s, st in zip(hx[1:], hy[1:]):
+                        writer.writerow([f"{s:.6f}", f"{st:.4f}", "가공경화"])
+                    nx, ny = segments["necking"]
+                    for s, st in zip(nx[1:], ny[1:]):
+                        writer.writerow([f"{s:.6f}", f"{st:.4f}", "네킹/파단"])
+            except Exception as e:
+                print("stress_strain_curve.csv 저장 실패:", e)
 
         self.refresh_workspace_list()
         self.status_label.setText(f"상태: 분석 기록 '{name}' 저장 완료")

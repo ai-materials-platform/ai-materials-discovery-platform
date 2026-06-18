@@ -12,10 +12,16 @@ class ThemeMixin:
         QApplication.instance().setStyleSheet(qss)
         self.setStyleSheet(qss)
         self._apply_theme_colors()
-        if hasattr(self, "canvas") and self.last_r2_avg is None:
-            self.render_training_placeholder()
-        if hasattr(self, "perf_canvas") and self.last_r2_avg is None:
-            self.render_performance_placeholder()
+        if hasattr(self, "canvas"):
+            if self.last_r2_avg is None:
+                self.render_training_placeholder()
+            elif hasattr(self, "_last_metrics"):
+                self._render_training_bar_chart(self._last_metrics)
+        if hasattr(self, "perf_canvas"):
+            if self.last_r2_avg is None:
+                self.render_performance_placeholder()
+            elif hasattr(self, "_last_training_results"):
+                self.render_performance_results(self._last_training_results)
 
     def _theme(self):
         d = self._dark_mode
@@ -113,8 +119,8 @@ class ThemeMixin:
 
         for w in self._section_lbl_widgets:
             w.setStyleSheet(
-                f"font-size: 11px; color: {c['text_label']}; "
-                "font-weight: 600; letter-spacing: 0.4px;"
+                f"font-size: 12px; color: {c['text_primary']}; font-weight: 700; "
+                f"padding: 0 0 4px 0; border-bottom: 1px solid {c['divider']}; background: transparent;"
             )
 
         for w in self._muted_bg_widgets:
@@ -126,8 +132,12 @@ class ThemeMixin:
         self.file_path_label.setStyleSheet(f"font-size: 12px; color: {c['text_sec']};")
         self.status_label.setStyleSheet(f"color: {c['text_sec']}; font-size: 11px;")
         self.domain_range_status_label.setStyleSheet(f"color: {c['text_sec']}; font-size: 11px;")
+        self.domain_rule_label.setStyleSheet(f"font-size: 11px; color: {c['text_label']}; background: transparent; padding: 0;")
+        self.feature_engineering_label.setStyleSheet(f"font-size: 11px; color: {c['text_label']}; background: transparent; padding: 0;")
+        self.quality_summary_label.setStyleSheet(f"font-size: 11px; color: {c['text_label']}; padding: 4px 0; background: transparent;")
         self.reset_preprocess_btn.setStyleSheet(
-            f"background: {c['muted_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; border-radius: 6px; font-size: 12px; font-weight: 600;"
+            f"QPushButton {{ background: {c['muted_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; border-radius: 3px; font-size: 11px; }}"
+            f"QPushButton:hover {{ background: {c['border']}; }}"
         )
 
         self._sb_status.setStyleSheet(
@@ -142,6 +152,43 @@ class ThemeMixin:
         for w in self._tree_section_title_lbls:
             w.setStyleSheet(
                 f"font-size: 11px; color: {c['text_label']}; font-weight: 700; letter-spacing: 0.4px;"
+            )
+
+        # ── 다크모드 전용 위젯 오버라이드 ────────────────────────────────────
+        if self._dark_mode:
+            # 파일 열기 버튼
+            self.select_file_btn.setStyleSheet(
+                "QPushButton { background: #383D45; color: #E2E8F0; border: 1px solid #4D5560; "
+                "border-radius: 3px; font-size: 12px; font-weight: 600; }"
+                "QPushButton:hover { background: #434950; border-color: #6B7280; }"
+                "QPushButton:pressed { background: #2F3339; }"
+            )
+            # 전처리 실행 버튼
+            self.preprocess_btn.setStyleSheet(
+                "QPushButton { background: #4B5563; color: #F9FAFB; border: none; "
+                "border-radius: 3px; font-size: 12px; font-weight: 700; }"
+                "QPushButton:hover { background: #374151; }"
+                "QPushButton:disabled { background: #374151; color: #6B7280; }"
+            )
+            # 학습 버튼
+            self.train_btn.setStyleSheet(
+                "QPushButton { background: #1D4ED8; color: #EFF6FF; border: none; "
+                "border-radius: 3px; font-size: 12px; font-weight: 700; }"
+                "QPushButton:hover { background: #2563EB; }"
+                "QPushButton:disabled { background: #1E3355; color: #4B6080; }"
+            )
+            # 학습 도움말 라벨 (파란 info box → 일반 텍스트)
+            if hasattr(self, "_training_help_label"):
+                self._training_help_label.setStyleSheet(
+                    "font-size: 11px; color: #94A3B8; font-weight: 600; "
+                    "background: transparent; padding: 2px 0; border: none;"
+                )
+            # 도메인/합금 설명 + 전처리 요약 (이미 transparent이지만 색상 재보장)
+            self.domain_rule_label.setStyleSheet(
+                f"font-size: 11px; color: {c['text_label']}; background: transparent; padding: 0;"
+            )
+            self.feature_engineering_label.setStyleSheet(
+                f"font-size: 11px; color: {c['text_label']}; background: transparent; padding: 0;"
             )
 
         info_bg = "#15324A" if self._dark_mode else "#EFF6FF"
@@ -163,6 +210,16 @@ class ThemeMixin:
             self._apply_prediction_input_styles()
         if hasattr(self, "_quality_delegate"):
             self._quality_delegate.dark_mode = self._dark_mode
+        _export_btn_style = (
+            f"QPushButton {{ background: transparent; color: {c['text_label']}; "
+            f"border: 1px solid {c['border']}; border-radius: 6px; "
+            "font-size: 11px; font-weight: 600; padding: 0 12px; }"
+            f"QPushButton:hover {{ background: {c['muted_bg']}; }}"
+            f"QPushButton:disabled {{ color: {c['border']}; }}"
+        )
+        for btn_attr in ("pretrained_export_btn", "user_export_btn"):
+            if hasattr(self, btn_attr):
+                getattr(self, btn_attr).setStyleSheet(_export_btn_style)
         from PyQt6.QtWidgets import QLabel as _QLabel
         title_color = "#F3F4F6" if self._dark_mode else "#111827"
         sub_color = "#94A3B8" if self._dark_mode else "#64748B"
@@ -183,13 +240,13 @@ class ThemeMixin:
                     labels[1].setStyleSheet(f"font-size: 10px; color: {sub_color}; border: none; background: transparent;")
         if hasattr(self, "feature_selection_status_label"):
             self.feature_selection_status_label.setStyleSheet(
-                f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
-                f"color: {warn_text}; border: 1px solid {warn_border}; font-weight: 600;"
+                f"font-size: 11px; font-weight: 600; color: {c['text_primary']}; "
+                "background: transparent; padding: 2px 0; border: none;"
             )
         if hasattr(self, "training_data_status_label"):
             self.training_data_status_label.setStyleSheet(
-                f"background-color: {warn_bg}; padding: 10px; border-radius: 8px; "
-                f"color: {warn_text}; border: 1px solid {warn_border}; font-weight: 600;"
+                f"font-size: 11px; font-weight: 600; color: {c['text_primary']}; "
+                "background: transparent; padding: 2px 0; border: none;"
             )
         if hasattr(self, "active_model_info"):
             card_bg = success_bg if self.model_engine else info_bg
@@ -304,10 +361,6 @@ class ThemeMixin:
             self.inference_right_frame.setStyleSheet(
                 f"background: {c['panel_bg']}; border: 1px solid {c['border']}; border-radius: 12px;"
             )
-        if hasattr(self, "ws_hint_label"):
-            self.ws_hint_label.setStyleSheet(
-                f"color: {c['text_label']}; font-size: 11px; font-weight: 600; margin-top: 4px;"
-            )
         if hasattr(self, "perf_header_label"):
             self.perf_header_label.setStyleSheet(
                 f"font-size: 16px; font-weight: 700; color: {c['text_primary']};"
@@ -316,46 +369,59 @@ class ThemeMixin:
             self.perf_desc_label.setStyleSheet(
                 f"color: {c['text_sec']}; font-weight: 600;"
             )
-        if hasattr(self, "ws_name_label"):
-            self.ws_name_label.setStyleSheet(
-                f"font-size: 12px; color: {c['text_sec']}; font-weight: 600;"
+        if hasattr(self, "ws_header"):
+            self.ws_header.setStyleSheet(
+                f"background: {c['panel_bg']}; border-bottom: 1px solid {c['divider']};"
             )
-        if hasattr(self, "ws_list_title"):
-            self.ws_list_title.setStyleSheet(
-                f"font-size: 14px; font-weight: 700; color: {c['text_primary']};"
+        if hasattr(self, "ws_title_label"):
+            self.ws_title_label.setStyleSheet(
+                f"font-size: 18px; font-weight: 700; color: {c['text_primary']};"
             )
-        if hasattr(self, "ws_compare_btn"):
-            self.ws_compare_btn.setStyleSheet(
-                "QPushButton { "
-                f"background: {c['accent']}; color: white; border: none; border-radius: 17px; "
-                "font-weight: 700; padding: 6px 12px; }"
-                "QPushButton:hover { background: #334155; }"
+        if hasattr(self, "ws_count_badge"):
+            self.ws_count_badge.setStyleSheet(
+                f"font-size: 13px; font-weight: 600; color: {c['text_label']};"
             )
-        if hasattr(self, "ws_refresh_btn"):
-            self.ws_refresh_btn.setStyleSheet(
-                "QPushButton { "
-                f"background: {c['panel_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; "
-                "border-radius: 17px; font-weight: 700; padding: 6px 12px; }"
-                f"QPushButton:hover {{ background: {c['muted_bg']}; border-color: {c['divider']}; }}"
+        if hasattr(self, "ws_search_input"):
+            self.ws_search_input.setStyleSheet(
+                f"QLineEdit {{ background: {c['input_bg']}; color: {c['text_primary']}; "
+                f"border: 1px solid {c['border']}; border-radius: 6px; padding: 6px 10px; font-size: 12px; }}"
+                f"QLineEdit:focus {{ border-color: #6366F1; background: {c['input_bg']}; }}"
             )
-        if hasattr(self, "ws_save_btn"):
-            self.ws_save_btn.setStyleSheet(
-                "QPushButton { background: #1E293B; color: white; border: none; border-radius: 10px; "
-                "font-weight: 700; padding: 7px 16px; }"
-                "QPushButton:hover { background: #334155; }"
+        if hasattr(self, "ws_new_save_btn"):
+            btn_bg = "#E5E7EB" if self._dark_mode else "#111827"
+            btn_text = "#111827" if self._dark_mode else "#F9FAFB"
+            btn_hover = "#D1D5DB" if self._dark_mode else "#1F2937"
+            self.ws_new_save_btn.setStyleSheet(
+                f"QPushButton {{ background: {btn_bg}; color: {btn_text}; border: none; border-radius: 6px; "
+                "font-weight: 700; font-size: 12px; }"
+                f"QPushButton:hover {{ background: {btn_hover}; }}"
             )
-        if hasattr(self, "ws_load_btn"):
-            self.ws_load_btn.setStyleSheet(
-                "QPushButton { "
-                f"background: {c['panel_bg']}; color: {c['text_sec']}; border: 1px solid {c['border']}; "
-                "border-radius: 10px; font-weight: 700; padding: 7px 14px; }"
-                f"QPushButton:hover {{ background: {c['muted_bg']}; border-color: {c['divider']}; }}"
+        if hasattr(self, "ws_footer"):
+            self.ws_footer.setStyleSheet(
+                f"background: {c['panel_bg']}; border-top: 1px solid {c['divider']};"
             )
-        if hasattr(self, "ws_delete_btn"):
-            self.ws_delete_btn.setStyleSheet(
-                "QPushButton { background: #DC2626; color: white; border: none; border-radius: 10px; "
-                "font-weight: 700; padding: 7px 12px; }"
-                "QPushButton:hover { background: #EF4444; }"
+        if hasattr(self, "ws_rows_label"):
+            self.ws_rows_label.setStyleSheet(f"font-size: 12px; color: {c['text_label']};")
+        if hasattr(self, "ws_page_info_label"):
+            self.ws_page_info_label.setStyleSheet(
+                f"font-size: 12px; font-weight: 600; color: {c['text_sec']};"
+            )
+        for _btn_attr in ("ws_prev_page_btn", "ws_next_page_btn"):
+            if hasattr(self, _btn_attr):
+                getattr(self, _btn_attr).setStyleSheet(
+                    f"QPushButton {{ background: transparent; color: {c['text_sec']}; "
+                    f"border: 1px solid {c['border']}; border-radius: 6px; font-size: 11px; }}"
+                    f"QPushButton:hover {{ background: {c['muted_bg']}; }}"
+                    f"QPushButton:disabled {{ color: {c['divider']}; border-color: {c['divider']}; }}"
+                )
+        if hasattr(self, "ws_table"):
+            sel_bg = "#3B4358" if self._dark_mode else "#EEF2FF"
+            self.ws_table.setStyleSheet(
+                f"QTableWidget {{ background: {c['panel_bg']}; border: none; outline: none; }}"
+                f"QTableWidget::item {{ padding: 8px 12px; border-bottom: 1px solid {c['divider']}; color: {c['text_primary']}; }}"
+                f"QTableWidget::item:selected {{ background: {sel_bg}; color: {c['text_primary']}; }}"
+                f"QHeaderView::section {{ background: {c['muted_bg']}; color: {c['text_label']}; font-size: 11px; font-weight: 600; "
+                f"padding: 8px 12px; border: none; border-bottom: 1px solid {c['divider']}; }}"
             )
         if hasattr(self, "preprocessing_tab"):
             self.preprocessing_tab.setStyleSheet(f"background: {c['panel_bg']};")

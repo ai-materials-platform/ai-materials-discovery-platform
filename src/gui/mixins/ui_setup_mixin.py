@@ -3,10 +3,12 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -195,7 +197,9 @@ class UISetupMixin:
             Qt.WindowType.WindowStaysOnTopHint
         )
         self._floating_chatbot.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._floating_chatbot.set_bounds_window(self)
         self._floating_chatbot.clicked.connect(self.toggle_llm_chat_dialog)
+        self._floating_chatbot_placed = False  # 초기 배치 여부 플래그
         self._floating_chatbot.show()
         QTimer.singleShot(0, self._reposition_floating_chatbot)
 
@@ -312,7 +316,7 @@ class UISetupMixin:
         inactive_text = "#D5DBE3" if d else "#64748B"
         active_bg    = "#3A4048" if d else "#FFFFFF"
         active_text  = "#F3F4F6" if d else "#111827"
-        hover_bg = "rgba(255,255,255,0.08)" if d else "rgba(0,0,0,0.05)"
+        hover_bg = "rgba(255,255,255,20)" if d else "rgba(0,0,0,13)"
         btn_style = (
             f"QPushButton {{ background: transparent; color: {inactive_text}; border: none; "
             "border-radius: 14px; font-size: 11px; font-weight: 700; padding: 0 16px; min-height: 28px; }"
@@ -424,6 +428,14 @@ class UISetupMixin:
         )
         self.pretrained_result_display.setWordWrap(True)
         result_tab_layout.addWidget(self.pretrained_result_display)
+        self.pretrained_export_btn = QPushButton("CSV로 내보내기")
+        self.pretrained_export_btn.setFixedHeight(28)
+        self.pretrained_export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pretrained_export_btn.setEnabled(False)
+        self.pretrained_export_btn.clicked.connect(
+            lambda: self._export_prediction_csv("_pretrained_prediction_state")
+        )
+        result_tab_layout.addWidget(self.pretrained_export_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.pretrained_prediction_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         result_tab_layout.addWidget(self.pretrained_prediction_canvas)
         self.pretrained_result_tabs.addTab(result_tab, "예측 결과")
@@ -436,15 +448,15 @@ class UISetupMixin:
                 "pretrained_curve_legend_card",
             )
         )
-        _pretrained_explore_btn = QPushButton("자세하게 보기")
-        _pretrained_explore_btn.setFixedHeight(30)
-        _pretrained_explore_btn.setStyleSheet(
+        self._pretrained_explore_btn = QPushButton("자세하게 보기")
+        self._pretrained_explore_btn.setFixedHeight(30)
+        self._pretrained_explore_btn.setStyleSheet(
             "QPushButton { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; "
             "border-radius: 6px; font-size: 11px; font-weight: 600; padding: 0 12px; }"
             "QPushButton:hover { background: #E2E8F0; }"
         )
-        _pretrained_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("pretrained"))
-        curve_layout.addWidget(_pretrained_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        self._pretrained_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("pretrained"))
+        curve_layout.addWidget(self._pretrained_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.pretrained_curve_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         curve_layout.addWidget(self.pretrained_curve_canvas)
         self.pretrained_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
@@ -538,17 +550,12 @@ class UISetupMixin:
 
         solution_label = QLabel("고용화 열처리 온도 (K)")
         solution_field = QLineEdit("1323")
-        _tip_sol = self._FIELD_TOOLTIPS.get("Solution_treatment_temperature")
-        if _tip_sol:
-            solution_label.setToolTip(_tip_sol)
-            solution_field.setToolTip(_tip_sol)
         proc_form.addRow(solution_label, solution_field)
         input_store["Solution_treatment_temperature"] = solution_field
         self._prediction_input_labels.append(solution_label)
         self._prediction_input_fields.append(solution_field)
 
         cooling_label = QLabel("냉각 방식")
-        cooling_label.setToolTip("냉각 방식\n수냉(water quench): 급냉으로 탄화물 석출 억제, 내식성 유지.\n공냉(air cool): 중간 냉각 속도.\n로냉(furnace cool): 서냉, 연화 목적.")
         self.pretrained_cooling_combo = QComboBox()
         self.pretrained_cooling_combo.addItems(["로냉 (furnace)", "공냉 (air)", "수냉 (water)"])
         self.pretrained_cooling_combo.setCurrentIndex(2)
@@ -565,10 +572,6 @@ class UISetupMixin:
 
         ni_eq_label = QLabel("Ni 당량")
         ni_eq_field = QLineEdit("0.0")
-        _tip_ni = self._FIELD_TOOLTIPS.get("Ni_eq")
-        if _tip_ni:
-            ni_eq_label.setToolTip(_tip_ni)
-            ni_eq_field.setToolTip(_tip_ni)
         proc_form.addRow(ni_eq_label, ni_eq_field)
         input_store["Ni_eq"] = ni_eq_field
         self._prediction_input_labels.append(ni_eq_label)
@@ -576,10 +579,6 @@ class UISetupMixin:
 
         cr_eq_label = QLabel("Cr 당량")
         cr_eq_field = QLineEdit("0.0")
-        _tip_cr = self._FIELD_TOOLTIPS.get("Cr_eq")
-        if _tip_cr:
-            cr_eq_label.setToolTip(_tip_cr)
-            cr_eq_field.setToolTip(_tip_cr)
         proc_form.addRow(cr_eq_label, cr_eq_field)
         input_store["Cr_eq"] = cr_eq_field
         self._prediction_input_labels.append(cr_eq_label)
@@ -649,35 +648,129 @@ class UISetupMixin:
 
         dialog = QDialog(self)
         dialog.setWindowTitle("추가 특성 선택")
-        dialog.resize(360, 440)
-        layout = QVBoxLayout(dialog)
+        dialog.setFixedSize(400, 480)
+        dialog.setStyleSheet("background: #FFFFFF;")
 
-        info = QLabel("사전학습 예측에 사용할 추가 특성을 선택하세요.")
-        info.setWordWrap(True)
-        info.setStyleSheet("font-size: 12px; margin-bottom: 6px;")
-        layout.addWidget(info)
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        list_widget = QListWidget()
-        for name in available:
-            item = QListWidgetItem(self._PRETRAINED_EXTRA_FEATURE_LABELS.get(name, name))
-            item.setData(Qt.ItemDataRole.UserRole, name)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked if name in already else Qt.CheckState.Unchecked)
-            list_widget.addItem(item)
-        layout.addWidget(list_widget, 1)
+        # ── 헤더 ──────────────────────────────────────────
+        header = QWidget()
+        header.setStyleSheet("background: #F8FAFC; border-bottom: 1px solid #E2E8F0;")
+        hl = QVBoxLayout(header)
+        hl.setContentsMargins(20, 16, 20, 14)
+        hl.setSpacing(3)
+        title_lbl = QLabel("추가 특성 선택")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #111827; background: transparent; border: none;")
+        desc_lbl = QLabel("사전학습 예측에 사용할 추가 특성을 선택하세요.")
+        desc_lbl.setStyleSheet("font-size: 11px; color: #64748B; background: transparent; border: none;")
+        hl.addWidget(title_lbl)
+        hl.addWidget(desc_lbl)
+        main_layout.addWidget(header)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        # ── 스크롤 콘텐츠 ─────────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("background: #FFFFFF; border: none;")
+
+        content = QWidget()
+        content.setStyleSheet("background: #FFFFFF;")
+        cl = QVBoxLayout(content)
+        cl.setContentsMargins(20, 18, 20, 18)
+        cl.setSpacing(0)
+
+        _GROUPS = [
+            ("공정 조건", ["Solution_treatment_time(s)", "Type of melting", "Size of ingot", "Product form", "Temperature (K)"]),
+            ("조직 특성", ["Grains mm-2"]),
+            ("합금 지표", ["Ni_eq", "Cr_eq", "Cr_Ni_ratio", "C_plus_N"]),
+        ]
+
+        checks = {}
+
+        def _sec_header(text):
+            row = QWidget()
+            row.setStyleSheet("background: transparent;")
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(0, 0, 0, 0)
+            rl.setSpacing(8)
+            lbl = QLabel(text)
+            lbl.setStyleSheet(
+                "font-size: 11px; font-weight: 700; color: #1B6AC9; "
+                "background: transparent; border: none; padding: 0;"
+            )
+            lbl.setFixedHeight(20)
+            rl.addWidget(lbl)
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setStyleSheet("border: none; border-top: 1px solid #CBD5E1; background: transparent;")
+            line.setFixedHeight(1)
+            rl.addWidget(line, 1)
+            return row
+
+        cb_style = (
+            "QCheckBox { font-size: 12px; color: #1E293B; background: transparent; "
+            "padding: 5px 0 5px 4px; spacing: 8px; }"
+            "QCheckBox::indicator { width: 15px; height: 15px; border-radius: 3px; "
+            "border: 1px solid #94A3B8; background: #FFFFFF; }"
+            "QCheckBox::indicator:checked { background: #1E293B; border-color: #1E293B; image: none; }"
+            "QCheckBox::indicator:hover { border-color: #1E293B; }"
         )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
+
+        first = True
+        for group_name, keys in _GROUPS:
+            group_keys = [k for k in keys if k in available]
+            if not group_keys:
+                continue
+            if not first:
+                cl.addSpacing(14)
+            first = False
+            cl.addWidget(_sec_header(group_name))
+            cl.addSpacing(6)
+            for key in group_keys:
+                label = self._PRETRAINED_EXTRA_FEATURE_LABELS.get(key, key)
+                cb = QCheckBox(label)
+                cb.setChecked(key in already)
+                cb.setStyleSheet(cb_style)
+                checks[key] = cb
+                cl.addWidget(cb)
+
+        cl.addStretch()
+        scroll.setWidget(content)
+        main_layout.addWidget(scroll, 1)
+
+        # ── 하단 버튼 바 ──────────────────────────────────
+        btn_bar = QWidget()
+        btn_bar.setStyleSheet("background: #F8FAFC; border-top: 1px solid #E2E8F0;")
+        bl = QHBoxLayout(btn_bar)
+        bl.setContentsMargins(16, 10, 16, 10)
+        bl.setSpacing(8)
+        bl.addStretch()
+        cancel_btn = QPushButton("취소")
+        cancel_btn.setFixedSize(72, 32)
+        cancel_btn.setStyleSheet(
+            "QPushButton { background: #FFFFFF; color: #374151; border: 1px solid #D1D5DB; "
+            "border-radius: 6px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #F3F4F6; }"
+        )
+        cancel_btn.clicked.connect(dialog.reject)
+        ok_btn = QPushButton("확인")
+        ok_btn.setFixedSize(72, 32)
+        ok_btn.setStyleSheet(
+            "QPushButton { background: #1E293B; color: white; border: none; "
+            "border-radius: 6px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #334155; }"
+        )
+        ok_btn.clicked.connect(dialog.accept)
+        bl.addWidget(cancel_btn)
+        bl.addWidget(ok_btn)
+        main_layout.addWidget(btn_bar)
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._pretrained_extra_feature_names = [
-                list_widget.item(i).data(Qt.ItemDataRole.UserRole)
-                for i in range(list_widget.count())
-                if list_widget.item(i).checkState() == Qt.CheckState.Checked
+                key for key in available
+                if key in checks and checks[key].isChecked()
             ]
             self._refresh_pretrained_extra_feature_ui()
 
@@ -748,7 +841,7 @@ class UISetupMixin:
             },
             {
                 "widget": self.pretrained_predict_btn,
-                "text": "② 예측 실행\n\n버튼 클릭 시 RF·GBM·MLP·TFP\n4개 AI 모델이 물성을 예측합니다.\n\n평균값과 불확실도를 함께 제공합니다.",
+                "text": "② 예측 실행\n\n버튼 클릭 시 미리 정의된\n사전학습 모델로 물성을 예측합니다.\n\n평균값과 불확실도를 함께 제공합니다.",
             },
             {
                 "widget": self.pretrained_result_tabs,
@@ -758,6 +851,11 @@ class UISetupMixin:
             {
                 "widget": self.pretrained_result_tabs,
                 "text": "④ Stress-Strain Curve 탭\n\n예측 물성 기반 응력-변형률 곡선.\n• 초록: 탄성 구간 (복원 가능)\n• 주황: 소성 구간 (영구 변형)\n• 빨강: 네킹→파단 구간",
+                "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(1),
+            },
+            {
+                "widget": getattr(self, "_pretrained_explore_btn", None),
+                "text": "⑤ 자세하게 보기\n\n예측 후 활성화되는 버튼입니다.\n\n표점거리·폭·두께를 입력하면\n변형률에 따른 응력 변화를\n단계별로 시뮬레이션할 수 있습니다.\n\n항복점·UTS·파단점이\n곡선 위에 실시간으로 표시됩니다.",
                 "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(1),
             },
         ]
@@ -844,10 +942,6 @@ class UISetupMixin:
             line_edit.setText(value)
             line_edit.deselect()
             line_edit.setCursorPosition(0)
-            tip = self._FIELD_TOOLTIPS.get(col)
-            if tip:
-                label.setToolTip(tip)
-                line_edit.setToolTip(tip)
             form_layout.addRow(label, line_edit)
             input_store[col] = line_edit
             self._prediction_input_labels.append(label)
@@ -995,9 +1089,20 @@ class UISetupMixin:
             return
         icon = self._floating_chatbot
         geo = self.frameGeometry()
-        x = geo.right()  - icon.width()  - 24
-        y = geo.bottom() - icon.height() - 24
-        icon.move(max(0, x), max(0, y))
+        pad = 16
+
+        if not self._floating_chatbot_placed:
+            # 최초 1회: 우하단 고정
+            icon.move(geo.right() - icon.width() - pad, geo.bottom() - icon.height() - pad)
+            self._floating_chatbot_placed = True
+            return
+
+        # 창 이동/리사이즈 후 경계 밖으로 벗어난 경우만 안으로 당김
+        cur = icon.pos()
+        x = max(geo.left() + pad, min(cur.x(), geo.right()  - icon.width()  - pad))
+        y = max(geo.top()  + pad, min(cur.y(), geo.bottom() - icon.height() - pad))
+        if x != cur.x() or y != cur.y():
+            icon.move(x, y)
 
     def resizeEvent(self, event):
         from PyQt6.QtWidgets import QMainWindow
@@ -1007,7 +1112,11 @@ class UISetupMixin:
     def moveEvent(self, event):
         from PyQt6.QtWidgets import QMainWindow
         QMainWindow.moveEvent(self, event)
-        self._reposition_floating_chatbot()
+        if hasattr(self, "_floating_chatbot") and self._floating_chatbot_placed:
+            dx = event.pos().x() - event.oldPos().x()
+            dy = event.pos().y() - event.oldPos().y()
+            icon = self._floating_chatbot
+            icon.move(icon.pos().x() + dx, icon.pos().y() + dy)
 
     def show_quality_help(self):
         help_text = """
@@ -1016,7 +1125,7 @@ class UISetupMixin:
         <h3>권장 순서</h3>
         <p>파일 선택 → 도메인 기준 설정 → 데이터 품질 처리 설정 → 전처리 실행 → 합금 지표 생성 → 결과 확인</p>
         <h3>추천 시작값</h3>
-        <p>누락값 처리: <b>중앙값으로 채우기</b><br>이상치 처리: <b>감지 범위로 보정</b><br>형식 검증: <b>잘못된 값을 NaN으로 변환</b><br>이상치 민감도: <b>1.5</b></p>
+        <p>누락값 처리: <b>중앙값으로 채우기(med)</b><br>이상치 처리: <b>감지 범위로 보정(iqr)</b><br>형식 검증: <b>잘못된 값을 NaN으로 변환(nan)</b><br>이상치 민감도: <b>1.5</b></p>
         <h3>합금 지표 설명</h3>
         <p><b>Ni 당량 (Ni_eq)</b>: 오스테나이트 안정성을 보는 지표입니다.<br><b>Cr 당량 (Cr_eq)</b>: 페라이트 형성 경향을 보는 지표입니다.<br><b>Cr/Ni 비율</b>: 조직 균형을 보는 지표입니다.<br><b>침입형 원소 합 (C+N)</b>: 고용강화와 고온 강도에 영향을 주는 지표입니다.</p>
         <h3>결과 확인</h3>

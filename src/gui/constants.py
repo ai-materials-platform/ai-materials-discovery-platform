@@ -33,7 +33,7 @@ QDoubleSpinBox, QSpinBox {{ border: 1px solid #C9D2DC; border-radius: 8px; backg
 QSplitter::handle {{ background: #C9D2DC; }}
 QDialog {{ background: #FFFFFF; }}
 QMessageBox {{ background: #FFFFFF; }}
-QToolTip {{ background: #FFFFFF; color: #1E293B; border: 1px solid #CBD5E1; border-radius: 6px; padding: 6px 10px; font-size: 11px; }}
+QToolTip {{ background: #FFFFE1; color: #111827; border: 1px solid #767676; border-radius: 0px; padding: 5px 10px; font-size: 11px; }}
 """
 
 DARK_QSS = f"""
@@ -43,36 +43,36 @@ QTabWidget::pane {{ border: 1px solid #4F5965; background: #2F3339; }}
 QTabBar {{ background: #25282D; }}
 QTabBar::scroller {{ background: #25282D; }}
 QTabBar QToolButton {{ background: #25282D; border: none; }}
-QTabBar::tab {{ background: #25282D; color: #B6C0CB; padding: 9px 16px; border: 1px solid #4F5965; border-bottom: none; border-top-left-radius: 6px; border-top-right-radius: 6px; }}
-QTabBar::tab:selected {{ background: #2F3339; color: #F8FAFC; font-weight: 700; border-bottom: 2px solid #1E293B; }}
+QTabBar::tab {{ background: #25282D; color: #B6C0CB; padding: 8px 16px; border: 1px solid #4F5965; border-bottom: none; border-top-left-radius: 3px; border-top-right-radius: 3px; }}
+QTabBar::tab:selected {{ background: #2F3339; color: #F8FAFC; font-weight: 700; border-bottom: 2px solid #5B8DEF; }}
 QTabBar::tab:hover {{ background: #333840; color: #F3F4F6; }}
-QGroupBox {{ border: 1px solid #4F5965; border-radius: 10px; margin-top: 12px; padding-top: 12px; font-weight: 700; color: #E2E8F0; background: #2F3339; }}
-QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; color: #D5DBE3; letter-spacing: 0.3px; }}
-QPushButton {{ background-color: #3A4048; color: #F3F4F6; border: 1px solid #59616C; border-radius: 8px; padding: 7px 14px; }}
-QPushButton:hover {{ background-color: #454C55; color: #FFFFFF; }}
-QPushButton:disabled {{ color: #7D8794; background: #2F3339; border-color: #3F454D; }}
-QComboBox {{ border: 1px solid #59616C; border-radius: 8px; background: #2F3339; padding: 6px 10px; color: #F3F4F6; }}
-QComboBox:focus {{ border-color: #1E293B; }}
-QComboBox QAbstractItemView {{ background: #2F3339; border: 1px solid #59616C; color: #F3F4F6; selection-background-color: #1E293B; selection-color: #FFFFFF; }}
-QTableWidget {{ border: 1px solid #4F5965; gridline-color: #3A4048; background: #2F3339; alternate-background-color: #25282D; color: #F3F4F6; }}
-QTableWidget::item {{ background-color: #2F3339; color: #F3F4F6; }}
+QGroupBox {{ border: 1px solid #3D4450; border-radius: 3px; margin-top: 16px; padding-top: 14px; font-weight: 700; color: #D5DBE3; background: #2A2E35; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #94A3B8; font-size: 11px; letter-spacing: 0.2px; }}
+QPushButton {{ background-color: #383D45; color: #E2E8F0; border: 1px solid #4D5560; border-radius: 3px; padding: 5px 12px; }}
+QPushButton:hover {{ background-color: #434950; color: #FFFFFF; border-color: #6B7280; }}
+QPushButton:disabled {{ color: #5B6470; background: #2D3138; border-color: #3A4048; }}
+QComboBox {{ border: 1px solid #4D5560; border-radius: 3px; background: #2F3339; padding: 5px 10px; color: #E2E8F0; }}
+QComboBox:focus {{ border-color: #5B8DEF; }}
+QComboBox QAbstractItemView {{ background: #2F3339; border: 1px solid #4D5560; color: #E2E8F0; selection-background-color: #3A4048; selection-color: #FFFFFF; }}
+QTableWidget {{ border: 1px solid #3D4450; gridline-color: #333840; background: #2A2E35; alternate-background-color: #25282D; color: #E2E8F0; }}
+QTableWidget::item {{ background-color: #2A2E35; color: #E2E8F0; }}
 QTableWidget::item:alternate {{ background-color: #25282D; }}
-QTableWidget::item:selected {{ background: #1E293B; color: #FFFFFF; }}
-QHeaderView::section {{ background: #25282D; color: #D5DBE3; border: none; border-right: 1px solid #4F5965; border-bottom: 1px solid #4F5965; padding: 7px 10px; font-weight: 700; }}
-QScrollBar:vertical {{ width: 8px; background: transparent; }}
-QScrollBar::handle:vertical {{ background: #59616C; border-radius: 4px; min-height: 24px; }}
+QTableWidget::item:selected {{ background: #3A4A6B; color: #FFFFFF; }}
+QHeaderView::section {{ background: #22252A; color: #94A3B8; border: none; border-right: 1px solid #3D4450; border-bottom: 1px solid #3D4450; padding: 6px 10px; font-weight: 700; }}
+QScrollBar:vertical {{ width: 7px; background: transparent; }}
+QScrollBar::handle:vertical {{ background: #4D5560; border-radius: 3px; min-height: 24px; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
-QScrollBar:horizontal {{ height: 8px; background: transparent; }}
-QScrollBar::handle:horizontal {{ background: #59616C; border-radius: 4px; }}
+QScrollBar:horizontal {{ height: 7px; background: transparent; }}
+QScrollBar::handle:horizontal {{ background: #4D5560; border-radius: 3px; }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
-QLineEdit {{ border: 1px solid #59616C; border-radius: 8px; background: #2F3339; padding: 7px 10px; color: #F3F4F6; selection-background-color: #1E293B; }}
-QLineEdit:focus {{ border-color: #1E293B; }}
-QDoubleSpinBox, QSpinBox {{ border: 1px solid #59616C; border-radius: 8px; background: #2F3339; padding: 7px 10px; color: #F3F4F6; }}
-QSplitter::handle {{ background: #4F5965; }}
-QDialog {{ background: #2F3339; color: #F3F4F6; }}
-QMessageBox {{ background: #2F3339; color: #F3F4F6; }}
+QLineEdit {{ border: 1px solid #4D5560; border-radius: 3px; background: #2A2E35; padding: 5px 10px; color: #E2E8F0; selection-background-color: #3A4A6B; }}
+QLineEdit:focus {{ border-color: #5B8DEF; }}
+QDoubleSpinBox, QSpinBox {{ border: 1px solid #4D5560; border-radius: 3px; background: #2A2E35; padding: 5px 10px; color: #E2E8F0; }}
+QSplitter::handle {{ background: #3D4450; }}
+QDialog {{ background: #2A2E35; color: #E2E8F0; }}
+QMessageBox {{ background: #2A2E35; color: #E2E8F0; }}
 QScrollArea {{ background: transparent; border: none; }}
-QToolTip {{ background: #2F3339; color: #F8FAFC; border: 1px solid #4F5965; border-radius: 6px; padding: 6px 10px; font-size: 11px; }}
+QToolTip {{ background: #2F3339; color: #E2E8F0; border: 1px solid #4D5560; border-radius: 3px; padding: 5px 10px; font-size: 11px; }}
 """
 
 GLOBAL_QSS = LIGHT_QSS

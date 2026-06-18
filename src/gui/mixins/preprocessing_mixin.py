@@ -39,7 +39,7 @@ class PreprocessingMixin:
         if hasattr(self, "generate_features_btn"):
             self.generate_features_btn.setEnabled(False)
         if self.data_engine.df is not None and not self.data_engine.df.empty:
-            self.training_data_status_label.setText("현재 표시 중인 결과는 이전 설정 기준입니다. 새 설정으로 다시 전처리를 실행해 주세요.")
+            self.training_data_status_label.setText("▲ 현재 결과는 이전 설정 기준입니다. 전처리를 다시 실행해 주세요.")
             self.training_status_label.setText("상태: 설정이 변경되어 학습이 잠시 비활성화되었습니다. 전처리를 다시 실행해 주세요.")
             self.quality_summary_label.setText("전처리 설정이 변경되었습니다. 현재 표는 이전 설정 기준 결과입니다.")
             self.processed_preview_info_label.setText("현재 표는 이전 전처리 결과입니다. 새 설정을 반영하려면 전처리를 다시 실행해 주세요.")
@@ -51,7 +51,7 @@ class PreprocessingMixin:
 
         if hasattr(self, "feature_selection_status_label"):
             self.feature_selection_status_label.setText(
-                "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+                "▲ 먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
             )
 
     def apply_quality_settings_from_ui(self):
@@ -183,7 +183,7 @@ class PreprocessingMixin:
             self.select_all_features_btn.setEnabled(False)
             self.clear_features_btn.setEnabled(False)
             self.feature_selection_status_label.setText(
-                "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+                "▲ 먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
             )
         self.render_training_placeholder()
         self.render_performance_placeholder()
@@ -260,7 +260,7 @@ class PreprocessingMixin:
             self.populate_feature_selection_table(reset_selection=True)
             self.preprocessing_ready = True
             self.status_label.setText("상태: 1차 데이터 정제 전처리가 완료되었습니다.")
-            self.training_data_status_label.setText(f"전처리 완료 데이터 {len(processed_df)}행이 준비되었습니다. 이제 모델 학습을 시작할 수 있습니다.")
+            self.training_data_status_label.setText(f"✓ 전처리 완료 — {len(processed_df)}행 준비됨. 모델 학습을 시작할 수 있습니다.")
             self.training_status_label.setText("상태: 전처리 완료. 2번 탭에서 모델을 학습할 수 있습니다.")
             self.generate_features_btn.setEnabled(True)
             self.train_btn.setEnabled(True)
@@ -411,3 +411,27 @@ class PreprocessingMixin:
         apply_btn.clicked.connect(apply_ranges)
         close_btn.clicked.connect(dialog.reject)
         dialog.exec()
+
+    def _on_preview_table_context_menu(self, table, pos):
+        item = table.itemAt(pos)
+        if item is None:
+            return
+        from PyQt6.QtWidgets import QApplication, QMenu
+        col = item.column()
+        header = table.horizontalHeaderItem(col)
+        col_name = header.text() if header else ""
+        menu = QMenu(self)
+        copy_cell = menu.addAction(f"셀 복사  ({item.text()})")
+        copy_row = menu.addAction("행 전체 복사")
+        action = menu.exec(table.viewport().mapToGlobal(pos))
+        if action == copy_cell:
+            QApplication.clipboard().setText(item.text())
+            self.status_label.setText(f"상태: [{col_name}] {item.text()} 복사됨")
+        elif action == copy_row:
+            row = item.row()
+            cells = []
+            for c in range(table.columnCount()):
+                cell = table.item(row, c)
+                cells.append(cell.text() if cell else "")
+            QApplication.clipboard().setText("\t".join(cells))
+            self.status_label.setText(f"상태: {row + 1}행 복사됨 ({table.columnCount()}개 값)")

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from src.engine.data_engine import DataEngine
@@ -86,6 +87,10 @@ class MainWindow(
         self._user_prediction_state = None
 
         self.init_ui()
+
+        _sc = QShortcut(QKeySequence("Ctrl+S"), self)
+        _sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        _sc.activated.connect(self._quick_save_prediction_csv)
 
     # ── 가장자리 리사이즈 (nativeEvent 대신 Qt 네이티브 API 사용) ──────────────
 
