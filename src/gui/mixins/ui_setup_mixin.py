@@ -1118,6 +1118,15 @@ class UISetupMixin:
             icon = self._floating_chatbot
             icon.move(icon.pos().x() + dx, icon.pos().y() + dy)
 
+    def closeEvent(self, event):
+        if hasattr(self, "_floating_chatbot"):
+            self._floating_chatbot.hide()
+            self._floating_chatbot.deleteLater()
+        if hasattr(self, "_llm_chat_dialog") and self._llm_chat_dialog is not None:
+            self._llm_chat_dialog.hide()
+            self._llm_chat_dialog.deleteLater()
+        event.accept()
+
     def show_quality_help(self):
         help_text = """
         <h2>데이터 전처리 도움말</h2>
