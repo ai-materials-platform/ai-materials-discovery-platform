@@ -1119,16 +1119,33 @@ class UISetupMixin:
             icon = self._floating_chatbot
             icon.move(icon.pos().x() + dx, icon.pos().y() + dy)
 
-    def closeEvent(self, event):
+    def _set_floating_visible(self, visible: bool):
         if hasattr(self, "_floating_chatbot"):
-            self._floating_chatbot.hide()
-            self._floating_chatbot.deleteLater()
-        if hasattr(self, "_llm_chat_dialog") and self._llm_chat_dialog is not None:
+            if visible:
+                self._floating_chatbot.show()
+            else:
+                self._floating_chatbot.hide()
+        if not visible and hasattr(self, "_llm_chat_dialog") and self._llm_chat_dialog is not None:
             self._llm_chat_dialog.hide()
-            self._llm_chat_dialog.deleteLater()
+
+    def closeEvent(self, event):
+        self._set_floating_visible(False)
         event.accept()
-        from PyQt6.QtWidgets import QApplication
-        QApplication.instance().quit()
+
+    def hideEvent(self, event):
+        self._set_floating_visible(False)
+        super().hideEvent(event)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._set_floating_visible(True)
+
+    def changeEvent(self, event):
+        from PyQt6.QtCore import QEvent
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange:
+            minimized = bool(self.windowState() & Qt.WindowState.WindowMinimized)
+            self._set_floating_visible(not minimized)
 
     def show_quality_help(self):
         help_text = """
