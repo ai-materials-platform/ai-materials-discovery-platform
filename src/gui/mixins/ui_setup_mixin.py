@@ -197,6 +197,7 @@ class UISetupMixin:
             Qt.WindowType.WindowStaysOnTopHint
         )
         self._floating_chatbot.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._floating_chatbot.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
         self._floating_chatbot.set_bounds_window(self)
         self._floating_chatbot.clicked.connect(self.toggle_llm_chat_dialog)
         self._floating_chatbot_placed = False  # 초기 배치 여부 플래그
@@ -1126,6 +1127,8 @@ class UISetupMixin:
             self._llm_chat_dialog.hide()
             self._llm_chat_dialog.deleteLater()
         event.accept()
+        from PyQt6.QtWidgets import QApplication
+        QApplication.instance().quit()
 
     def show_quality_help(self):
         help_text = """
