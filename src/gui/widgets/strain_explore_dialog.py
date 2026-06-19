@@ -500,87 +500,127 @@ class StrainExploreDialog(QDialog):
         self._render(strain, stress, points, segments, col_label, val)
 
     def _render(self, strain, stress, points, segments, col_label, col_val):
+        from matplotlib.transforms import blended_transform_factory
         d = self._dark
-        ax_bg      = "#252526" if d else "#FAFAFA"
+
+        # ── 색상 팔레트 (전문 논문 스타일) ────────────────────────────────────
+        ax_bg      = "#252526" if d else "#F9FAFB"
         fig_bg     = "#1E1E1E" if d else "#FFFFFF"
         text_main  = "#D4D4D4" if d else "#111827"
-        text_sec   = "#9D9D9D" if d else "#334155"
-        tick_col   = "#6A6A6A" if d else "#64748B"
-        spine_col  = "#3E3E42" if d else "#E2E8F0"
-        ann_bg     = "#2D2D2D" if d else "#FFFFFF"
-        ann_brd    = "#5A5A5A" if d else "#CBD5E1"
-        tough_col  = "#34D399" if d else "#065F46"
-        tough_bg   = "#064E3B" if d else "#ECFDF5"
-        tough_brd  = "#059669" if d else "#6EE7B7"
-        ch_col     = "#6A6A6A" if d else "#475569"
+        text_sec   = "#9D9D9D" if d else "#4B5563"
+        tick_col   = "#6A6A6A" if d else "#6B7280"
+        spine_col  = "#3E3E42" if d else "#D1D5DB"
+        ref_col    = "#555555" if d else "#9CA3AF"   # 기준선 색상
+        ann_bg     = "#2A2A2A" if d else "#FFFFFF"
+        ch_col     = "#6A6A6A" if d else "#94A3B8"
         ch_txt_col = "#D4D4D4" if d else "#1E293B"
         ch_bg_box  = "#2D2D2D" if d else "#F8FAFC"
+        ch_brd     = "#5A5A5A" if d else "#CBD5E1"
+
+        # 구간 색상: 채도를 낮춘 전문 팔레트
+        seg_colors = {
+            "elastic":   "#2B5BA8" if d else "#1D4E89",
+            "hardening": "#B8690E" if d else "#92400E",
+            "necking":   "#9B1C1C" if d else "#7F1D1D",
+        }
+        pt_colors = {
+            "Yield":    seg_colors["elastic"],
+            "UTS":      seg_colors["necking"],
+            "Fracture": "#1A7A4A" if d else "#14532D",
+        }
 
         self._canvas_fig.clear()
         self._canvas_fig.patch.set_facecolor(fig_bg)
         ax = self._canvas_fig.add_subplot(111)
         ax.set_facecolor(ax_bg)
 
+        # ── 축 스타일 ─────────────────────────────────────────────────────────
         ax.set_title(
             f"Stress-Strain Curve  |  {col_label} = {col_val:.4g}",
-            fontsize=12, fontweight="bold", color=text_main, pad=10,
+            fontsize=11, fontweight="bold", color=text_main, pad=8,
         )
-        ax.set_xlabel("Strain", fontsize=11, color=text_sec)
-        ax.set_ylabel("Stress (MPa)", fontsize=11, color=text_sec)
+        ax.set_xlabel("Strain  (−)", fontsize=10, color=text_sec)
+        ax.set_ylabel("Engineering Stress  (MPa)", fontsize=10, color=text_sec)
         ax.tick_params(colors=tick_col, labelcolor=tick_col, labelsize=9)
         for spine in ax.spines.values():
             spine.set_edgecolor(spine_col)
+            spine.set_linewidth(0.8)
+        ax.grid(True, which="major", color=spine_col, alpha=0.55, linewidth=0.5)
+        ax.minorticks_on()
+        ax.grid(True, which="minor", color=spine_col, alpha=0.25, linewidth=0.3, linestyle=":")
 
-        yield_x  = points["Yield"][0]
-        uts_x    = points["UTS"][0]
-        frac_x   = points["Fracture"][0]
+        yield_x = points["Yield"][0]
+        yield_y = points["Yield"][1]
+        uts_x   = points["UTS"][0]
+        uts_y   = points["UTS"][1]
+        frac_x  = points["Fracture"][0]
 
-        ax.axvspan(0.0,     yield_x, color="#2563EB", alpha=0.08 if d else 0.06)
-        ax.axvspan(yield_x, uts_x,   color="#F59E0B", alpha=0.07 if d else 0.05)
-        ax.axvspan(uts_x,   frac_x,  color="#DC2626", alpha=0.06 if d else 0.04)
+        # ── 구간 배경 (아주 연한 단색) ────────────────────────────────────────
+        ax.axvspan(0.0,     yield_x, color=seg_colors["elastic"],   alpha=0.06 if d else 0.04)
+        ax.axvspan(yield_x, uts_x,   color=seg_colors["hardening"], alpha=0.06 if d else 0.04)
+        ax.axvspan(uts_x,   frac_x,  color=seg_colors["necking"],   alpha=0.05 if d else 0.03)
 
+        # ── 인성 면적 (중립 회색) ─────────────────────────────────────────────
         toughness = float(np.trapz(stress, strain))
-        ax.fill_between(strain, stress, color="#10B981", alpha=0.12 if d else 0.09, zorder=1)
-        ax.text(
-            0.98, 0.96, f"인성  {toughness:.0f} MJ/m³",
-            transform=ax.transAxes, fontsize=9, ha="right", va="top",
-            color=tough_col,
-            bbox=dict(boxstyle="round,pad=0.35", facecolor=tough_bg, edgecolor=tough_brd, alpha=0.92),
-        )
+        ax.fill_between(strain, stress,
+                        color="#6B7280" if d else "#9CA3AF",
+                        alpha=0.10 if d else 0.08, zorder=1)
 
-        seg_colors = {"elastic": "#2563EB", "hardening": "#F59E0B", "necking": "#DC2626"}
+        # ── 기준선: 항복점 수직/수평 점선 ────────────────────────────────────
+        ax.axvline(yield_x, color=ref_col, linewidth=0.8, linestyle="--", alpha=0.55, zorder=2)
+        ax.axvline(uts_x,   color=ref_col, linewidth=0.8, linestyle="--", alpha=0.45, zorder=2)
+        ax.axhline(yield_y, color=ref_col, linewidth=0.7, linestyle=":",  alpha=0.45, zorder=2)
+
+        # ── 곡선 ──────────────────────────────────────────────────────────────
         for name, (xs, ys) in segments.items():
-            ax.plot(xs, ys, color=seg_colors[name], linewidth=2.8, solid_capstyle="round", zorder=3)
-            ax.fill_between(xs, ys, 0, color=seg_colors[name], alpha=0.06, zorder=2)
+            ax.plot(xs, ys, color=seg_colors[name], linewidth=2.2,
+                    solid_capstyle="butt", zorder=3)
 
-        pt_colors = {"Yield": "#2563EB", "UTS": "#DC2626", "Fracture": "#059669"}
-        offsets   = {"Yield": (12, 12), "UTS": (-70, -42), "Fracture": (-82, -6)}
-        bbox_style = {"boxstyle": "round,pad=0.22", "facecolor": ann_bg,
-                      "edgecolor": ann_brd, "alpha": 0.92}
+        # ── 구간 레이블 (상단 고정, 화살표 없음) ─────────────────────────────
+        trans = blended_transform_factory(ax.transData, ax.transAxes)
+        zone_info = [
+            ("Elastic",          (0.0 + yield_x) / 2,    seg_colors["elastic"]),
+            ("Plastic hardening", (yield_x + uts_x) / 2, seg_colors["hardening"]),
+            ("Necking",           (uts_x + frac_x) / 2,  seg_colors["necking"]),
+        ]
+        for zlabel, xc, zc in zone_info:
+            ax.text(xc, 0.975, zlabel, transform=trans,
+                    fontsize=8, color=zc, ha="center", va="top", fontweight="600",
+                    bbox=dict(boxstyle="square,pad=0.15", fc=ann_bg, ec="none", alpha=0.70))
+
+        # ── 주요 점 마커 + annotation ─────────────────────────────────────────
+        offsets = {"Yield": (10, 40), "UTS": (-72, -38), "Fracture": (-84, -8)}
         for name, (xv, yv) in points.items():
             c = pt_colors[name]
-            ax.scatter([xv], [yv], s=42, color=c, zorder=5)
+            ax.scatter([xv], [yv], s=30, color=c, zorder=5, linewidths=0)
             ax.annotate(
-                f"{name}\n({xv:.3f}, {yv:.0f} MPa)",
+                f"{name}\n({xv:.3f},  {yv:.0f} MPa)",
                 xy=(xv, yv), xytext=offsets[name],
-                textcoords="offset points", fontsize=9,
-                color=c, fontweight="bold", bbox=bbox_style,
-                arrowprops={"arrowstyle": "-", "color": c, "lw": 1.0},
+                textcoords="offset points", fontsize=8.5,
+                color=c, fontweight="bold",
+                bbox=dict(boxstyle="square,pad=0.18", fc=ann_bg, ec="none", alpha=0.88),
+                arrowprops={"arrowstyle": "-", "color": c, "lw": 0.8},
             )
 
-        uts_y = points["UTS"][1]
-        frac_x = points["Fracture"][0]
-        ax.set_xlim(0.0, frac_x * 1.08)
-        ax.set_ylim(0.0, uts_y * 1.18)
+        # ── 인성 배지 ─────────────────────────────────────────────────────────
+        tough_col = "#34D399" if d else "#065F46"
+        tough_bg  = "#052E16" if d else "#F0FDF4"
+        ax.text(0.985, 0.975, f"인성  {toughness:.0f} MJ/m³",
+                transform=ax.transAxes, fontsize=8.5, ha="right", va="top",
+                color=tough_col,
+                bbox=dict(boxstyle="square,pad=0.28", fc=tough_bg, ec="none", alpha=0.88))
 
+        ax.set_xlim(0.0, frac_x * 1.08)
+        ax.set_ylim(0.0, uts_y * 1.20)
         self._canvas_fig.tight_layout(pad=0.4)
         self._canvas.draw()
 
+        # ── 크로스헤어 (blitting 유지) ────────────────────────────────────────
         self._ch_v = ax.axvline(x=0, color=ch_col, linewidth=0.8, linestyle=":", alpha=0, zorder=10, animated=True)
         self._ch_h = ax.axhline(y=0, color=ch_col, linewidth=0.8, linestyle=":", alpha=0, zorder=10, animated=True)
         self._ch_text = ax.text(
             0, 0, "", fontsize=8, color=ch_txt_col, ha="left", va="bottom",
-            bbox=dict(boxstyle="round,pad=0.3", facecolor=ch_bg_box, edgecolor=ann_brd, alpha=0.92),
+            bbox=dict(boxstyle="round,pad=0.3", facecolor=ch_bg_box, edgecolor=ch_brd, alpha=0.92),
             zorder=11, visible=False, animated=True,
         )
         self._ch_ax = ax

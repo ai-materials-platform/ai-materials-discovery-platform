@@ -48,20 +48,8 @@ class ChartsMixin:
         text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         panel_layout.addWidget(text_label, 1)
 
-        legend_col = QVBoxLayout()
-        legend_col.setContentsMargins(0, 0, 0, 0)
-        legend_col.setSpacing(0)
-        legend_col.addStretch()
-        legend_card = self._create_curve_legend_card()
-        legend_col.addWidget(
-            legend_card,
-            0,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom,
-        )
-        panel_layout.addLayout(legend_col)
-
         setattr(self, text_attr_name, text_label)
-        setattr(self, legend_attr_name, legend_card)
+        setattr(self, legend_attr_name, None)
         self._curve_info_panels.append(panel)
         return panel
 
@@ -445,6 +433,8 @@ class ChartsMixin:
         return float(np.clip(193000.0 * softening_factor, 125000.0, 210000.0))
 
     def _build_stress_strain_profile(self, mean, input_dict):
+        from scipy.interpolate import PchipInterpolator
+
         yield_stress = max(self._safe_float(mean[0]), 1.0)
         uts = max(self._safe_float(mean[1], yield_stress + 1.0), yield_stress + 1.0)
         elongation_pct = float(np.clip(self._safe_float(mean[2], 2.0), 2.0, 120.0))
@@ -452,53 +442,72 @@ class ChartsMixin:
         fracture_strain = max(elongation_pct / 100.0, 0.02)
 
         elastic_modulus = self._estimate_elastic_modulus(input_dict.get("Temperature (K)", 293.15))
+        # physical yield strain (kept for metadata/labels)
         yield_strain = float(
             np.clip((yield_stress / elastic_modulus) + 0.002, 0.002, max(0.012, fracture_strain * 0.22))
         )
         if fracture_strain <= yield_strain + 0.01:
             fracture_strain = yield_strain + 0.01
 
-        necking_ratio = 0.55 + 0.20 * (area_reduction_pct / 100.0)
-        uts_strain = yield_strain + (fracture_strain - yield_strain) * necking_ratio
-        uts_strain = float(np.clip(uts_strain, yield_strain + 0.006, fracture_strain - 0.003))
+        # display-only yield strain: elastic region visibility (not physical)
+        display_yield_strain = float(max(yield_strain, 0.05 * fracture_strain))
+        display_yield_strain = float(min(display_yield_strain, fracture_strain * 0.10))
+
+        necking_ratio = 0.52 + 0.18 * (area_reduction_pct / 100.0)
+        uts_strain = display_yield_strain + (fracture_strain - display_yield_strain) * necking_ratio
+        uts_strain = float(np.clip(uts_strain, display_yield_strain + 0.006, fracture_strain - 0.003))
         if uts_strain >= fracture_strain:
             fracture_strain = uts_strain + 0.003
 
-        fracture_stress_ratio = float(np.clip(0.82 - 0.45 * (area_reduction_pct / 100.0), 0.32, 0.82))
+        fracture_stress_ratio = float(np.clip(0.80 - 0.42 * (area_reduction_pct / 100.0), 0.30, 0.80))
         fracture_stress = uts * fracture_stress_ratio
 
-        elastic_x = np.linspace(0.0, yield_strain, 70)
-        elastic_y = (yield_stress / max(yield_strain, 1e-6)) * elastic_x
+        # ── Region A: Elastic — strictly linear (display_yield_strain) ──────
+        elastic_slope = yield_stress / max(display_yield_strain, 1e-6)
+        elastic_x = np.linspace(0.0, display_yield_strain, 60)
+        elastic_y = elastic_slope * elastic_x
 
-        hardening_x = np.linspace(yield_strain, uts_strain, 120)
-        hardening_t = np.linspace(0.0, 1.0, hardening_x.size)
-        hardening_y = yield_stress + (uts - yield_stress) * (1.0 - np.power(1.0 - hardening_t, 1.7))
+        # ── Region B: Strain Hardening — PCHIP, concave-down ─────────────────
+        # rapid initial hardening, gradual saturation near UTS
+        h_t     = np.array([0.0, 0.18, 0.42, 0.68, 0.86, 1.0])
+        h_shape = np.array([0.0, 0.46, 0.74, 0.91, 0.97, 1.0])  # concave-down fractions
+        h_x = display_yield_strain + h_t * (uts_strain - display_yield_strain)
+        h_y = yield_stress + (uts - yield_stress) * h_shape
+        pchip_h = PchipInterpolator(h_x, h_y)
+        hardening_x = np.linspace(display_yield_strain, uts_strain, 120)
+        hardening_y = np.clip(pchip_h(hardening_x), yield_stress, uts)
 
+        # ── Region C: Necking — PCHIP, accelerating drop (per spec) ──────────
+        # minimal drop immediately after UTS, increasing rate toward fracture
+        n_t     = np.array([0.0, 0.12, 0.32, 0.58, 0.82, 1.0])
+        n_shape = np.array([0.0, 0.015, 0.105, 0.34, 0.68, 1.0])
+        n_x = uts_strain + n_t * (fracture_strain - uts_strain)
+        n_y = uts - (uts - fracture_stress) * n_shape
+        pchip_n = PchipInterpolator(n_x, n_y)
         necking_x = np.linspace(uts_strain, fracture_strain, 80)
-        necking_t = np.linspace(0.0, 1.0, necking_x.size)
-        necking_y = uts - (uts - fracture_stress) * np.power(necking_t, 1.2)
+        necking_y = np.clip(pchip_n(necking_x), fracture_stress * 0.95, uts)
 
         strain = np.concatenate([elastic_x, hardening_x[1:], necking_x[1:]])
         stress = np.concatenate([elastic_y, hardening_y[1:], necking_y[1:]])
         segments = {
-            "elastic": (elastic_x, elastic_y),
+            "elastic":   (elastic_x, elastic_y),
             "hardening": (hardening_x, hardening_y),
-            "necking": (necking_x, necking_y),
+            "necking":   (necking_x, necking_y),
         }
         points = {
-            "Yield": (yield_strain, yield_stress),
-            "UTS": (uts_strain, uts),
-            "Fracture": (fracture_strain, fracture_stress),
+            "Yield":    (display_yield_strain, yield_stress),
+            "UTS":      (uts_strain,           uts),
+            "Fracture": (fracture_strain,      fracture_stress),
         }
         meta = {
-            "yield_stress": yield_stress,
-            "uts": uts,
-            "elongation_pct": elongation_pct,
-            "area_reduction_pct": area_reduction_pct,
+            "yield_stress":        yield_stress,
+            "uts":                 uts,
+            "elongation_pct":      elongation_pct,
+            "area_reduction_pct":  area_reduction_pct,
             "elastic_modulus_gpa": elastic_modulus / 1000.0,
-            "yield_strain": yield_strain,
-            "uts_strain": uts_strain,
-            "fracture_strain": fracture_strain,
+            "yield_strain":        yield_strain,          # physical (for info text)
+            "uts_strain":          uts_strain,
+            "fracture_strain":     fracture_strain,
         }
         return strain, stress, points, meta, segments
 
@@ -516,91 +525,82 @@ class ChartsMixin:
             ylabel="Stress (MPa)",
         )
 
-        yield_x = points["Yield"][0]
-        uts_x = points["UTS"][0]
+        from matplotlib.transforms import blended_transform_factory
+        dark = getattr(self, "_dark_mode", False)
+        colors = self._theme()
+
+        yield_x   = points["Yield"][0]
+        yield_y   = points["Yield"][1]
+        uts_x     = points["UTS"][0]
+        uts_y     = points["UTS"][1]
         fracture_x = points["Fracture"][0]
         max_stress = max(float(np.max(stress)), meta["uts"])
 
-        segment_styles = {name: dict(style) for name, style in CURVE_SEGMENT_STYLES.items()}
-        ax.axvspan(0.0, yield_x, color=segment_styles["elastic"]["fill"], alpha=0.08)
-        ax.axvspan(yield_x, uts_x, color=segment_styles["hardening"]["fill"], alpha=0.06)
-        ax.axvspan(uts_x, fracture_x, color=segment_styles["necking"]["fill"], alpha=0.05)
+        seg_colors = {
+            "elastic":   "#2B5BA8" if dark else "#1D4E89",
+            "hardening": "#B8690E" if dark else "#92400E",
+            "necking":   "#9B1C1C" if dark else "#7F1D1D",
+        }
+        pt_colors = {
+            "Yield":    seg_colors["elastic"],
+            "UTS":      seg_colors["necking"],
+            "Fracture": "#1A7A4A" if dark else "#14532D",
+        }
+        ref_col = "#555555" if dark else "#9CA3AF"
+        ann_bg  = colors["panel_bg"]
+
+        # minor grid
+        ax.minorticks_on()
+        ax.grid(True, which="minor", color=colors["divider"], alpha=0.20, linewidth=0.3, linestyle=":")
+
+        # 구간 배경
+        ax.axvspan(0.0,     yield_x,   color=seg_colors["elastic"],   alpha=0.05 if dark else 0.04)
+        ax.axvspan(yield_x, uts_x,     color=seg_colors["hardening"], alpha=0.05 if dark else 0.04)
+        ax.axvspan(uts_x,   fracture_x, color=seg_colors["necking"],  alpha=0.04 if dark else 0.03)
+
+        # 인성 면적 (중립 회색)
+        ax.fill_between(strain, stress,
+                        color="#6B7280" if dark else "#9CA3AF",
+                        alpha=0.10 if dark else 0.07, zorder=1)
+
+        # 기준선
+        ax.axvline(yield_x, color=ref_col, linewidth=0.8, linestyle="--", alpha=0.55, zorder=2)
+        ax.axvline(uts_x,   color=ref_col, linewidth=0.8, linestyle="--", alpha=0.45, zorder=2)
+        ax.axhline(yield_y, color=ref_col, linewidth=0.7, linestyle=":",  alpha=0.45, zorder=2)
+
+        # 곡선
         for segment_name, (x_vals, y_vals) in segments.items():
-            style = segment_styles[segment_name]
-            ax.plot(
-                x_vals, y_vals,
-                color=style["color"],
-                linewidth=2.9,
-                solid_capstyle="round",
-                label=style["label"],
-            )
-            ax.fill_between(x_vals, y_vals, 0, color=style["color"], alpha=0.06)
+            ax.plot(x_vals, y_vals, color=seg_colors[segment_name],
+                    linewidth=2.2, solid_capstyle="butt", zorder=3)
 
-        point_styles = {
-            "Yield": ("#2563EB", (12, 42)),
-            "UTS": ("#DC2626", (-70, -42)),
-            "Fracture": ("#059669", (-82, -6)),
-        }
-        colors = self._theme()
-        annotation_box = {
-            "boxstyle": "round,pad=0.24",
-            "facecolor": colors["panel_bg"],
-            "edgecolor": colors["border"],
-            "alpha": 0.94,
-        }
+        # 구간 레이블 (상단 고정, 화살표 없음)
+        trans = blended_transform_factory(ax.transData, ax.transAxes)
+        zone_info = [
+            ("Elastic",           (0.0 + yield_x) / 2,    seg_colors["elastic"]),
+            ("Plastic hardening", (yield_x + uts_x) / 2,  seg_colors["hardening"]),
+            ("Necking",           (uts_x + fracture_x) / 2, seg_colors["necking"]),
+        ]
+        for zlabel, xc, zc in zone_info:
+            ax.text(xc, 0.975, zlabel, transform=trans,
+                    fontsize=8, color=zc, ha="center", va="top", fontweight="600",
+                    bbox=dict(boxstyle="square,pad=0.15", fc=ann_bg, ec="none", alpha=0.70))
+
+        # 주요 점 annotation
+        offsets = {"Yield": (10, 40), "UTS": (-72, -38), "Fracture": (-84, -8)}
         for name, (x_val, y_val) in points.items():
-            color, offset = point_styles[name]
-            ax.scatter([x_val], [y_val], s=42, color=color, zorder=5)
+            c = pt_colors[name]
+            ax.scatter([x_val], [y_val], s=30, color=c, zorder=5, linewidths=0)
             ax.annotate(
-                f"{name}\n({x_val:.3f}, {y_val:.0f} MPa)",
-                xy=(x_val, y_val),
-                xytext=offset,
-                textcoords="offset points",
-                fontsize=9,
-                color=color,
-                fontweight="bold",
-                bbox=annotation_box,
-                arrowprops={"arrowstyle": "-", "color": color, "lw": 1.0},
+                f"{name}\n({x_val:.3f},  {y_val:.0f} MPa)",
+                xy=(x_val, y_val), xytext=offsets[name],
+                textcoords="offset points", fontsize=8.5,
+                color=c, fontweight="bold",
+                bbox=dict(boxstyle="square,pad=0.18", fc=ann_bg, ec="none", alpha=0.88),
+                arrowprops={"arrowstyle": "-", "color": c, "lw": 0.8},
             )
 
-        elastic_mid = len(segments["elastic"][0]) // 2
-        hardening_mid = len(segments["hardening"][0]) // 2
-        necking_mid = len(segments["necking"][0]) // 2
-        ax.annotate(
-            "Elastic region",
-            xy=(segments["elastic"][0][elastic_mid], segments["elastic"][1][elastic_mid]),
-            xytext=(32, -28),
-            textcoords="offset points",
-            bbox=annotation_box,
-            arrowprops={"arrowstyle": "-", "color": segment_styles["elastic"]["color"], "lw": 1.0},
-            color=colors["text_sec"],
-            fontsize=11.4,
-            ha="center",
-        )
-        ax.annotate(
-            "Plastic hardening",
-            xy=(segments["hardening"][0][hardening_mid], segments["hardening"][1][hardening_mid]),
-            xytext=(6, 28),
-            textcoords="offset points",
-            bbox=annotation_box,
-            arrowprops={"arrowstyle": "-", "color": segment_styles["hardening"]["color"], "lw": 1.0},
-            color=colors["text_sec"],
-            fontsize=11.4,
-            ha="center",
-        )
-        ax.annotate(
-            "Necking",
-            xy=(segments["necking"][0][necking_mid], segments["necking"][1][necking_mid]),
-            xytext=(34, -10),
-            textcoords="offset points",
-            bbox=annotation_box,
-            arrowprops={"arrowstyle": "-", "color": segment_styles["necking"]["color"], "lw": 1.0},
-            color=colors["text_sec"],
-            fontsize=11.4,
-            ha="center",
-        )
-        ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
-        ax.set_ylim(0.0, max_stress * 1.14)
+        ax.set_xlim(0.0, max(fracture_x * 1.08, 0.02))
+        ax.set_ylim(0.0, max_stress * 1.20)
         try:
             canvas.fig.tight_layout(pad=0.4)
         except Exception:

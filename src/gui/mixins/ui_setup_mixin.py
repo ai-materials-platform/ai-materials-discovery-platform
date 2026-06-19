@@ -197,6 +197,7 @@ class UISetupMixin:
             Qt.WindowType.WindowStaysOnTopHint
         )
         self._floating_chatbot.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._floating_chatbot.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
         self._floating_chatbot.set_bounds_window(self)
         self._floating_chatbot.clicked.connect(self.toggle_llm_chat_dialog)
         self._floating_chatbot_placed = False  # 초기 배치 여부 플래그
@@ -1117,6 +1118,37 @@ class UISetupMixin:
             dy = event.pos().y() - event.oldPos().y()
             icon = self._floating_chatbot
             icon.move(icon.pos().x() + dx, icon.pos().y() + dy)
+
+    def _set_floating_visible(self, visible: bool):
+        if hasattr(self, "_floating_chatbot"):
+            if visible:
+                self._floating_chatbot.show()
+            else:
+                self._floating_chatbot.hide()
+        if not visible and hasattr(self, "_llm_chat_dialog") and self._llm_chat_dialog is not None:
+            self._llm_chat_dialog.hide()
+
+    def closeEvent(self, event):
+        self._set_floating_visible(False)
+        event.accept()
+
+    def hideEvent(self, event):
+        self._set_floating_visible(False)
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.hideEvent(self, event)
+
+    def showEvent(self, event):
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.showEvent(self, event)
+        self._set_floating_visible(True)
+
+    def changeEvent(self, event):
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.changeEvent(self, event)
+        if event.type() == QEvent.Type.WindowStateChange:
+            minimized = bool(self.windowState() & Qt.WindowState.WindowMinimized)
+            self._set_floating_visible(not minimized)
 
     def show_quality_help(self):
         help_text = """
