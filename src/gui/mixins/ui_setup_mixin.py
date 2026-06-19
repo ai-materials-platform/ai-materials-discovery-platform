@@ -1134,15 +1134,18 @@ class UISetupMixin:
 
     def hideEvent(self, event):
         self._set_floating_visible(False)
-        super().hideEvent(event)
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.hideEvent(self, event)
 
     def showEvent(self, event):
-        super().showEvent(event)
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.showEvent(self, event)
         self._set_floating_visible(True)
 
     def changeEvent(self, event):
         from PyQt6.QtCore import QEvent
-        super().changeEvent(event)
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.changeEvent(self, event)
         if event.type() == QEvent.Type.WindowStateChange:
             minimized = bool(self.windowState() & Qt.WindowState.WindowMinimized)
             self._set_floating_visible(not minimized)
