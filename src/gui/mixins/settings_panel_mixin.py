@@ -685,9 +685,6 @@ class SettingsPanelMixin:
         curve_tab_layout.addWidget(curve_group)
         self.inference_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
 
-        simulation_tab = self._create_simulation_tab("user")
-        self.inference_result_tabs.addTab(simulation_tab, "Simulation")
-
         right_panel.addWidget(self.inference_result_tabs)
         right_frame_layout.addLayout(right_panel)
         self.render_prediction_placeholder(

@@ -122,6 +122,93 @@ class InferenceMixin:
             "area_reduction": round(float(mean[3]), 2),
         }
 
+    def _restore_prediction_display(self, mean, std, input_dict, target="user"):
+        """불러오기 시 저장된 mean/std/input_dict로 result_display 텍스트와 prediction_state 복원."""
+        mean = [float(x) for x in mean]
+        std = [float(x) for x in std]
+        ys_uts_ratio = mean[0] / max(mean[1], 1.0)
+        sd_index = mean[1] * mean[2]
+        if ys_uts_ratio < 0.50:
+            ratio_tag = "가공경화 여유 충분"
+        elif ys_uts_ratio < 0.72:
+            ratio_tag = "표준적 가공경화 거동"
+        else:
+            ratio_tag = "가공경화 여유 제한적"
+        if sd_index > 40000:
+            sd_tag = "우수"
+        elif sd_index > 25000:
+            sd_tag = "양호"
+        else:
+            sd_tag = "보통"
+        if ys_uts_ratio < 0.55 and mean[2] > 50:
+            state_tag = "완전 소둔(annealed) 상태로 추정"
+        elif ys_uts_ratio > 0.72 or mean[2] < 28:
+            state_tag = "가공경화 또는 고강도 조건으로 추정"
+        else:
+            state_tag = "표준 열처리 조건으로 추정"
+        cv_per = [std[i] / max(abs(mean[i]), 1.0) * 100 for i in range(4)]
+        avg_cv = float(np.mean(cv_per))
+        if avg_cv < 5:
+            conf_tag = "높음"
+        elif avg_cv < 12:
+            conf_tag = "보통"
+        else:
+            conf_tag = "낮음 — 추가 데이터 권장"
+        c = self._theme()
+        note_color = c["text_label"]
+        result_text = (
+            f"<b>강도</b>&nbsp;&nbsp;"
+            f"항복강도: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b>&ensp;"
+            f"UTS: <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br>"
+            f"<b>연성</b>&nbsp;&nbsp;"
+            f"연신율: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b>&ensp;"
+            f"단면감소율: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b>"
+            f"<hr style='border:none;border-top:1px solid {c['border']};margin:6px 0;'>"
+            f"<b>분석 요약</b><br>"
+            f"YS / UTS: <b>{ys_uts_ratio:.2f}</b> &mdash; {ratio_tag}<br>"
+            f"강도×연성 지수: <b>{sd_index:,.0f} MPa·%</b> ({sd_tag})<br>"
+            f"재료 상태: {state_tag}<br>"
+            f"예측 신뢰도: <b>{conf_tag}</b>"
+            f" <span style='color:{note_color};'>(평균 CV {avg_cv:.1f}%)</span>"
+        )
+        state_obj = {
+            "mean": np.array(mean, dtype=float),
+            "std": np.array(std, dtype=float),
+            "input_dict": dict(input_dict),
+        }
+        mean_arr = np.array(mean, dtype=float)
+        std_arr = np.array(std, dtype=float)
+        if target == "pretrained":
+            if hasattr(self, "pretrained_result_display"):
+                self.pretrained_result_display.setText(result_text)
+            self._pretrained_prediction_state = state_obj
+            if hasattr(self, "pretrained_export_btn"):
+                self.pretrained_export_btn.setEnabled(True)
+            if hasattr(self, "pretrained_prediction_canvas"):
+                self._render_prediction_chart(self.pretrained_prediction_canvas, mean_arr, std_arr)
+            if hasattr(self, "pretrained_curve_canvas") and hasattr(self, "pretrained_curve_placeholder"):
+                self._render_stress_strain_curve(
+                    self.pretrained_curve_canvas,
+                    self.pretrained_curve_placeholder,
+                    mean_arr,
+                    input_dict,
+                )
+        else:
+            if hasattr(self, "result_display"):
+                self.result_display.setText(result_text)
+            self._user_prediction_state = state_obj
+            if hasattr(self, "user_export_btn"):
+                self.user_export_btn.setEnabled(True)
+            if hasattr(self, "prediction_canvas"):
+                self._render_prediction_chart(self.prediction_canvas, mean_arr, std_arr)
+            if hasattr(self, "stress_strain_canvas") and hasattr(self, "stress_strain_placeholder_label"):
+                self._render_stress_strain_curve(
+                    self.stress_strain_canvas,
+                    self.stress_strain_placeholder_label,
+                    mean_arr,
+                    input_dict,
+                )
+
     def on_pretrained_predict_clicked(self):
         try:
             self._run_prediction(

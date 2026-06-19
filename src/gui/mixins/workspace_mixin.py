@@ -533,6 +533,16 @@ class WorkspaceMixin:
                 "preprocessing_ready": self.preprocessing_ready,
             },
         }
+        _user_ps = getattr(self, "_user_prediction_state", None)
+        if _user_ps:
+            state["prediction_mean"] = [float(x) for x in _user_ps["mean"]]
+            state["prediction_std"] = [float(x) for x in _user_ps["std"]]
+            state["prediction_inputs"] = dict(_user_ps["input_dict"])
+        _pre_ps = getattr(self, "_pretrained_prediction_state", None)
+        if _pre_ps:
+            state["pretrained_prediction_mean"] = [float(x) for x in _pre_ps["mean"]]
+            state["pretrained_prediction_std"] = [float(x) for x in _pre_ps["std"]]
+            state["pretrained_prediction_inputs"] = dict(_pre_ps["input_dict"])
         with open(os.path.join(folder, "state.json"), "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
         pre_df = self.data_engine.get_preprocessed_display_df()
@@ -700,10 +710,21 @@ class WorkspaceMixin:
         for img_file, canvas_fn in [
             ("training.png",    lambda img: self._show_image_on_canvas(self.canvas, img)),
             ("performance.png", lambda img: (self.perf_canvas.figure.clear(), self.perf_canvas.figure.add_subplot(111).imshow(img), self.perf_canvas.figure.axes[0].axis("off"), self.perf_canvas.draw())),
-            ("prediction.png",  lambda img: self._show_image_on_canvas(self.prediction_canvas, img)),
-            ("stress_strain_curve.png", lambda img: self._show_image_on_canvas(self.stress_strain_canvas, img)),
         ]:
             path = os.path.join(folder, img_file)
             if os.path.exists(path):
                 canvas_fn(plt.imread(path))
+
+        pred_mean = state.get("prediction_mean")
+        pred_std = state.get("prediction_std")
+        pred_inputs = state.get("prediction_inputs")
+        if pred_mean and pred_std and pred_inputs:
+            self._restore_prediction_display(pred_mean, pred_std, pred_inputs, "user")
+
+        pre_mean = state.get("pretrained_prediction_mean")
+        pre_std = state.get("pretrained_prediction_std")
+        pre_inputs = state.get("pretrained_prediction_inputs")
+        if pre_mean and pre_std and pre_inputs:
+            self._restore_prediction_display(pre_mean, pre_std, pre_inputs, "pretrained")
+
         self.status_label.setText(f"상태: 분석 기록 '{name}' 복원 완료")
