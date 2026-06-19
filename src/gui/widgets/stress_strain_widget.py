@@ -29,7 +29,7 @@ class StressStrainSimulationWidget(QWidget):
             "text_primary": "#111827",
             "text_sec": "#334155",
             "text_label": "#64748B",
-            "accent": "#E56020",
+            "accent": "#1E293B",
         }
         self._dark_mode = False
         self._profile = None

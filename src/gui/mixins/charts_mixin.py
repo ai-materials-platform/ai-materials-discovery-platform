@@ -377,7 +377,7 @@ class ChartsMixin:
             transform=ax.transAxes,
         )
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas.draw()
@@ -412,7 +412,7 @@ class ChartsMixin:
             transform=ax.transAxes,
         )
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas.draw()
@@ -537,7 +537,7 @@ class ChartsMixin:
             ax.fill_between(x_vals, y_vals, 0, color=style["color"], alpha=0.06)
 
         point_styles = {
-            "Yield": ("#2563EB", (12, 12)),
+            "Yield": ("#2563EB", (12, 42)),
             "UTS": ("#DC2626", (-70, -42)),
             "Fracture": ("#059669", (-82, -6)),
         }
@@ -569,7 +569,7 @@ class ChartsMixin:
         ax.annotate(
             "Elastic region",
             xy=(segments["elastic"][0][elastic_mid], segments["elastic"][1][elastic_mid]),
-            xytext=(-10, 26),
+            xytext=(32, -28),
             textcoords="offset points",
             bbox=annotation_box,
             arrowprops={"arrowstyle": "-", "color": segment_styles["elastic"]["color"], "lw": 1.0},
@@ -602,7 +602,7 @@ class ChartsMixin:
         ax.set_xlim(0.0, max(fracture_x * 1.05, 0.02))
         ax.set_ylim(0.0, max_stress * 1.14)
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas._strain_data = strain
@@ -651,7 +651,7 @@ class ChartsMixin:
         ax1.set_xticklabels(labels)
         ax1.tick_params(axis="x", colors=colors["text_sec"])
         try:
-            canvas.fig.tight_layout()
+            canvas.fig.tight_layout(pad=0.4)
         except Exception:
             pass
         canvas.draw()

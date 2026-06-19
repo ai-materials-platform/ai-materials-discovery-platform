@@ -61,7 +61,7 @@ class FeatureSelectionMixin:
 
         if not available_columns:
             self.feature_selection_status_label.setText(
-                "먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
+                "▲ 먼저 전처리를 실행한 뒤, 이 탭에서 학습 컬럼을 선택해 주세요."
             )
             self.go_to_model_training_btn.setEnabled(False)
             return
@@ -71,7 +71,7 @@ class FeatureSelectionMixin:
             1 for col in selected_columns if col in self.data_engine.engineered_feature_cols
         )
         self.feature_selection_status_label.setText(
-            f"전체 {len(available_columns)}개 중 {len(selected_columns)}개 컬럼이 선택되었습니다. "
+            f"✓ 전체 {len(available_columns)}개 중 {len(selected_columns)}개 컬럼이 선택되었습니다. "
             f"(원본 {raw_count}개, 합금 지표 {engineered_count}개)"
         )
         self.go_to_model_training_btn.setEnabled(self.preprocessing_ready and bool(selected_columns))
@@ -80,12 +80,12 @@ class FeatureSelectionMixin:
             if selected_columns:
                 self.train_btn.setEnabled(True)
                 self.training_data_status_label.setText(
-                    f"전처리가 완료되었습니다. 선택한 {len(selected_columns)}개 컬럼으로 학습합니다."
+                    f"✓ 전처리 완료 — 선택한 {len(selected_columns)}개 컬럼으로 학습합니다."
                 )
             else:
                 self.train_btn.setEnabled(False)
                 self.training_data_status_label.setText(
-                    "전처리는 완료되었지만 아직 학습 컬럼이 선택되지 않았습니다."
+                    "▲ 전처리는 완료되었지만 아직 학습 컬럼이 선택되지 않았습니다."
                 )
 
     def on_feature_selection_item_changed(self, item):

@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QPoint, QPropertyAnimation, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QRadialGradient
-from PyQt6.QtWidgets import QGraphicsOpacityEffect, QLabel
+from PyQt6.QtWidgets import QLabel
 
 
 class _PopupBubble(QLabel):
@@ -181,18 +181,19 @@ class FloatingChatbotIcon(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("AI 문의")
         self._drag_pos: QPoint | None = None
+        self._opacity = self._OPACITY_DIM
+        self._bounds_window = None  # 경계 기준이 되는 메인 윈도우
 
-        self._opacity_effect = QGraphicsOpacityEffect(self)
-        self._opacity_effect.setOpacity(self._OPACITY_DIM)
-        self.setGraphicsEffect(self._opacity_effect)
-
-        self._anim = QPropertyAnimation(self._opacity_effect, b"opacity", self)
-        self._anim.setDuration(150)
+    def set_bounds_window(self, window):
+        """드래그 경계를 이 윈도우의 frameGeometry로 제한한다."""
+        self._bounds_window = window
 
     # ── 아이콘 그리기 ──────────────────────────────────────────────────────────
 
     def paintEvent(self, event):
-        _paint_robot(QPainter(self), self.SIZE)
+        p = QPainter(self)
+        p.setOpacity(self._opacity)
+        _paint_robot(p, self.SIZE)
         return
         S = self.SIZE
         cx = S / 2
@@ -276,10 +277,8 @@ class FloatingChatbotIcon(QLabel):
     # ── 호버 ──────────────────────────────────────────────────────────────────
 
     def _set_opacity(self, value: float):
-        self._anim.stop()
-        self._anim.setStartValue(self._opacity_effect.opacity())
-        self._anim.setEndValue(value)
-        self._anim.start()
+        self._opacity = value
+        self.update()
 
     def enterEvent(self, event):
         self._set_opacity(self._OPACITY_BRIGHT)
@@ -301,10 +300,11 @@ class FloatingChatbotIcon(QLabel):
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
             new_pos = event.globalPosition().toPoint() - self._drag_pos
-            if self.parent():
-                pr = self.parent().rect()
-                new_pos.setX(max(0, min(new_pos.x(), pr.width() - self.width())))
-                new_pos.setY(max(0, min(new_pos.y(), pr.height() - self.height())))
+            if self._bounds_window is not None:
+                geo = self._bounds_window.frameGeometry()
+                pad = 8
+                new_pos.setX(max(geo.left() + pad, min(new_pos.x(), geo.right()  - self.width()  - pad)))
+                new_pos.setY(max(geo.top()  + pad, min(new_pos.y(), geo.bottom() - self.height() - pad)))
             if (new_pos - self.pos()).manhattanLength() > 4:
                 self._did_drag = True
             self.move(new_pos)

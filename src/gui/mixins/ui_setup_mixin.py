@@ -3,10 +3,12 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -69,6 +71,38 @@ class UISetupMixin:
         "C_plus_N": "C+N",
     }
     _PRETRAINED_CALCULATED_FEATURES = {"Ni_eq", "Cr_eq", "Cr_Ni_ratio", "C_plus_N"}
+    _FIELD_TOOLTIPS = {
+        # 합금 조성
+        "Fe": "철 (Iron)\n오스테나이트계 스테인리스강의 주 성분.\n일반적으로 60~70 wt% 이상.",
+        "C":  "탄소 (Carbon)\n강도를 높이지만 내식성을 낮춤.\n스테인리스강에서는 0.03~0.15 wt% 수준.",
+        "Si": "규소 (Silicon)\n탈산제 및 고온 내산화성 향상.\n통상 0.3~1.0 wt%.",
+        "Mn": "망간 (Manganese)\n오스테나이트 안정화 원소.\n일반적으로 1.0~2.0 wt%.",
+        "P":  "인 (Phosphorus)\n불순물 원소. 취성 유발.\n0.045 wt% 이하로 관리.",
+        "S":  "황 (Sulfur)\n불순물 원소. 열간 가공성 저하.\n0.03 wt% 이하로 관리.",
+        "Ni": "니켈 (Nickel)\n오스테나이트 안정화 핵심 원소.\n300계열 기준 8~12 wt%.",
+        "Cr": "크롬 (Chromium)\n내식성 부여 핵심 원소 (부동태 피막 형성).\n16~18 wt% 수준.",
+        "Mo": "몰리브덴 (Molybdenum)\n공식(pitting) 내식성 향상.\nSUS316 기준 2~3 wt%.",
+        "Cu": "구리 (Copper)\n내식성 및 가공성 향상에 기여.\n보통 0~3 wt%.",
+        "V":  "바나듐 (Vanadium)\n탄화물 형성으로 강도 향상.\n0.1~0.5 wt% 수준.",
+        "N":  "질소 (Nitrogen)\n고용강화 및 오스테나이트 안정화. Ni 대체 효과.\n0~0.25 wt%.",
+        "Nb": "니오브 (Niobium)\n탄화물 안정화로 입계부식 방지.\n0.01~0.1 wt%.",
+        "Ti": "티타늄 (Titanium)\n탄소 고정으로 예민화(sensitization) 방지.\n0.01~0.4 wt%.",
+        "B":  "붕소 (Boron)\n열간 가공성 개선. 미량 첨가.\n0.001~0.005 wt%.",
+        "Al": "알루미늄 (Aluminum)\n탈산 및 내산화성 향상.\n통상 0.01~0.05 wt%.",
+        # 합금 지표 (자동 계산)
+        "Ni_eq": "Ni 당량 (Nickel Equivalent)\n오스테나이트 형성 경향 지수.\n수식: Ni + 30×C + 0.5×Mn + 30×N + 0.3×Cu\n값이 클수록 오스테나이트 상 안정.",
+        "Cr_eq": "Cr 당량 (Chromium Equivalent)\n페라이트 형성 경향 지수.\n수식: Cr + Mo + 1.5×Si + 0.5×Nb\n값이 클수록 페라이트/마르텐사이트 상 경향.",
+        "Cr_Ni_ratio": "Cr/Ni 비율\n조직 균형 지수.\nCr_eq / Ni_eq 비율로 Schaeffler 상 도표에서 조직 예측에 사용.",
+        "C_plus_N": "침입형 원소 합 (C+N)\n고용강화 및 고온 강도에 직접 영향.\n값이 클수록 항복강도↑, 내식성 저하 가능.",
+        # 공정 및 조직
+        "Solution_treatment_temperature": "고용화 열처리 온도 (K)\n탄화물을 기지에 재용해시키는 열처리 온도.\n일반적으로 1323~1423 K (1050~1150 °C).",
+        "Solution_treatment_time(s)":     "고용화 열처리 시간 (초)\n열처리 유지 시간. 두꺼운 제품일수록 길게 필요.\n일반적으로 1800~7200초 (30분~2시간).",
+        "Grains mm-2":   "결정립 수 (mm⁻²)\n단위 면적당 결정립 수. 값이 클수록 결정립 미세.\n미세 결정립 → 강도↑, 인성↑.",
+        "Type of melting": "용해 방식\n0=전기로(EAF), 1=유도용해, 2=AOD, 3=VOD 등.\n정수 코드로 입력.",
+        "Size of ingot":  "잉곳 크기 (mm 단위)\n주조 잉곳의 크기. 응고 속도·편석에 영향.",
+        "Product form":   "제품 형상\n0=판재, 1=봉재, 2=관재, 3=단조품 등.\n정수 코드로 입력.",
+        "Temperature (K)": "시험 온도 (K)\n물성을 측정한 온도. 상온은 298 K.\n고온 특성이 필요한 경우 실제 사용 온도 입력.",
+    }
 
     def init_ui(self):
         self.setStyleSheet(GLOBAL_QSS)
@@ -131,19 +165,10 @@ class UISetupMixin:
         self._switch_main_mode(0)
 
         sb = self.statusBar()
-        sb.setStyleSheet(
-            f"QStatusBar {{ background: #252525; color: white; font-size: 11px; "
-            f"padding: 0 8px; border-top: 1px solid #363636; }}"
-            "QStatusBar::item { border: none; }"
-        )
         self._sb_status = QLabel("● 준비완료")
         self._sb_samples = QLabel("샘플: —")
         self._sb_missing = QLabel("결측: —")
         self._sb_model = QLabel("모델: 미훈련")
-        _lbl_style = "color: #F8FAFC; font-size: 11px; font-weight: 600; padding: 0 10px;"
-        for lbl in [self._sb_samples, self._sb_missing, self._sb_model]:
-            lbl.setStyleSheet(_lbl_style)
-        self._sb_status.setStyleSheet("color: #58C472; font-size: 11px; font-weight: 700; padding: 0 10px;")
         sb.addWidget(self._sb_status)
         sb.addWidget(self._sb_samples)
         sb.addWidget(self._sb_missing)
@@ -159,15 +184,33 @@ class UISetupMixin:
         self._apply_theme_colors()
         self.prepare_pretrained_model()
 
+        # 모든 버튼에 포인터 커서 적용
+        for btn in self.findChildren(QPushButton):
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+
         from PyQt6.QtCore import QTimer  # noqa: PLC0415
-        self._floating_chatbot = FloatingChatbotIcon(self.centralWidget())
+        # 프레임리스 창에서 자식 위젯 이벤트 문제 회피 → 독립 Tool 창으로 생성
+        self._floating_chatbot = FloatingChatbotIcon()
+        self._floating_chatbot.setWindowFlags(
+            Qt.WindowType.Tool |
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        self._floating_chatbot.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._floating_chatbot.set_bounds_window(self)
         self._floating_chatbot.clicked.connect(self.toggle_llm_chat_dialog)
-        self._floating_chatbot.raise_()
+        self._floating_chatbot_placed = False  # 초기 배치 여부 플래그
+        self._floating_chatbot.show()
         QTimer.singleShot(0, self._reposition_floating_chatbot)
 
     def _apply_ui_font(self):
+        # pixelSize → pointSize 변환 (DPI 기반) — setPixelSize 사용 시 pointSize=-1 경고 방지
+        screen = QApplication.primaryScreen()
+        dpi = screen.logicalDotsPerInch() if screen else 96.0
+        pt_size = max(1.0, self._ui_font_size * 72.0 / dpi)
+
         font = QFont(self._ui_font_family)
-        font.setPointSize(self._ui_font_size)   # pointSize 사용 — pixelSize 시 -1 경고 방지
+        font.setPointSizeF(pt_size)
         font.setStyleHint(QFont.StyleHint.SansSerif)
         QApplication.instance().setFont(font)
         self.setFont(font)
@@ -187,22 +230,27 @@ class UISetupMixin:
         layout.setContentsMargins(16, 0, 14, 0)
         layout.setSpacing(12)
 
-        self._mode_nav_widget = QWidget()
-        mode_layout = QHBoxLayout(self._mode_nav_widget)
-        mode_layout.setContentsMargins(0, 0, 0, 0)
-        mode_layout.setSpacing(8)
+        self._seg_container = QWidget()
+        self._seg_container.setFixedHeight(32)
+        seg_layout = QHBoxLayout(self._seg_container)
+        seg_layout.setContentsMargins(2, 2, 2, 2)
+        seg_layout.setSpacing(0)
 
         self.material_mode_btn = QPushButton("물성예측")
         self.material_mode_btn.setCheckable(True)
+        self.material_mode_btn.setFixedHeight(28)
+        self.material_mode_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.material_mode_btn.clicked.connect(lambda: self._switch_main_mode(0))
-        mode_layout.addWidget(self.material_mode_btn)
+        seg_layout.addWidget(self.material_mode_btn)
 
-        self.user_mode_btn = QPushButton("User")
+        self.user_mode_btn = QPushButton("데이터 학습")
         self.user_mode_btn.setCheckable(True)
+        self.user_mode_btn.setFixedHeight(28)
+        self.user_mode_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.user_mode_btn.clicked.connect(lambda: self._switch_main_mode(1))
-        mode_layout.addWidget(self.user_mode_btn)
+        seg_layout.addWidget(self.user_mode_btn)
 
-        layout.addWidget(self._mode_nav_widget)
+        layout.addWidget(self._seg_container)
         layout.addStretch()
 
         title_widget = QWidget()
@@ -258,28 +306,27 @@ class UISetupMixin:
         self._apply_mode_button_styles()
 
     def _apply_mode_button_styles(self):
-        active_bg = "#E56020"
-        active_text = "#FFFFFF"
-        if self._dark_mode:
-            inactive_bg = "#2F3339"
-            inactive_text = "#D5DBE3"
-            inactive_border = "#4F5965"
-            hover_bg = "#3A4048"
-        else:
-            inactive_bg = "#FFFFFF"
-            inactive_text = "#475569"
-            inactive_border = "#C9D2DC"
-            hover_bg = "#EEF2F6"
-
-        button_style = (
-            "QPushButton { "
-            f"background: {inactive_bg}; color: {inactive_text}; border: 1px solid {inactive_border}; "
-            "border-radius: 16px; font-size: 11px; font-weight: 700; padding: 0 16px; min-height: 32px; }"
-            f"QPushButton:hover {{ background: {hover_bg}; }}"
-            f"QPushButton:checked {{ background: {active_bg}; color: {active_text}; border: 1px solid {active_bg}; }}"
+        d = self._dark_mode
+        if hasattr(self, "_seg_container"):
+            container_bg     = "#2F3339" if d else "#F1F5F9"
+            container_border = "#4F5965" if d else "#CBD5E1"
+            self._seg_container.setStyleSheet(
+                f"QWidget {{ background: {container_bg}; border: 1px solid {container_border}; border-radius: 16px; }}"
+            )
+        inactive_text = "#D5DBE3" if d else "#64748B"
+        active_bg    = "#3A4048" if d else "#FFFFFF"
+        active_text  = "#F3F4F6" if d else "#111827"
+        hover_bg = "rgba(255,255,255,20)" if d else "rgba(0,0,0,13)"
+        btn_style = (
+            f"QPushButton {{ background: transparent; color: {inactive_text}; border: none; "
+            "border-radius: 14px; font-size: 11px; font-weight: 700; padding: 0 16px; min-height: 28px; }"
+            f"QPushButton:checked {{ background: {active_bg}; color: {active_text}; }}"
+            f"QPushButton:hover:!checked {{ background: {hover_bg}; }}"
         )
-        self.material_mode_btn.setStyleSheet(button_style)
-        self.user_mode_btn.setStyleSheet(button_style)
+        if hasattr(self, "material_mode_btn"):
+            self.material_mode_btn.setStyleSheet(btn_style)
+        if hasattr(self, "user_mode_btn"):
+            self.user_mode_btn.setStyleSheet(btn_style)
 
     def _create_material_prediction_page(self):
         page = QWidget()
@@ -381,6 +428,14 @@ class UISetupMixin:
         )
         self.pretrained_result_display.setWordWrap(True)
         result_tab_layout.addWidget(self.pretrained_result_display)
+        self.pretrained_export_btn = QPushButton("CSV로 내보내기")
+        self.pretrained_export_btn.setFixedHeight(28)
+        self.pretrained_export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pretrained_export_btn.setEnabled(False)
+        self.pretrained_export_btn.clicked.connect(
+            lambda: self._export_prediction_csv("_pretrained_prediction_state")
+        )
+        result_tab_layout.addWidget(self.pretrained_export_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.pretrained_prediction_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         result_tab_layout.addWidget(self.pretrained_prediction_canvas)
         self.pretrained_result_tabs.addTab(result_tab, "예측 결과")
@@ -393,15 +448,15 @@ class UISetupMixin:
                 "pretrained_curve_legend_card",
             )
         )
-        _pretrained_explore_btn = QPushButton("자세하게 보기")
-        _pretrained_explore_btn.setFixedHeight(30)
-        _pretrained_explore_btn.setStyleSheet(
+        self._pretrained_explore_btn = QPushButton("자세하게 보기")
+        self._pretrained_explore_btn.setFixedHeight(30)
+        self._pretrained_explore_btn.setStyleSheet(
             "QPushButton { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; "
             "border-radius: 6px; font-size: 11px; font-weight: 600; padding: 0 12px; }"
             "QPushButton:hover { background: #E2E8F0; }"
         )
-        _pretrained_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("pretrained"))
-        curve_layout.addWidget(_pretrained_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        self._pretrained_explore_btn.clicked.connect(lambda: self._open_strain_explore_dialog("pretrained"))
+        curve_layout.addWidget(self._pretrained_explore_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.pretrained_curve_canvas = MplCanvas(self, width=5, height=4, dpi=100)
         curve_layout.addWidget(self.pretrained_curve_canvas)
         self.pretrained_result_tabs.addTab(curve_tab, "Stress-Strain Curve")
@@ -469,6 +524,16 @@ class UISetupMixin:
         comp_columns.addLayout(self._create_prediction_form(composition_items[:midpoint], input_store))
         comp_columns.addLayout(self._create_prediction_form(composition_items[midpoint:], input_store))
         comp_group_layout.addLayout(comp_columns)
+
+        reset_row = QHBoxLayout()
+        reset_row.addStretch()
+        self._pretrained_reset_btn = QPushButton("기본값으로 초기화")
+        self._pretrained_reset_btn.setFixedHeight(26)
+        self._pretrained_reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._pretrained_reset_btn.clicked.connect(self._reset_pretrained_inputs)
+        reset_row.addWidget(self._pretrained_reset_btn)
+        comp_group_layout.addLayout(reset_row)
+
         parent_layout.addWidget(comp_group)
         self._prediction_input_groups.append(comp_group)
 
@@ -541,15 +606,11 @@ class UISetupMixin:
         self._pretrained_extra_form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         extra_group_layout.addWidget(self._pretrained_extra_form_widget)
 
-        add_btn = QPushButton("추가 특성 선택")
-        add_btn.setFixedHeight(30)
-        add_btn.setStyleSheet(
-            "QPushButton { background: #EEF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; "
-            "border-radius: 8px; font-size: 11px; font-weight: 700; }"
-            "QPushButton:hover { background: #DBEAFE; }"
-        )
-        add_btn.clicked.connect(self._open_pretrained_add_feature_dialog)
-        extra_group_layout.addWidget(add_btn)
+        self._add_feature_btn = QPushButton("추가 특성 선택")
+        self._add_feature_btn.setFixedHeight(30)
+        self._add_feature_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._add_feature_btn.clicked.connect(self._open_pretrained_add_feature_dialog)
+        extra_group_layout.addWidget(self._add_feature_btn)
 
         parent_layout.addWidget(extra_group)
         self._prediction_input_groups.append(extra_group)
@@ -587,35 +648,129 @@ class UISetupMixin:
 
         dialog = QDialog(self)
         dialog.setWindowTitle("추가 특성 선택")
-        dialog.resize(360, 440)
-        layout = QVBoxLayout(dialog)
+        dialog.setFixedSize(400, 480)
+        dialog.setStyleSheet("background: #FFFFFF;")
 
-        info = QLabel("사전학습 예측에 사용할 추가 특성을 선택하세요.")
-        info.setWordWrap(True)
-        info.setStyleSheet("font-size: 12px; margin-bottom: 6px;")
-        layout.addWidget(info)
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        list_widget = QListWidget()
-        for name in available:
-            item = QListWidgetItem(self._PRETRAINED_EXTRA_FEATURE_LABELS.get(name, name))
-            item.setData(Qt.ItemDataRole.UserRole, name)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked if name in already else Qt.CheckState.Unchecked)
-            list_widget.addItem(item)
-        layout.addWidget(list_widget, 1)
+        # ── 헤더 ──────────────────────────────────────────
+        header = QWidget()
+        header.setStyleSheet("background: #F8FAFC; border-bottom: 1px solid #E2E8F0;")
+        hl = QVBoxLayout(header)
+        hl.setContentsMargins(20, 16, 20, 14)
+        hl.setSpacing(3)
+        title_lbl = QLabel("추가 특성 선택")
+        title_lbl.setStyleSheet("font-size: 14px; font-weight: 700; color: #111827; background: transparent; border: none;")
+        desc_lbl = QLabel("사전학습 예측에 사용할 추가 특성을 선택하세요.")
+        desc_lbl.setStyleSheet("font-size: 11px; color: #64748B; background: transparent; border: none;")
+        hl.addWidget(title_lbl)
+        hl.addWidget(desc_lbl)
+        main_layout.addWidget(header)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        # ── 스크롤 콘텐츠 ─────────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("background: #FFFFFF; border: none;")
+
+        content = QWidget()
+        content.setStyleSheet("background: #FFFFFF;")
+        cl = QVBoxLayout(content)
+        cl.setContentsMargins(20, 18, 20, 18)
+        cl.setSpacing(0)
+
+        _GROUPS = [
+            ("공정 조건", ["Solution_treatment_time(s)", "Type of melting", "Size of ingot", "Product form", "Temperature (K)"]),
+            ("조직 특성", ["Grains mm-2"]),
+            ("합금 지표", ["Ni_eq", "Cr_eq", "Cr_Ni_ratio", "C_plus_N"]),
+        ]
+
+        checks = {}
+
+        def _sec_header(text):
+            row = QWidget()
+            row.setStyleSheet("background: transparent;")
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(0, 0, 0, 0)
+            rl.setSpacing(8)
+            lbl = QLabel(text)
+            lbl.setStyleSheet(
+                "font-size: 11px; font-weight: 700; color: #1B6AC9; "
+                "background: transparent; border: none; padding: 0;"
+            )
+            lbl.setFixedHeight(20)
+            rl.addWidget(lbl)
+            line = QFrame()
+            line.setFrameShape(QFrame.Shape.HLine)
+            line.setStyleSheet("border: none; border-top: 1px solid #CBD5E1; background: transparent;")
+            line.setFixedHeight(1)
+            rl.addWidget(line, 1)
+            return row
+
+        cb_style = (
+            "QCheckBox { font-size: 12px; color: #1E293B; background: transparent; "
+            "padding: 5px 0 5px 4px; spacing: 8px; }"
+            "QCheckBox::indicator { width: 15px; height: 15px; border-radius: 3px; "
+            "border: 1px solid #94A3B8; background: #FFFFFF; }"
+            "QCheckBox::indicator:checked { background: #1E293B; border-color: #1E293B; image: none; }"
+            "QCheckBox::indicator:hover { border-color: #1E293B; }"
         )
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
+
+        first = True
+        for group_name, keys in _GROUPS:
+            group_keys = [k for k in keys if k in available]
+            if not group_keys:
+                continue
+            if not first:
+                cl.addSpacing(14)
+            first = False
+            cl.addWidget(_sec_header(group_name))
+            cl.addSpacing(6)
+            for key in group_keys:
+                label = self._PRETRAINED_EXTRA_FEATURE_LABELS.get(key, key)
+                cb = QCheckBox(label)
+                cb.setChecked(key in already)
+                cb.setStyleSheet(cb_style)
+                checks[key] = cb
+                cl.addWidget(cb)
+
+        cl.addStretch()
+        scroll.setWidget(content)
+        main_layout.addWidget(scroll, 1)
+
+        # ── 하단 버튼 바 ──────────────────────────────────
+        btn_bar = QWidget()
+        btn_bar.setStyleSheet("background: #F8FAFC; border-top: 1px solid #E2E8F0;")
+        bl = QHBoxLayout(btn_bar)
+        bl.setContentsMargins(16, 10, 16, 10)
+        bl.setSpacing(8)
+        bl.addStretch()
+        cancel_btn = QPushButton("취소")
+        cancel_btn.setFixedSize(72, 32)
+        cancel_btn.setStyleSheet(
+            "QPushButton { background: #FFFFFF; color: #374151; border: 1px solid #D1D5DB; "
+            "border-radius: 6px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #F3F4F6; }"
+        )
+        cancel_btn.clicked.connect(dialog.reject)
+        ok_btn = QPushButton("확인")
+        ok_btn.setFixedSize(72, 32)
+        ok_btn.setStyleSheet(
+            "QPushButton { background: #1E293B; color: white; border: none; "
+            "border-radius: 6px; font-size: 12px; font-weight: 600; }"
+            "QPushButton:hover { background: #334155; }"
+        )
+        ok_btn.clicked.connect(dialog.accept)
+        bl.addWidget(cancel_btn)
+        bl.addWidget(ok_btn)
+        main_layout.addWidget(btn_bar)
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._pretrained_extra_feature_names = [
-                list_widget.item(i).data(Qt.ItemDataRole.UserRole)
-                for i in range(list_widget.count())
-                if list_widget.item(i).checkState() == Qt.CheckState.Checked
+                key for key in available
+                if key in checks and checks[key].isChecked()
             ]
             self._refresh_pretrained_extra_feature_ui()
 
@@ -686,7 +841,7 @@ class UISetupMixin:
             },
             {
                 "widget": self.pretrained_predict_btn,
-                "text": "② 예측 실행\n\n버튼 클릭 시 RF·GBM·MLP·TFP\n4개 AI 모델이 물성을 예측합니다.\n\n평균값과 불확실도를 함께 제공합니다.",
+                "text": "② 예측 실행\n\n버튼 클릭 시 미리 정의된\n사전학습 모델로 물성을 예측합니다.\n\n평균값과 불확실도를 함께 제공합니다.",
             },
             {
                 "widget": self.pretrained_result_tabs,
@@ -696,6 +851,11 @@ class UISetupMixin:
             {
                 "widget": self.pretrained_result_tabs,
                 "text": "④ Stress-Strain Curve 탭\n\n예측 물성 기반 응력-변형률 곡선.\n• 초록: 탄성 구간 (복원 가능)\n• 주황: 소성 구간 (영구 변형)\n• 빨강: 네킹→파단 구간",
+                "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(1),
+            },
+            {
+                "widget": getattr(self, "_pretrained_explore_btn", None),
+                "text": "⑤ 자세하게 보기\n\n예측 후 활성화되는 버튼입니다.\n\n표점거리·폭·두께를 입력하면\n변형률에 따른 응력 변화를\n단계별로 시뮬레이션할 수 있습니다.\n\n항복점·UTS·파단점이\n곡선 위에 실시간으로 표시됩니다.",
                 "on_show": lambda: self.pretrained_result_tabs.setCurrentIndex(1),
             },
         ]
@@ -799,8 +959,8 @@ class UISetupMixin:
         line_edit_style = (
             "QLineEdit { "
             f"background: {c['input_bg']}; color: {c['text_primary']}; border: 1px solid {c['border']}; "
-            "border-radius: 8px; padding: 7px 10px; selection-background-color: #E56020; selection-color: #FFFFFF; }"
-            "QLineEdit:focus { border-color: #E56020; }"
+            "border-radius: 8px; padding: 7px 10px; selection-background-color: #1E293B; selection-color: #FFFFFF; }"
+            "QLineEdit:focus { border-color: #1E293B; }"
         )
         for group in self._prediction_input_groups:
             group.setStyleSheet(group_style)
@@ -815,6 +975,20 @@ class UISetupMixin:
         if hasattr(self, "_fe_readonly_fields"):
             for fe_field in self._fe_readonly_fields:
                 self._apply_fe_readonly_style(fe_field)
+        if hasattr(self, "_pretrained_reset_btn"):
+            self._pretrained_reset_btn.setStyleSheet(
+                f"QPushButton {{ background: transparent; color: {c['text_label']}; "
+                f"border: 1px solid {c['border']}; border-radius: 6px; "
+                "font-size: 11px; font-weight: 600; padding: 0 10px; }"
+                f"QPushButton:hover {{ background: {c['muted_bg']}; color: {c['text_sec']}; }}"
+            )
+        if hasattr(self, "_add_feature_btn"):
+            self._add_feature_btn.setStyleSheet(
+                f"QPushButton {{ background: transparent; color: {c['text_label']}; "
+                f"border: 1px solid {c['border']}; border-radius: 8px; "
+                "font-size: 11px; font-weight: 600; padding: 0 10px; }"
+                f"QPushButton:hover {{ background: {c['muted_bg']}; color: {c['text_sec']}; }}"
+            )
 
     def _apply_fe_readonly_style(self, field):
         if self._dark_mode:
@@ -913,18 +1087,36 @@ class UISetupMixin:
     def _reposition_floating_chatbot(self):
         if not hasattr(self, "_floating_chatbot"):
             return
-        cw = self.centralWidget()
-        if cw:
-            icon = self._floating_chatbot
-            x = cw.width() - icon.width() - 24
-            y = cw.height() - icon.height() - 24
-            icon.move(max(0, x), max(0, y))
-            icon.raise_()
+        icon = self._floating_chatbot
+        geo = self.frameGeometry()
+        pad = 16
+
+        if not self._floating_chatbot_placed:
+            # 최초 1회: 우하단 고정
+            icon.move(geo.right() - icon.width() - pad, geo.bottom() - icon.height() - pad)
+            self._floating_chatbot_placed = True
+            return
+
+        # 창 이동/리사이즈 후 경계 밖으로 벗어난 경우만 안으로 당김
+        cur = icon.pos()
+        x = max(geo.left() + pad, min(cur.x(), geo.right()  - icon.width()  - pad))
+        y = max(geo.top()  + pad, min(cur.y(), geo.bottom() - icon.height() - pad))
+        if x != cur.x() or y != cur.y():
+            icon.move(x, y)
 
     def resizeEvent(self, event):
         from PyQt6.QtWidgets import QMainWindow
         QMainWindow.resizeEvent(self, event)
         self._reposition_floating_chatbot()
+
+    def moveEvent(self, event):
+        from PyQt6.QtWidgets import QMainWindow
+        QMainWindow.moveEvent(self, event)
+        if hasattr(self, "_floating_chatbot") and self._floating_chatbot_placed:
+            dx = event.pos().x() - event.oldPos().x()
+            dy = event.pos().y() - event.oldPos().y()
+            icon = self._floating_chatbot
+            icon.move(icon.pos().x() + dx, icon.pos().y() + dy)
 
     def show_quality_help(self):
         help_text = """
@@ -933,7 +1125,7 @@ class UISetupMixin:
         <h3>권장 순서</h3>
         <p>파일 선택 → 도메인 기준 설정 → 데이터 품질 처리 설정 → 전처리 실행 → 합금 지표 생성 → 결과 확인</p>
         <h3>추천 시작값</h3>
-        <p>누락값 처리: <b>중앙값으로 채우기</b><br>이상치 처리: <b>감지 범위로 보정</b><br>형식 검증: <b>잘못된 값을 NaN으로 변환</b><br>이상치 민감도: <b>1.5</b></p>
+        <p>누락값 처리: <b>중앙값으로 채우기(med)</b><br>이상치 처리: <b>감지 범위로 보정(iqr)</b><br>형식 검증: <b>잘못된 값을 NaN으로 변환(nan)</b><br>이상치 민감도: <b>1.5</b></p>
         <h3>합금 지표 설명</h3>
         <p><b>Ni 당량 (Ni_eq)</b>: 오스테나이트 안정성을 보는 지표입니다.<br><b>Cr 당량 (Cr_eq)</b>: 페라이트 형성 경향을 보는 지표입니다.<br><b>Cr/Ni 비율</b>: 조직 균형을 보는 지표입니다.<br><b>침입형 원소 합 (C+N)</b>: 고용강화와 고온 강도에 영향을 주는 지표입니다.</p>
         <h3>결과 확인</h3>
@@ -943,16 +1135,45 @@ class UISetupMixin:
 
     def show_model_training_help(self):
         help_text = """
-        <h2>모델 학습 도움말</h2>
-        <p>모델 학습 탭에서는 전처리 완료 데이터를 이용해 모델을 학습합니다.</p>
-        <h3>모델 선택 가이드</h3>
-        <p><b>Random Forest</b>: 처음 시작할 때 가장 무난합니다.<br><b>Gradient Boosting</b>: 비교용으로 좋습니다.<br><b>Neural Network</b>: 데이터가 충분할 때 시도해 볼 수 있습니다.<br><b>TFP</b>: 불확실성까지 함께 보고 싶을 때 사용합니다.</p>
-        <h3>학습 컬럼 선택</h3>
-        <p>학습에 사용할 변수는 <b>학습 컬럼 선택</b> 탭에서 고릅니다. 체크한 컬럼만 모델 학습과 예측에 사용됩니다.</p>
-        <h3>주의 사항</h3>
-        <p>전처리 설정을 바꿨다면 최신 설정을 반영하기 위해 전처리를 다시 실행한 뒤 학습해 주세요.</p>
+        <p style="font-size:13px; color:#374151;">
+        전처리 완료 후 이 탭에서 모델을 학습합니다.
+        모델은 4가지 제공되며 결과 R²로 비교하면 됩니다.
+        </p>
+
+        <p style="margin-top:14px; font-size:12px; color:#374151;">
+        <b>RF</b> — 데이터 적을 때 무난. 처음엔 이걸로 시작.<br>
+        <b>GBM</b> — RF랑 비교용으로 돌려보기 좋음.<br>
+        <b>MLP</b> — 데이터 많으면 써볼 만함 (300행↑ 권장).<br>
+        <b>TFP</b> — 예측값에 불확실성 범위까지 같이 보고 싶을 때.
+        </p>
+
+        <p style="margin-top:14px; font-size:12px; color:#374151;">
+        <b>학습 컬럼 선택</b> 탭에서 입력 변수를 골라서 씁니다.<br>
+        체크 안 된 컬럼은 학습·예측 모두 제외됩니다.
+        </p>
+
+        <p style="margin-top:14px; font-size:11px; color:#6B7280;">
+        전처리 설정 바꿨으면 전처리부터 다시 돌리고 학습할 것.
+        </p>
         """
-        self.show_help_dialog("모델 학습 도움말", help_text)
+        self.show_help_dialog("모델 학습", help_text)
+
+    def _reset_pretrained_inputs(self):
+        """합금 조성 및 공정 입력값을 기본값으로 초기화한다."""
+        composition_defaults = {
+            "C": "0.08", "Si": "0.4", "Mn": "1.5", "P": "0.01",
+            "S": "0.005", "Ni": "0.2", "Cr": "0.3", "Mo": "0.05",
+            "Cu": "0.1", "V": "0.01", "N": "0.005", "Nb": "0.02",
+            "Ti": "0.01", "B": "0.0005", "Al": "0.03",
+            "Solution_treatment_temperature": "1323",
+        }
+        for key, value in composition_defaults.items():
+            field = self.pretrained_inputs.get(key)
+            if field and not field.isReadOnly():
+                self._set_prediction_field_value(field, value)
+        if hasattr(self, "pretrained_cooling_combo"):
+            self.pretrained_cooling_combo.setCurrentIndex(2)
+        self._update_composition_derived_fields(self.pretrained_inputs)
 
     def show_help_dialog(self, title, html_text):
         dialog = QDialog(self)
