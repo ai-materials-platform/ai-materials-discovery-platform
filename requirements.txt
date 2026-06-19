@@ -9,7 +9,7 @@ flask-cors
 joblib
 matplotlib
 seaborn
-scikit-learn
+scikit-learn==1.7.2
 numpy
 xgboost
 lightgbm
