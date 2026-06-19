@@ -1,6 +1,14 @@
 import os
 import sys
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore", message=".*InconsistentVersionWarning.*")
+try:
+    from sklearn.exceptions import InconsistentVersionWarning
+    warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+except ImportError:
+    pass
 from src.gui.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
 
