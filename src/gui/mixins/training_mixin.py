@@ -88,8 +88,8 @@ class TrainingMixin:
         self.canvas.axes.set_facecolor(bg)
         self.canvas.fig.patch.set_facecolor(bg)
 
-        target_names = ["Yield Stress", "UTS", "Elongation", "Area Red."]
         r2_scores = metrics["r2"]
+        target_names = self.data_engine.get_active_target_display_names()[:len(r2_scores)]
         bar_colors = ["#3498db" if s > 0.8 else "#f1c40f" if s > 0.6 else "#e74c3c" for s in r2_scores]
         bars = self.canvas.axes.bar(target_names, r2_scores, color=bar_colors)
         self.canvas.axes.set_ylim(0, 1.1)
@@ -120,13 +120,20 @@ class TrainingMixin:
 
         self.perf_canvas.figure.clear()
         self.perf_canvas.figure.patch.set_facecolor(bg)
-        axes = self.perf_canvas.figure.subplots(2, 2)
-        y_test = results["y_test"].values
         y_pred = results["y_pred"]
-        target_names = ["Yield Stress (MPa)", "UTS (MPa)", "Elongation (%)", "Area Reduction (%)"]
+        n_targets = y_pred.shape[1]
+        n_cols = 2 if n_targets > 1 else 1
+        n_rows = int(np.ceil(n_targets / n_cols))
+        axes = self.perf_canvas.figure.subplots(n_rows, n_cols)
+        axes = np.array(axes).reshape(-1)
+        y_test = results["y_test"].values
+        target_names = self.data_engine.get_active_target_display_names(results["y_test"])
         scatter_colors = ["#3498db", "#e74c3c", "#2ecc71", "#f39c12"]
 
-        for index, ax in enumerate(axes.flatten()):
+        for index, ax in enumerate(axes):
+            if index >= n_targets:
+                ax.axis("off")
+                continue
             ax.set_facecolor(bg)
             x_data = y_test[:, index]
             y_data = y_pred[:, index]
@@ -143,12 +150,12 @@ class TrainingMixin:
                     Zi = kde(np.vstack([Xi.ravel(), Yi.ravel()])).reshape(48, 48)
                     ax.contourf(Xi, Yi, Zi, levels=10, cmap="Blues" if bg == "#FFFFFF" else "Blues",
                                 alpha=0.22, zorder=1)
-                    ax.contour(Xi, Yi, Zi, levels=5, colors=[scatter_colors[index]],
+                    ax.contour(Xi, Yi, Zi, levels=5, colors=[scatter_colors[index % len(scatter_colors)]],
                                alpha=0.45, linewidths=0.7, zorder=2)
             except Exception:
                 pass
 
-            ax.scatter(x_data, y_data, alpha=0.60, color=scatter_colors[index], s=16, zorder=3)
+            ax.scatter(x_data, y_data, alpha=0.60, color=scatter_colors[index % len(scatter_colors)], s=16, zorder=3)
             ax.plot([min_val, max_val], [min_val, max_val], "--", color=divider, alpha=0.8, lw=1, zorder=4)
             ax.set_title(target_names[index], fontsize=10, fontweight="bold", color=text_main)
             ax.set_xlabel("실제값", fontsize=9, color=text_sec)

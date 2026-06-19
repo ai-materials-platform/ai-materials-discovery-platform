@@ -448,7 +448,7 @@ class ChartsMixin:
         yield_stress = max(self._safe_float(mean[0]), 1.0)
         uts = max(self._safe_float(mean[1], yield_stress + 1.0), yield_stress + 1.0)
         elongation_pct = float(np.clip(self._safe_float(mean[2], 2.0), 2.0, 120.0))
-        area_reduction_pct = float(np.clip(self._safe_float(mean[3], 0.0), 0.0, 95.0))
+        area_reduction_pct = float(np.clip(self._safe_float(mean[3] if len(mean) > 3 else 55.0, 55.0), 0.0, 95.0))
         fracture_strain = max(elongation_pct / 100.0, 0.02)
 
         elastic_modulus = self._estimate_elastic_modulus(input_dict.get("Temperature (K)", 293.15))
@@ -624,28 +624,40 @@ class ChartsMixin:
         ax1 = canvas.fig.add_subplot(111)
         canvas.axes = ax1
         canvas._view_mode = "prediction"
-        labels = ["Yield", "UTS", "Elong.", "Area Red."]
+        default_labels = ["Yield", "UTS", "Elong.", "Area Red."]
+        labels = default_labels[:len(mean)]
         x = np.arange(len(labels))
         colors = self._theme()
 
         self._style_prediction_axes(ax1, title="예측 물성 결과")
         ax1.grid(False)
 
-        stress_vals = [mean[0], mean[1], 0, 0]
-        stress_errs = [1.96 * std[0], 1.96 * std[1], 0, 0]
-        ax1.bar(x[:2], stress_vals[:2], yerr=stress_errs[:2], capsize=10, color=["#3498db", "#e74c3c"])
+        stress_count = min(2, len(mean))
+        if stress_count:
+            ax1.bar(
+                x[:stress_count],
+                mean[:stress_count],
+                yerr=[1.96 * value for value in std[:stress_count]],
+                capsize=10,
+                color=["#3498db", "#e74c3c"][:stress_count],
+            )
         ax1.set_ylabel("Stress (MPa)", color=colors["text_sec"])
         ax1.tick_params(axis="y", colors=colors["text_sec"])
 
-        ax2 = ax1.twinx()
-        ax2.set_facecolor("none")
-        duct_vals = [0, 0, mean[2], mean[3]]
-        duct_errs = [0, 0, 1.96 * std[2], 1.96 * std[3]]
-        ax2.bar(x[2:], duct_vals[2:], yerr=duct_errs[2:], capsize=10, color=["#2ecc71", "#f39c12"])
-        ax2.set_ylabel("Percentage (%)", color=colors["text_sec"])
-        ax2.tick_params(axis="y", colors=colors["text_sec"])
-        for spine in ax2.spines.values():
-            spine.set_color(colors["border"])
+        if len(mean) > 2:
+            ax2 = ax1.twinx()
+            ax2.set_facecolor("none")
+            ax2.bar(
+                x[2:],
+                mean[2:],
+                yerr=[1.96 * value for value in std[2:]],
+                capsize=10,
+                color=["#2ecc71", "#f39c12"][:len(mean) - 2],
+            )
+            ax2.set_ylabel("Percentage (%)", color=colors["text_sec"])
+            ax2.tick_params(axis="y", colors=colors["text_sec"])
+            for spine in ax2.spines.values():
+                spine.set_color(colors["border"])
 
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels)

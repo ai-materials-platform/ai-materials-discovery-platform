@@ -10,6 +10,81 @@ from src.engine.model_engine import ModelEngine
 
 
 class InferenceMixin:
+    def _prediction_targets(self, data_engine, output_count):
+        columns = []
+        if data_engine is not None and hasattr(data_engine, "get_active_target_columns"):
+            columns = data_engine.get_active_target_columns()
+        if not columns:
+            columns = [
+                "0.2%proof_stress (M Pa)",
+                "UTS (M Pa)",
+                "Elongation (%)",
+                "Area_reduction (%)",
+            ]
+        columns = list(columns)[:output_count]
+        labels = [
+            data_engine.get_target_display_name(col)
+            if data_engine is not None and hasattr(data_engine, "get_target_display_name")
+            else col
+            for col in columns
+        ]
+        return columns, labels
+
+    def _format_prediction_result_text(self, mean, std, data_engine, include_summary=True):
+        _, labels = self._prediction_targets(data_engine, len(mean))
+        result_lines = ["<b>예측 물성</b>"]
+        for label, m, s in zip(labels, mean, std):
+            result_lines.append(f"{label}: <b>{m:.1f} ± {s:.1f}</b>")
+
+        if not include_summary or len(mean) < 3:
+            return "<br>".join(result_lines)
+
+        ys_uts_ratio = mean[0] / max(mean[1], 1.0)
+        sd_index = mean[1] * mean[2]
+
+        if ys_uts_ratio < 0.50:
+            ratio_tag = "가공경화 여유 충분"
+        elif ys_uts_ratio < 0.72:
+            ratio_tag = "표준적 가공경화 거동"
+        else:
+            ratio_tag = "가공경화 여유 제한적"
+
+        if sd_index > 40000:
+            sd_tag = "우수"
+        elif sd_index > 25000:
+            sd_tag = "양호"
+        else:
+            sd_tag = "보통"
+
+        if ys_uts_ratio < 0.55 and mean[2] > 50:
+            state_tag = "완전 소둔(annealed) 상태로 추정"
+        elif ys_uts_ratio > 0.72 or mean[2] < 28:
+            state_tag = "가공경화 또는 고강도 조건으로 추정"
+        else:
+            state_tag = "표준 열처리 조건으로 추정"
+
+        cv_per = [std[i] / max(abs(mean[i]), 1.0) * 100 for i in range(len(mean))]
+        avg_cv = float(np.mean(cv_per))
+        if avg_cv < 5:
+            conf_tag = "높음"
+        elif avg_cv < 12:
+            conf_tag = "보통"
+        else:
+            conf_tag = "낮음 — 추가 데이터 권장"
+
+        c = self._theme()
+        note_color = c["text_label"]
+        return (
+            "<br>".join(result_lines)
+            + f"<hr style='border:none;border-top:1px solid {c['border']};margin:6px 0;'>"
+            f"<b>분석 요약</b><br>"
+            f"YS / UTS: <b>{ys_uts_ratio:.2f}</b> &mdash; {ratio_tag}<br>"
+            f"강도×연성 지수: <b>{sd_index:,.0f} MPa·%</b> ({sd_tag})<br>"
+            f"재료 상태: {state_tag}<br>"
+            f"예측 신뢰도: <b>{conf_tag}</b>"
+            f" <span style='color:{note_color};'>(평균 CV {avg_cv:.1f}%)</span>"
+        )
+
     def _run_prediction(
         self,
         model_engine,
@@ -37,59 +112,7 @@ class InferenceMixin:
         mean = data_engine.scaler_y.inverse_transform(mean_scaled)[0]
         std = std_scaled[0] * data_engine.scaler_y.scale_
 
-        # --- 파생 분석 지표 계산 ---
-        ys_uts_ratio = mean[0] / max(mean[1], 1.0)
-        sd_index = mean[1] * mean[2]   # 강도×연성 지수 (MPa·%)
-
-        if ys_uts_ratio < 0.50:
-            ratio_tag = "가공경화 여유 충분"
-        elif ys_uts_ratio < 0.72:
-            ratio_tag = "표준적 가공경화 거동"
-        else:
-            ratio_tag = "가공경화 여유 제한적"
-
-        if sd_index > 40000:
-            sd_tag = "우수"
-        elif sd_index > 25000:
-            sd_tag = "양호"
-        else:
-            sd_tag = "보통"
-
-        # 재료 상태 추정
-        if ys_uts_ratio < 0.55 and mean[2] > 50:
-            state_tag = "완전 소둔(annealed) 상태로 추정"
-        elif ys_uts_ratio > 0.72 or mean[2] < 28:
-            state_tag = "가공경화 또는 고강도 조건으로 추정"
-        else:
-            state_tag = "표준 열처리 조건으로 추정"
-
-        # 평균 상대 불확실도 (CV%)
-        cv_per = [std[i] / max(abs(mean[i]), 1.0) * 100 for i in range(4)]
-        avg_cv = float(np.mean(cv_per))
-        if avg_cv < 5:
-            conf_tag = "높음"
-        elif avg_cv < 12:
-            conf_tag = "보통"
-        else:
-            conf_tag = "낮음 — 추가 데이터 권장"
-
-        c = self._theme()
-        note_color = c["text_label"]
-        result_text = (
-            f"<b>강도</b>&nbsp;&nbsp;"
-            f"항복강도: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b>&ensp;"
-            f"UTS: <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br>"
-            f"<b>연성</b>&nbsp;&nbsp;"
-            f"연신율: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b>&ensp;"
-            f"단면감소율: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b>"
-            f"<hr style='border:none;border-top:1px solid {c['border']};margin:6px 0;'>"
-            f"<b>분석 요약</b><br>"
-            f"YS / UTS: <b>{ys_uts_ratio:.2f}</b> &mdash; {ratio_tag}<br>"
-            f"강도×연성 지수: <b>{sd_index:,.0f} MPa·%</b> ({sd_tag})<br>"
-            f"재료 상태: {state_tag}<br>"
-            f"예측 신뢰도: <b>{conf_tag}</b>"
-            f" <span style='color:{note_color};'>(평균 CV {avg_cv:.1f}%)</span>"
-        )
+        result_text = self._format_prediction_result_text(mean, std, data_engine)
         result_label.setText(result_text)
         self._render_prediction_chart(canvas, mean, std)
         if curve_canvas is not None and curve_label is not None:
@@ -116,61 +139,18 @@ class InferenceMixin:
             self.user_export_btn.setEnabled(True)
 
         return {
-            "yield_stress": round(float(mean[0]), 2),
-            "uts": round(float(mean[1]), 2),
-            "elongation": round(float(mean[2]), 2),
-            "area_reduction": round(float(mean[3]), 2),
+            "yield_stress": round(float(mean[0]), 2) if len(mean) > 0 else None,
+            "uts": round(float(mean[1]), 2) if len(mean) > 1 else None,
+            "elongation": round(float(mean[2]), 2) if len(mean) > 2 else None,
+            "area_reduction": round(float(mean[3]), 2) if len(mean) > 3 else None,
         }
 
     def _restore_prediction_display(self, mean, std, input_dict, target="user"):
         """불러오기 시 저장된 mean/std/input_dict로 result_display 텍스트와 prediction_state 복원."""
         mean = [float(x) for x in mean]
         std = [float(x) for x in std]
-        ys_uts_ratio = mean[0] / max(mean[1], 1.0)
-        sd_index = mean[1] * mean[2]
-        if ys_uts_ratio < 0.50:
-            ratio_tag = "가공경화 여유 충분"
-        elif ys_uts_ratio < 0.72:
-            ratio_tag = "표준적 가공경화 거동"
-        else:
-            ratio_tag = "가공경화 여유 제한적"
-        if sd_index > 40000:
-            sd_tag = "우수"
-        elif sd_index > 25000:
-            sd_tag = "양호"
-        else:
-            sd_tag = "보통"
-        if ys_uts_ratio < 0.55 and mean[2] > 50:
-            state_tag = "완전 소둔(annealed) 상태로 추정"
-        elif ys_uts_ratio > 0.72 or mean[2] < 28:
-            state_tag = "가공경화 또는 고강도 조건으로 추정"
-        else:
-            state_tag = "표준 열처리 조건으로 추정"
-        cv_per = [std[i] / max(abs(mean[i]), 1.0) * 100 for i in range(4)]
-        avg_cv = float(np.mean(cv_per))
-        if avg_cv < 5:
-            conf_tag = "높음"
-        elif avg_cv < 12:
-            conf_tag = "보통"
-        else:
-            conf_tag = "낮음 — 추가 데이터 권장"
-        c = self._theme()
-        note_color = c["text_label"]
-        result_text = (
-            f"<b>강도</b>&nbsp;&nbsp;"
-            f"항복강도: <b>{mean[0]:.1f} ± {std[0]:.1f} MPa</b>&ensp;"
-            f"UTS: <b>{mean[1]:.1f} ± {std[1]:.1f} MPa</b><br>"
-            f"<b>연성</b>&nbsp;&nbsp;"
-            f"연신율: <b>{mean[2]:.1f} ± {std[2]:.1f} %</b>&ensp;"
-            f"단면감소율: <b>{mean[3]:.1f} ± {std[3]:.1f} %</b>"
-            f"<hr style='border:none;border-top:1px solid {c['border']};margin:6px 0;'>"
-            f"<b>분석 요약</b><br>"
-            f"YS / UTS: <b>{ys_uts_ratio:.2f}</b> &mdash; {ratio_tag}<br>"
-            f"강도×연성 지수: <b>{sd_index:,.0f} MPa·%</b> ({sd_tag})<br>"
-            f"재료 상태: {state_tag}<br>"
-            f"예측 신뢰도: <b>{conf_tag}</b>"
-            f" <span style='color:{note_color};'>(평균 CV {avg_cv:.1f}%)</span>"
-        )
+        data_engine = getattr(self, "pretrained_data_engine", None) if target == "pretrained" else getattr(self, "data_engine", None)
+        result_text = self._format_prediction_result_text(mean, std, data_engine)
         state_obj = {
             "mean": np.array(mean, dtype=float),
             "std": np.array(std, dtype=float),
@@ -360,12 +340,13 @@ class InferenceMixin:
         mean = state["mean"]
         std  = state["std"]
         inputs = state["input_dict"]
-        targets = [
-            ("0.2% 항복강도 (MPa)", mean[0], std[0]),
-            ("인장강도 UTS (MPa)",   mean[1], std[1]),
-            ("연신율 (%)",           mean[2], std[2]),
-            ("단면감소율 (%)",        mean[3], std[3]),
-        ]
+        data_engine = (
+            getattr(self, "pretrained_data_engine", None)
+            if state_attr == "_pretrained_prediction_state"
+            else getattr(self, "data_engine", None)
+        )
+        _, labels = self._prediction_targets(data_engine, len(mean))
+        targets = list(zip(labels, mean, std))
         with open(path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             writer.writerow(["=== 입력 조성 / 공정 조건 ==="])

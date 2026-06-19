@@ -14,8 +14,10 @@ class DataEngine:
         self.scaler_x = StandardScaler()
         self.scaler_y = StandardScaler()
         self.selected_training_columns = None
+        self.active_target_cols = None
+        self.training_profile = "full"
 
-        self.raw_feature_cols = [
+        self.composition_feature_cols = [
             "Fe",
             "Cr",
             "Ni",
@@ -38,6 +40,8 @@ class DataEngine:
             "Al",
             "Sn",
             "Pb",
+        ]
+        self.process_feature_cols = [
             "Solution_treatment_temperature",
             "Solution_treatment_time(s)",
             "Water_Quenched_after_s.t.",
@@ -46,8 +50,16 @@ class DataEngine:
             "Type of melting",
             "Size of ingot",
             "Product form",
+        ]
+        self.test_condition_feature_cols = [
             "Temperature (K)",
         ]
+        self.deployment_feature_cols = self.composition_feature_cols + self.test_condition_feature_cols
+        self.raw_feature_cols = (
+            self.composition_feature_cols
+            + self.process_feature_cols
+            + self.test_condition_feature_cols
+        )
         self.engineered_feature_cols = [
             "Cr_Ni_ratio",
             "C_plus_N",
@@ -62,6 +74,17 @@ class DataEngine:
             "Elongation (%)",
             "Area_reduction (%)",
         ]
+        self.deployment_target_cols = [
+            "0.2%proof_stress (M Pa)",
+            "UTS (M Pa)",
+            "Elongation (%)",
+        ]
+        self.target_display_names = {
+            "0.2%proof_stress (M Pa)": "0.2% 항복강도 (MPa)",
+            "UTS (M Pa)": "인장강도 UTS (MPa)",
+            "Elongation (%)": "연신율 (%)",
+            "Area_reduction (%)": "단면감소율 (%)",
+        }
         self.binary_cols = [
             "Water_Quenched_after_s.t.",
             "Air_Quenched_after_s.t.",
@@ -192,6 +215,31 @@ class DataEngine:
             "Area_reduction (%)": (0, 100),
         }
         self.last_quality_report = {}
+
+    def configure_deployment_profile(self):
+        """Use only deployable user inputs: composition + test/use temperature."""
+        self.training_profile = "deployment"
+        self.active_target_cols = list(self.deployment_target_cols)
+        self.set_selected_training_columns(self.deployment_feature_cols + self.engineered_feature_cols)
+        self.quality_options["feature_engineering"] = True
+        self.quality_options["input_feature_mode"] = "combined"
+
+    def configure_full_profile(self):
+        self.training_profile = "full"
+        self.active_target_cols = None
+        self.set_selected_training_columns(None)
+
+    def get_active_target_columns(self, df=None):
+        candidates = getattr(self, "active_target_cols", None) or self.target_cols
+        if df is None:
+            return list(candidates)
+        return self._existing_columns(candidates, df)
+
+    def get_target_display_name(self, column):
+        return getattr(self, "target_display_names", {}).get(column, column)
+
+    def get_active_target_display_names(self, df=None):
+        return [self.get_target_display_name(col) for col in self.get_active_target_columns(df)]
 
     def set_file_path(self, path):
         self.file_path = path
@@ -364,7 +412,7 @@ class DataEngine:
             raise ValueError("Dataset is empty after quality processing.")
 
         available_features = self._get_selected_feature_columns(self.df)
-        available_targets = self._existing_columns(self.target_cols, self.df)
+        available_targets = self.get_active_target_columns(self.df)
 
         if not available_features:
             raise ValueError("No training feature columns are available. Please select at least one column.")

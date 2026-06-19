@@ -1,19 +1,58 @@
 {
   "model_type": "RF",
-  "data_file": "STMECH_AUS_SS (1).xls",
-  "r2_avg": 0.8727,
-  "mae_avg": 7.3976,
+  "training_profile": "deployment",
+  "data_file": "STMECH_AUS_SS.xls",
+  "input_policy": "composition_plus_test_temperature",
+  "feature_columns": [
+    "Fe",
+    "Cr",
+    "Ni",
+    "Mo",
+    "Mn",
+    "Si",
+    "Nb",
+    "Ti",
+    "Zr",
+    "Ta",
+    "V",
+    "W",
+    "Cu",
+    "N",
+    "C",
+    "B",
+    "P",
+    "S",
+    "Co",
+    "Al",
+    "Sn",
+    "Pb",
+    "Temperature (K)",
+    "Cr_Ni_ratio",
+    "C_plus_N",
+    "Ni_eq",
+    "Cr_eq"
+  ],
+  "target_columns": [
+    "0.2%proof_stress (M Pa)",
+    "UTS (M Pa)",
+    "Elongation (%)"
+  ],
+  "target_display_names": [
+    "0.2% 항복강도 (MPa)",
+    "인장강도 UTS (MPa)",
+    "연신율 (%)"
+  ],
+  "r2_avg": 0.8604,
+  "mae_avg": 10.301,
   "r2_per_target": [
-    0.8619,
-    0.9447,
-    0.8516,
-    0.8325
+    0.7979,
+    0.9307,
+    0.8526
   ],
   "mae_per_target": [
-    12.0489,
-    13.8164,
-    2.9198,
-    0.8051
+    14.2431,
+    13.628,
+    3.032
   ],
-  "last_updated": "2026-06-18"
+  "last_updated": "2026-06-19"
 }

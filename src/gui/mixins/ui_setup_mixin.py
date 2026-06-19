@@ -52,7 +52,7 @@ class UISetupMixin:
         "Type of melting": "2",
         "Size of ingot": "50",
         "Product form": "3",
-        "Temperature (K)": "300",
+        "Temperature (K)": "298",
         "Ni_eq": "0.0",
         "Cr_eq": "0.0",
         "Cr_Ni_ratio": "0.0",
@@ -499,15 +499,15 @@ class UISetupMixin:
         comp_group_layout.setContentsMargins(12, 12, 12, 12)
         comp_group_layout.setSpacing(12)
         composition_defaults = {
-            "Fe": "96.0",
-            "C": "0.08",
-            "Si": "0.4",
+            "Fe": "68.0",
+            "C": "0.06",
+            "Si": "0.5",
             "Mn": "1.5",
             "P": "0.01",
             "S": "0.005",
-            "Ni": "0.2",
-            "Cr": "0.3",
-            "Mo": "0.05",
+            "Ni": "10.5",
+            "Cr": "18.0",
+            "Mo": "0.5",
             "Cu": "0.1",
             "V": "0.01",
             "N": "0.005",
@@ -537,85 +537,28 @@ class UISetupMixin:
         parent_layout.addWidget(comp_group)
         self._prediction_input_groups.append(comp_group)
 
-        proc_group = QGroupBox("공정 및 조직")
-        proc_group_layout = QVBoxLayout(proc_group)
-        proc_group_layout.setContentsMargins(12, 12, 12, 12)
-        proc_group_layout.setSpacing(12)
+        temp_group = QGroupBox("시험/사용 환경")
+        temp_group_layout = QVBoxLayout(temp_group)
+        temp_group_layout.setContentsMargins(12, 12, 12, 12)
+        temp_group_layout.setSpacing(12)
 
-        proc_form = QFormLayout()
-        proc_form.setContentsMargins(0, 0, 0, 0)
-        proc_form.setHorizontalSpacing(14)
-        proc_form.setVerticalSpacing(10)
-        proc_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        temp_form = QFormLayout()
+        temp_form.setContentsMargins(0, 0, 0, 0)
+        temp_form.setHorizontalSpacing(14)
+        temp_form.setVerticalSpacing(10)
+        temp_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
-        solution_label = QLabel("고용화 열처리 온도 (K)")
-        solution_field = QLineEdit("1323")
-        proc_form.addRow(solution_label, solution_field)
-        input_store["Solution_treatment_temperature"] = solution_field
-        self._prediction_input_labels.append(solution_label)
-        self._prediction_input_fields.append(solution_field)
+        temp_label = QLabel("시험/사용 온도 (K)")
+        temp_field = QLineEdit("298")
+        temp_form.addRow(temp_label, temp_field)
+        input_store["Temperature (K)"] = temp_field
+        self._prediction_input_labels.append(temp_label)
+        self._prediction_input_fields.append(temp_field)
 
-        cooling_label = QLabel("냉각 방식")
-        self.pretrained_cooling_combo = QComboBox()
-        self.pretrained_cooling_combo.addItems(["로냉 (furnace)", "공냉 (air)", "수냉 (water)"])
-        self.pretrained_cooling_combo.setCurrentIndex(2)
-        self.pretrained_cooling_combo.currentIndexChanged.connect(self._sync_pretrained_cooling_inputs)
-        proc_form.addRow(cooling_label, self.pretrained_cooling_combo)
-        self._prediction_input_labels.append(cooling_label)
-
-        water_field = QLineEdit("1")
-        air_field = QLineEdit("0")
-        water_field.hide()
-        air_field.hide()
-        input_store["Water_Quenched_after_s.t."] = water_field
-        input_store["Air_Quenched_after_s.t."] = air_field
-
-        ni_eq_label = QLabel("Ni 당량")
-        ni_eq_field = QLineEdit("0.0")
-        proc_form.addRow(ni_eq_label, ni_eq_field)
-        input_store["Ni_eq"] = ni_eq_field
-        self._prediction_input_labels.append(ni_eq_label)
-        self._prediction_input_fields.append(ni_eq_field)
-
-        cr_eq_label = QLabel("Cr 당량")
-        cr_eq_field = QLineEdit("0.0")
-        proc_form.addRow(cr_eq_label, cr_eq_field)
-        input_store["Cr_eq"] = cr_eq_field
-        self._prediction_input_labels.append(cr_eq_label)
-        self._prediction_input_fields.append(cr_eq_field)
-
-        proc_group_layout.addLayout(proc_form)
-        parent_layout.addWidget(proc_group)
-        self._prediction_input_groups.append(proc_group)
-
-        extra_group = QGroupBox("추가 특성")
-        extra_group_layout = QVBoxLayout(extra_group)
-        extra_group_layout.setContentsMargins(12, 12, 12, 12)
-        extra_group_layout.setSpacing(10)
-
-        info_label = QLabel("위 입력과 겹치지 않는 공정 및 조직 관련 특성만 선택해서 추가할 수 있습니다.")
-        info_label.setWordWrap(True)
-        info_label.setStyleSheet("font-size: 11px; color: #64748B;")
-        extra_group_layout.addWidget(info_label)
-
-        self._pretrained_extra_form_widget = QWidget()
-        self._pretrained_extra_form_layout = QFormLayout(self._pretrained_extra_form_widget)
-        self._pretrained_extra_form_layout.setContentsMargins(0, 0, 0, 0)
-        self._pretrained_extra_form_layout.setHorizontalSpacing(14)
-        self._pretrained_extra_form_layout.setVerticalSpacing(10)
-        self._pretrained_extra_form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        extra_group_layout.addWidget(self._pretrained_extra_form_widget)
-
-        self._add_feature_btn = QPushButton("추가 특성 선택")
-        self._add_feature_btn.setFixedHeight(30)
-        self._add_feature_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._add_feature_btn.clicked.connect(self._open_pretrained_add_feature_dialog)
-        extra_group_layout.addWidget(self._add_feature_btn)
-
-        parent_layout.addWidget(extra_group)
-        self._prediction_input_groups.append(extra_group)
-        self._sync_pretrained_cooling_inputs(self.pretrained_cooling_combo.currentIndex())
-        self._refresh_pretrained_extra_feature_ui()
+        temp_group_layout.addLayout(temp_form)
+        parent_layout.addWidget(temp_group)
+        self._prediction_input_groups.append(temp_group)
+        self._update_composition_derived_fields(input_store)
 
     def _sync_pretrained_cooling_inputs(self, index):
         water_value, air_value = ("0", "0")
@@ -643,6 +586,8 @@ class UISetupMixin:
         return [name for name in self._PRETRAINED_EXTRA_FEATURE_ORDER if name not in reserved]
 
     def _open_pretrained_add_feature_dialog(self):
+        if not hasattr(self, "_pretrained_extra_form_layout"):
+            return
         available = self._get_pretrained_extra_feature_candidates()
         already = set(getattr(self, "_pretrained_extra_feature_names", []))
 
@@ -775,6 +720,8 @@ class UISetupMixin:
             self._refresh_pretrained_extra_feature_ui()
 
     def _refresh_pretrained_extra_feature_ui(self):
+        if not hasattr(self, "_pretrained_extra_form_layout"):
+            return
         input_store = getattr(self, "pretrained_inputs", {})
         for name in list(getattr(self, "_pretrained_extra_feature_widgets", {})):
             input_store.pop(name, None)
@@ -1159,20 +1106,18 @@ class UISetupMixin:
         self.show_help_dialog("모델 학습", help_text)
 
     def _reset_pretrained_inputs(self):
-        """합금 조성 및 공정 입력값을 기본값으로 초기화한다."""
+        """합금 조성 및 시험/사용 온도를 기본값으로 초기화한다."""
         composition_defaults = {
-            "C": "0.08", "Si": "0.4", "Mn": "1.5", "P": "0.01",
-            "S": "0.005", "Ni": "0.2", "Cr": "0.3", "Mo": "0.05",
+            "Fe": "68.0", "C": "0.06", "Si": "0.5", "Mn": "1.5", "P": "0.01",
+            "S": "0.005", "Ni": "10.5", "Cr": "18.0", "Mo": "0.5",
             "Cu": "0.1", "V": "0.01", "N": "0.005", "Nb": "0.02",
             "Ti": "0.01", "B": "0.0005", "Al": "0.03",
-            "Solution_treatment_temperature": "1323",
+            "Temperature (K)": "298",
         }
         for key, value in composition_defaults.items():
             field = self.pretrained_inputs.get(key)
             if field and not field.isReadOnly():
                 self._set_prediction_field_value(field, value)
-        if hasattr(self, "pretrained_cooling_combo"):
-            self.pretrained_cooling_combo.setCurrentIndex(2)
         self._update_composition_derived_fields(self.pretrained_inputs)
 
     def show_help_dialog(self, title, html_text):
