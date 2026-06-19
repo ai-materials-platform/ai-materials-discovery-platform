@@ -231,20 +231,30 @@ class FloatingChatDialog(QDialog):
 
     def paintEvent(self, event):
         p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        s = _SHADOW
-        rect = QRectF(s, s, self.width() - s * 2, self.height() - s * 2)
+        if not p.isActive():
+            return
+        try:
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            s = _SHADOW
+            w, h = self.width(), self.height()
+            if w <= s * 2 or h <= s * 2:
+                return
+            rect = QRectF(s, s, w - s * 2, h - s * 2)
 
-        # 그림자
-        for i in range(s, 0, -1):
-            p.setBrush(QColor(0, 0, 0, max(2, 22 - i * 2)))
+            # 그림자
+            for i in range(s, 0, -1):
+                p.setBrush(QColor(0, 0, 0, max(2, 22 - i * 2)))
+                p.setPen(Qt.PenStyle.NoPen)
+                p.drawRoundedRect(rect.adjusted(-i * 0.4, -i * 0.4, i * 0.4, i * 0.4), 20, 20)
+
+            # 창 배경 (흰색)
+            p.setBrush(QColor(255, 255, 255))
             p.setPen(Qt.PenStyle.NoPen)
-            p.drawRoundedRect(rect.adjusted(-i * 0.4, -i * 0.4, i * 0.4, i * 0.4), 20, 20)
-
-        # 창 배경 (흰색)
-        p.setBrush(QColor("white"))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(rect, 20, 20)
+            p.drawRoundedRect(rect, 20, 20)
+        except Exception:
+            pass
+        finally:
+            p.end()
 
     def _build_ui(self):
         s = _SHADOW
