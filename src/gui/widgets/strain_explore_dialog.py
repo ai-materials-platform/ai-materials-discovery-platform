@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSizePolicy,
     QSlider,
@@ -69,11 +70,17 @@ class StrainExploreDialog(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
 
+        self._dark = getattr(parent, "_dark_mode", False)
         self._model_engine = model_engine
         self._data_engine = data_engine
         self._base_input = dict(base_input_dict)
         self._build_fn = build_fn
         self._base_mean = self._compute_base_mean()
+        self._ch_v = None
+        self._ch_h = None
+        self._ch_text = None
+        self._ch_ax = None
+        self._ch_bg = None
 
         self._update_timer = QTimer(self)
         self._update_timer.setSingleShot(True)
@@ -104,21 +111,38 @@ class StrainExploreDialog(QDialog):
         splitter.setSizes([290, 810])
 
     def _build_ctrl_panel(self):
+        d = self._dark
+        ctrl_bg     = "#252526" if d else "#F8FAFC"
+        border_col  = "#3E3E42" if d else "#E2E8F0"
+        text_main   = "#D4D4D4" if d else "#111827"
+        text_sec    = "#9D9D9D" if d else "#64748B"
+        text_muted  = "#6A6A6A" if d else "#94A3B8"
+        result_bg   = "#2D2D2D" if d else "#FFFFFF"
+        result_brd  = "#3E3E42" if d else "#E2E8F0"
+        result_text = "#CCCCCC" if d else "#334155"
+        btn_bg      = "#2D2D2D" if d else "#F1F5F9"
+        btn_text    = "#CCCCCC" if d else "#475569"
+        btn_brd     = "#3E3E42" if d else "#CBD5E1"
+        btn_hover   = "#3A3A3A" if d else "#E2E8F0"
+        val_color   = "#D4D4D4" if d else "#1E293B"
+        val_brd     = "#5A5A5A" if d else "#CBD5E1"
+        slider_groove = "#3E3E42" if d else "#E2E8F0"
+
         ctrl = QWidget()
         ctrl.setMinimumWidth(260)
         ctrl.setMaximumWidth(320)
-        ctrl.setStyleSheet("background: #F8FAFC; border-right: 1px solid #E2E8F0;")
+        ctrl.setStyleSheet(f"background: {ctrl_bg}; border-right: 1px solid {border_col};")
         layout = QVBoxLayout(ctrl)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)
 
         title = QLabel("조성 / 공정 탐색기")
-        title.setStyleSheet("font-size: 14px; font-weight: 700; color: #111827;")
+        title.setStyleSheet(f"font-size: 14px; font-weight: 700; color: {text_main};")
         layout.addWidget(title)
 
         desc = QLabel("컬럼을 선택하고 슬라이더를 드래그하면\nStress-Strain Curve가 실시간 업데이트됩니다.")
         desc.setWordWrap(True)
-        desc.setStyleSheet("font-size: 11px; color: #64748B;")
+        desc.setStyleSheet(f"font-size: 11px; color: {text_sec};")
         layout.addWidget(desc)
 
         # 컬럼 선택
@@ -127,7 +151,7 @@ class StrainExploreDialog(QDialog):
         col_layout.setContentsMargins(10, 10, 10, 10)
 
         comp_label = QLabel("▸ 합금 조성 (wt%)")
-        comp_label.setStyleSheet("font-size: 10px; color: #94A3B8; font-weight: 600;")
+        comp_label.setStyleSheet(f"font-size: 10px; color: {text_muted}; font-weight: 600;")
         col_layout.addWidget(comp_label)
 
         self._col_combo = QComboBox()
@@ -171,22 +195,26 @@ class StrainExploreDialog(QDialog):
         slider_layout.setContentsMargins(10, 10, 10, 10)
         slider_layout.setSpacing(6)
 
-        self._val_label = QLabel("—")
+        self._val_label = QLineEdit("—")
         self._val_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._val_label.setStyleSheet(
-            "font-size: 22px; font-weight: 700; color: #1E293B; "
-            "padding: 4px 0;"
+            f"font-size: 22px; font-weight: 700; color: {val_color}; "
+            f"padding: 4px 0; border: none; border-bottom: 2px solid {val_brd}; "
+            "background: transparent;"
         )
+        self._val_label.setFixedHeight(44)
+        self._val_label.returnPressed.connect(self._on_val_input_entered)
+        self._val_label.editingFinished.connect(self._on_val_input_entered)
         slider_layout.addWidget(self._val_label)
 
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setRange(0, _SLIDER_STEPS)
         self._slider.setValue(_SLIDER_STEPS // 2)
         self._slider.setStyleSheet(
-            "QSlider::groove:horizontal { height: 6px; background: #E2E8F0; border-radius: 3px; }"
+            f"QSlider::groove:horizontal {{ height: 6px; background: {slider_groove}; border-radius: 3px; }}"
             "QSlider::handle:horizontal { width: 18px; height: 18px; margin: -6px 0; "
-            "background: #1E293B; border-radius: 9px; }"
-            "QSlider::sub-page:horizontal { background: #1E293B; border-radius: 3px; }"
+            "background: #5B8DEF; border-radius: 9px; }"
+            "QSlider::sub-page:horizontal { background: #5B8DEF; border-radius: 3px; }"
         )
         self._slider.valueChanged.connect(self._on_slider_changed)
         slider_layout.addWidget(self._slider)
@@ -195,7 +223,7 @@ class StrainExploreDialog(QDialog):
         self._slider_min_lbl = QLabel("—")
         self._slider_max_lbl = QLabel("—")
         for lbl in (self._slider_min_lbl, self._slider_max_lbl):
-            lbl.setStyleSheet("font-size: 10px; color: #94A3B8;")
+            lbl.setStyleSheet(f"font-size: 10px; color: {text_muted};")
         range_row.addWidget(self._slider_min_lbl)
         range_row.addStretch()
         range_row.addWidget(self._slider_max_lbl)
@@ -207,8 +235,8 @@ class StrainExploreDialog(QDialog):
         self._result_label.setWordWrap(True)
         self._result_label.setTextFormat(Qt.TextFormat.RichText)
         self._result_label.setStyleSheet(
-            "background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; "
-            "padding: 12px; font-size: 12px; color: #334155; line-height: 1.6;"
+            f"background: {result_bg}; border: 1px solid {result_brd}; border-radius: 8px; "
+            f"padding: 12px; font-size: 12px; color: {result_text}; line-height: 1.6;"
         )
         layout.addWidget(self._result_label)
 
@@ -217,9 +245,9 @@ class StrainExploreDialog(QDialog):
         reset_btn = QPushButton("기준값으로 초기화")
         reset_btn.setFixedHeight(34)
         reset_btn.setStyleSheet(
-            "QPushButton { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; "
+            f"QPushButton {{ background: {btn_bg}; color: {btn_text}; border: 1px solid {btn_brd}; "
             "border-radius: 8px; font-size: 11px; font-weight: 600; }"
-            "QPushButton:hover { background: #E2E8F0; }"
+            f"QPushButton:hover {{ background: {btn_hover}; }}"
         )
         reset_btn.clicked.connect(self._reset_to_base)
         layout.addWidget(reset_btn)
@@ -231,9 +259,10 @@ class StrainExploreDialog(QDialog):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(8, 8, 8, 8)
         self._canvas_fig = Figure(figsize=(7, 5), dpi=100)
-        self._canvas_fig.patch.set_facecolor("#FFFFFF")
+        self._canvas_fig.patch.set_facecolor("#1E1E1E" if self._dark else "#FFFFFF")
         self._canvas = FigureCanvas(self._canvas_fig)
         self._canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._canvas.mpl_connect("motion_notify_event", self._on_mouse_move)
         layout.addWidget(self._canvas)
         return panel
 
@@ -305,6 +334,62 @@ class StrainExploreDialog(QDialog):
         val = lo + (self._slider.value() / _SLIDER_STEPS) * (hi - lo)
         self._val_label.setText(f"{val:.4g}")
         self._update_timer.start()
+
+    def _on_val_input_entered(self):
+        lo = self._min_spin.value()
+        hi = self._max_spin.value()
+        try:
+            val = float(self._val_label.text())
+        except ValueError:
+            return
+        val = max(lo, min(hi, val))
+        self._val_label.setText(f"{val:.4g}")
+        if hi > lo:
+            frac = (val - lo) / (hi - lo)
+            self._slider.blockSignals(True)
+            self._slider.setValue(int(frac * _SLIDER_STEPS))
+            self._slider.blockSignals(False)
+        self._update_timer.start()
+
+    def _on_mouse_move(self, event):
+        if self._ch_v is None or self._ch_bg is None:
+            return
+
+        if event.inaxes != self._ch_ax:
+            if self._ch_v.get_alpha() > 0:
+                self._ch_v.set_alpha(0)
+                self._ch_h.set_alpha(0)
+                self._ch_text.set_visible(False)
+                self._canvas.restore_region(self._ch_bg)
+                self._canvas.blit(self._ch_ax.bbox)
+            return
+
+        x, y = event.xdata, event.ydata
+        if x is None or y is None:
+            return
+
+        self._ch_v.set_xdata([x, x])
+        self._ch_h.set_ydata([y, y])
+        self._ch_v.set_alpha(0.5)
+        self._ch_h.set_alpha(0.5)
+
+        xlim = self._ch_ax.get_xlim()
+        ylim = self._ch_ax.get_ylim()
+        dx = (xlim[1] - xlim[0]) * 0.02
+        dy = (ylim[1] - ylim[0]) * 0.02
+        ha = "left" if x < xlim[0] + (xlim[1] - xlim[0]) * 0.72 else "right"
+        va = "bottom" if y < ylim[0] + (ylim[1] - ylim[0]) * 0.82 else "top"
+        self._ch_text.set_position((x + (dx if ha == "left" else -dx), y + (dy if va == "bottom" else -dy)))
+        self._ch_text.set_ha(ha)
+        self._ch_text.set_va(va)
+        self._ch_text.set_text(f"ε = {x:.4f}\nσ = {y:.0f} MPa")
+        self._ch_text.set_visible(True)
+
+        self._canvas.restore_region(self._ch_bg)
+        self._ch_ax.draw_artist(self._ch_v)
+        self._ch_ax.draw_artist(self._ch_h)
+        self._ch_ax.draw_artist(self._ch_text)
+        self._canvas.blit(self._ch_ax.bbox)
 
     def _reset_to_base(self):
         col = self._col_combo.currentData()
@@ -387,8 +472,8 @@ class StrainExploreDialog(QDialog):
         modified[col] = str(val)
 
         temp_note = ""
+
         if col == "Temperature (K)":
-            # 모델은 온도 영향을 학습하지 못하므로 기준 예측값에 물리 보정만 적용
             if self._base_mean is None:
                 return
             mean = self._apply_temperature_correction(self._base_mean.copy(), val)
@@ -415,37 +500,63 @@ class StrainExploreDialog(QDialog):
         self._render(strain, stress, points, segments, col_label, val)
 
     def _render(self, strain, stress, points, segments, col_label, col_val):
+        d = self._dark
+        ax_bg      = "#252526" if d else "#FAFAFA"
+        fig_bg     = "#1E1E1E" if d else "#FFFFFF"
+        text_main  = "#D4D4D4" if d else "#111827"
+        text_sec   = "#9D9D9D" if d else "#334155"
+        tick_col   = "#6A6A6A" if d else "#64748B"
+        spine_col  = "#3E3E42" if d else "#E2E8F0"
+        ann_bg     = "#2D2D2D" if d else "#FFFFFF"
+        ann_brd    = "#5A5A5A" if d else "#CBD5E1"
+        tough_col  = "#34D399" if d else "#065F46"
+        tough_bg   = "#064E3B" if d else "#ECFDF5"
+        tough_brd  = "#059669" if d else "#6EE7B7"
+        ch_col     = "#6A6A6A" if d else "#475569"
+        ch_txt_col = "#D4D4D4" if d else "#1E293B"
+        ch_bg_box  = "#2D2D2D" if d else "#F8FAFC"
+
         self._canvas_fig.clear()
+        self._canvas_fig.patch.set_facecolor(fig_bg)
         ax = self._canvas_fig.add_subplot(111)
-        ax.set_facecolor("#FAFAFA")
+        ax.set_facecolor(ax_bg)
 
         ax.set_title(
             f"Stress-Strain Curve  |  {col_label} = {col_val:.4g}",
-            fontsize=12, fontweight="bold", color="#111827", pad=10,
+            fontsize=12, fontweight="bold", color=text_main, pad=10,
         )
-        ax.set_xlabel("Strain", fontsize=11, color="#334155")
-        ax.set_ylabel("Stress (MPa)", fontsize=11, color="#334155")
-        ax.tick_params(colors="#64748B", labelsize=9)
+        ax.set_xlabel("Strain", fontsize=11, color=text_sec)
+        ax.set_ylabel("Stress (MPa)", fontsize=11, color=text_sec)
+        ax.tick_params(colors=tick_col, labelcolor=tick_col, labelsize=9)
         for spine in ax.spines.values():
-            spine.set_edgecolor("#E2E8F0")
+            spine.set_edgecolor(spine_col)
 
         yield_x  = points["Yield"][0]
         uts_x    = points["UTS"][0]
         frac_x   = points["Fracture"][0]
 
-        ax.axvspan(0.0,     yield_x, color="#2563EB", alpha=0.06)
-        ax.axvspan(yield_x, uts_x,   color="#F59E0B", alpha=0.05)
-        ax.axvspan(uts_x,   frac_x,  color="#DC2626", alpha=0.04)
+        ax.axvspan(0.0,     yield_x, color="#2563EB", alpha=0.08 if d else 0.06)
+        ax.axvspan(yield_x, uts_x,   color="#F59E0B", alpha=0.07 if d else 0.05)
+        ax.axvspan(uts_x,   frac_x,  color="#DC2626", alpha=0.06 if d else 0.04)
+
+        toughness = float(np.trapz(stress, strain))
+        ax.fill_between(strain, stress, color="#10B981", alpha=0.12 if d else 0.09, zorder=1)
+        ax.text(
+            0.98, 0.96, f"인성  {toughness:.0f} MJ/m³",
+            transform=ax.transAxes, fontsize=9, ha="right", va="top",
+            color=tough_col,
+            bbox=dict(boxstyle="round,pad=0.35", facecolor=tough_bg, edgecolor=tough_brd, alpha=0.92),
+        )
 
         seg_colors = {"elastic": "#2563EB", "hardening": "#F59E0B", "necking": "#DC2626"}
         for name, (xs, ys) in segments.items():
-            ax.plot(xs, ys, color=seg_colors[name], linewidth=2.8, solid_capstyle="round")
-            ax.fill_between(xs, ys, 0, color=seg_colors[name], alpha=0.06)
+            ax.plot(xs, ys, color=seg_colors[name], linewidth=2.8, solid_capstyle="round", zorder=3)
+            ax.fill_between(xs, ys, 0, color=seg_colors[name], alpha=0.06, zorder=2)
 
         pt_colors = {"Yield": "#2563EB", "UTS": "#DC2626", "Fracture": "#059669"}
         offsets   = {"Yield": (12, 12), "UTS": (-70, -42), "Fracture": (-82, -6)}
-        bbox_style = {"boxstyle": "round,pad=0.22", "facecolor": "#FFFFFF",
-                      "edgecolor": "#CBD5E1", "alpha": 0.92}
+        bbox_style = {"boxstyle": "round,pad=0.22", "facecolor": ann_bg,
+                      "edgecolor": ann_brd, "alpha": 0.92}
         for name, (xv, yv) in points.items():
             c = pt_colors[name]
             ax.scatter([xv], [yv], s=42, color=c, zorder=5)
@@ -461,5 +572,16 @@ class StrainExploreDialog(QDialog):
         frac_x = points["Fracture"][0]
         ax.set_xlim(0.0, frac_x * 1.08)
         ax.set_ylim(0.0, uts_y * 1.18)
+
         self._canvas_fig.tight_layout(pad=0.4)
         self._canvas.draw()
+
+        self._ch_v = ax.axvline(x=0, color=ch_col, linewidth=0.8, linestyle=":", alpha=0, zorder=10, animated=True)
+        self._ch_h = ax.axhline(y=0, color=ch_col, linewidth=0.8, linestyle=":", alpha=0, zorder=10, animated=True)
+        self._ch_text = ax.text(
+            0, 0, "", fontsize=8, color=ch_txt_col, ha="left", va="bottom",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor=ch_bg_box, edgecolor=ann_brd, alpha=0.92),
+            zorder=11, visible=False, animated=True,
+        )
+        self._ch_ax = ax
+        self._ch_bg = self._canvas.copy_from_bbox(ax.bbox)

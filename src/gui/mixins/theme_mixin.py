@@ -26,21 +26,21 @@ class ThemeMixin:
     def _theme(self):
         d = self._dark_mode
         return {
-            "app_bg":      "#25282D" if d else "#F4F6F8",
-            "panel_bg":    "#2F3339" if d else "#FFFFFF",
-            "muted_bg":    "#343941" if d else "#F8FAFC",
-            "info_bg":     "#3A4048" if d else "#F6F8FB",
-            "divider":     "#4F5965" if d else "#CBD5E1",
-            "border":      "#4F5965" if d else "#C9D2DC",
-            "text_primary":"#F3F4F6" if d else "#111827",
-            "text_sec":    "#D5DBE3" if d else "#334155",
-            "text_label":  "#B6C0CB" if d else "#64748B",
+            "app_bg":      "#1E1E1E" if d else "#F4F6F8",
+            "panel_bg":    "#252526" if d else "#FFFFFF",
+            "muted_bg":    "#2D2D2D" if d else "#F8FAFC",
+            "info_bg":     "#2D2D2D" if d else "#F6F8FB",
+            "divider":     "#3E3E42" if d else "#CBD5E1",
+            "border":      "#3E3E42" if d else "#C9D2DC",
+            "text_primary":"#D4D4D4" if d else "#111827",
+            "text_sec":    "#CCCCCC" if d else "#334155",
+            "text_label":  "#9D9D9D" if d else "#64748B",
             "tb_bg":       "#1E1E1E" if d else "#FFFFFF",
-            "tb_border":   "#3B4350" if d else "#C9D2DC",
+            "tb_border":   "#3E3E42" if d else "#C9D2DC",
             "status_bg":   "#1E1E1E" if d else "#FFFFFF",
-            "status_text": "#F8FAFC" if d else "#111827",
-            "status_muted":"#D7DCE3" if d else "#334155",
-            "input_bg":    "#2F3339" if d else "#FFFFFF",
+            "status_text": "#D4D4D4" if d else "#111827",
+            "status_muted":"#9D9D9D" if d else "#334155",
+            "input_bg":    "#3C3C3C" if d else "#FFFFFF",
             "accent":      "#1E293B",
         }
 
@@ -49,17 +49,17 @@ class ThemeMixin:
 
         palette = QPalette()
         if self._dark_mode:
-            palette.setColor(QPalette.ColorRole.Window,          QColor("#2B2B2B"))
-            palette.setColor(QPalette.ColorRole.WindowText,      QColor("#D8D8D8"))
-            palette.setColor(QPalette.ColorRole.Base,            QColor("#323232"))
-            palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#2B2B2B"))
-            palette.setColor(QPalette.ColorRole.Text,            QColor("#D8D8D8"))
-            palette.setColor(QPalette.ColorRole.Button,          QColor("#3A3A3A"))
-            palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#D8D8D8"))
-            palette.setColor(QPalette.ColorRole.Highlight,       QColor("#1E293B"))
+            palette.setColor(QPalette.ColorRole.Window,          QColor("#1E1E1E"))
+            palette.setColor(QPalette.ColorRole.WindowText,      QColor("#D4D4D4"))
+            palette.setColor(QPalette.ColorRole.Base,            QColor("#252526"))
+            palette.setColor(QPalette.ColorRole.AlternateBase,   QColor("#1E1E1E"))
+            palette.setColor(QPalette.ColorRole.Text,            QColor("#D4D4D4"))
+            palette.setColor(QPalette.ColorRole.Button,          QColor("#2D2D2D"))
+            palette.setColor(QPalette.ColorRole.ButtonText,      QColor("#D4D4D4"))
+            palette.setColor(QPalette.ColorRole.Highlight,       QColor("#264F78"))
             palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
-            palette.setColor(QPalette.ColorRole.ToolTipBase,     QColor("#323232"))
-            palette.setColor(QPalette.ColorRole.ToolTipText,     QColor("#D8D8D8"))
+            palette.setColor(QPalette.ColorRole.ToolTipBase,     QColor("#252526"))
+            palette.setColor(QPalette.ColorRole.ToolTipText,     QColor("#D4D4D4"))
         else:
             palette.setColor(QPalette.ColorRole.Window,          QColor("#F2F2F0"))
             palette.setColor(QPalette.ColorRole.WindowText,      QColor("#1A1A1A"))
@@ -158,17 +158,17 @@ class ThemeMixin:
         if self._dark_mode:
             # 파일 열기 버튼
             self.select_file_btn.setStyleSheet(
-                "QPushButton { background: #383D45; color: #E2E8F0; border: 1px solid #4D5560; "
+                "QPushButton { background: #2D2D2D; color: #D4D4D4; border: 1px solid #3E3E42; "
                 "border-radius: 3px; font-size: 12px; font-weight: 600; }"
-                "QPushButton:hover { background: #434950; border-color: #6B7280; }"
-                "QPushButton:pressed { background: #2F3339; }"
+                "QPushButton:hover { background: #3A3A3A; border-color: #5A5A5A; }"
+                "QPushButton:pressed { background: #252526; }"
             )
             # 전처리 실행 버튼
             self.preprocess_btn.setStyleSheet(
-                "QPushButton { background: #4B5563; color: #F9FAFB; border: none; "
+                "QPushButton { background: #3A3A3A; color: #D4D4D4; border: none; "
                 "border-radius: 3px; font-size: 12px; font-weight: 700; }"
-                "QPushButton:hover { background: #374151; }"
-                "QPushButton:disabled { background: #374151; color: #6B7280; }"
+                "QPushButton:hover { background: #4A4A4A; }"
+                "QPushButton:disabled { background: #2D2D2D; color: #5A5A5A; }"
             )
             # 학습 버튼
             self.train_btn.setStyleSheet(
@@ -226,9 +226,9 @@ class ThemeMixin:
         for card_attr in ("austenite_domain_btn", "high_temp_domain_btn"):
             if hasattr(self, card_attr):
                 card = getattr(self, card_attr)
-                card_bg = "#2F3339" if self._dark_mode else "#FFFFFF"
-                card_border = "#4F5965" if self._dark_mode else "#C9D2DC"
-                card_hover = "#3A4048" if self._dark_mode else "#F1F5F9"
+                card_bg = "#252526" if self._dark_mode else "#FFFFFF"
+                card_border = "#3E3E42" if self._dark_mode else "#C9D2DC"
+                card_hover = "#2D2D2D" if self._dark_mode else "#F1F5F9"
                 card.setStyleSheet(
                     f"QWidget {{ background: {card_bg}; border: 1px solid {card_border}; border-radius: 10px; }}"
                     f"QWidget:hover {{ background: {card_hover}; border-color: #1E293B; }}"
@@ -314,9 +314,9 @@ class ThemeMixin:
             )
         for widget in self._simulation_widgets:
             widget.set_theme(c, self._dark_mode)
-        legend_bg = "#FFFFFF" if not self._dark_mode else "#1F2937"
-        legend_border = "#CBD5E1" if not self._dark_mode else "#64748B"
-        legend_text = "#334155" if not self._dark_mode else "#E5E7EB"
+        legend_bg = "#FFFFFF" if not self._dark_mode else "#252526"
+        legend_border = "#CBD5E1" if not self._dark_mode else "#3E3E42"
+        legend_text = "#334155" if not self._dark_mode else "#D4D4D4"
         for card in self._curve_legend_cards:
             card.setStyleSheet(
                 f"background: {legend_bg}; border: 1px solid {legend_border}; border-radius: 8px;"
@@ -343,7 +343,7 @@ class ThemeMixin:
         if hasattr(self, "main_mode_stack"):
             self.main_mode_stack.setStyleSheet(f"background: {c['app_bg']};")
         if hasattr(self, "_mp_prediction_guide_corner"):
-            tab_bg = "#25282D" if self._dark_mode else "#E9EEF3"
+            tab_bg = "#1E1E1E" if self._dark_mode else "#E9EEF3"
             self._mp_prediction_guide_corner.setStyleSheet(
                 f"background: {tab_bg}; border: none;"
             )
@@ -415,7 +415,7 @@ class ThemeMixin:
                     f"QPushButton:disabled {{ color: {c['divider']}; border-color: {c['divider']}; }}"
                 )
         if hasattr(self, "ws_table"):
-            sel_bg = "#3B4358" if self._dark_mode else "#EEF2FF"
+            sel_bg = "#264F78" if self._dark_mode else "#EEF2FF"
             self.ws_table.setStyleSheet(
                 f"QTableWidget {{ background: {c['panel_bg']}; border: none; outline: none; }}"
                 f"QTableWidget::item {{ padding: 8px 12px; border-bottom: 1px solid {c['divider']}; color: {c['text_primary']}; }}"

@@ -238,8 +238,6 @@ class InferenceMixin:
 
     def _quick_save_prediction_csv(self):
         """Ctrl+S: 저장 확인 → 이름 입력 → 분석 기록(워크스페이스)에 저장."""
-        if getattr(self, "_current_main_mode", 0) != 0:
-            return
         state = getattr(self, "_pretrained_prediction_state", None) or \
                 getattr(self, "_user_prediction_state", None)
         if not state:

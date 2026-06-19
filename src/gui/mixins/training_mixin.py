@@ -128,10 +128,28 @@ class TrainingMixin:
 
         for index, ax in enumerate(axes.flatten()):
             ax.set_facecolor(bg)
-            ax.scatter(y_test[:, index], y_pred[:, index], alpha=0.55, color=scatter_colors[index], s=18)
-            all_data = np.concatenate([y_test[:, index], y_pred[:, index]])
+            x_data = y_test[:, index]
+            y_data = y_pred[:, index]
+            all_data = np.concatenate([x_data, y_data])
             min_val, max_val = all_data.min(), all_data.max()
-            ax.plot([min_val, max_val], [min_val, max_val], "--", color=divider, alpha=0.8, lw=1)
+
+            # 밀도 등고선
+            try:
+                from scipy.stats import gaussian_kde
+                if len(x_data) >= 12:
+                    xi = np.linspace(min_val, max_val, 48)
+                    Xi, Yi = np.meshgrid(xi, xi)
+                    kde = gaussian_kde(np.vstack([x_data, y_data]))
+                    Zi = kde(np.vstack([Xi.ravel(), Yi.ravel()])).reshape(48, 48)
+                    ax.contourf(Xi, Yi, Zi, levels=10, cmap="Blues" if bg == "#FFFFFF" else "Blues",
+                                alpha=0.22, zorder=1)
+                    ax.contour(Xi, Yi, Zi, levels=5, colors=[scatter_colors[index]],
+                               alpha=0.45, linewidths=0.7, zorder=2)
+            except Exception:
+                pass
+
+            ax.scatter(x_data, y_data, alpha=0.60, color=scatter_colors[index], s=16, zorder=3)
+            ax.plot([min_val, max_val], [min_val, max_val], "--", color=divider, alpha=0.8, lw=1, zorder=4)
             ax.set_title(target_names[index], fontsize=10, fontweight="bold", color=text_main)
             ax.set_xlabel("실제값", fontsize=9, color=text_sec)
             ax.set_ylabel("예측값", fontsize=9, color=text_sec)

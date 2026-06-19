@@ -1135,16 +1135,28 @@ class UISetupMixin:
 
     def show_model_training_help(self):
         help_text = """
-        <h2>모델 학습 도움말</h2>
-        <p>모델 학습 탭에서는 전처리 완료 데이터를 이용해 모델을 학습합니다.</p>
-        <h3>모델 선택 가이드</h3>
-        <p><b>Random Forest</b>: 처음 시작할 때 가장 무난합니다.<br><b>Gradient Boosting</b>: 비교용으로 좋습니다.<br><b>Neural Network</b>: 데이터가 충분할 때 시도해 볼 수 있습니다.<br><b>TFP</b>: 불확실성까지 함께 보고 싶을 때 사용합니다.</p>
-        <h3>학습 컬럼 선택</h3>
-        <p>학습에 사용할 변수는 <b>학습 컬럼 선택</b> 탭에서 고릅니다. 체크한 컬럼만 모델 학습과 예측에 사용됩니다.</p>
-        <h3>주의 사항</h3>
-        <p>전처리 설정을 바꿨다면 최신 설정을 반영하기 위해 전처리를 다시 실행한 뒤 학습해 주세요.</p>
+        <p style="font-size:13px; color:#374151;">
+        전처리 완료 후 이 탭에서 모델을 학습합니다.
+        모델은 4가지 제공되며 결과 R²로 비교하면 됩니다.
+        </p>
+
+        <p style="margin-top:14px; font-size:12px; color:#374151;">
+        <b>RF</b> — 데이터 적을 때 무난. 처음엔 이걸로 시작.<br>
+        <b>GBM</b> — RF랑 비교용으로 돌려보기 좋음.<br>
+        <b>MLP</b> — 데이터 많으면 써볼 만함 (300행↑ 권장).<br>
+        <b>TFP</b> — 예측값에 불확실성 범위까지 같이 보고 싶을 때.
+        </p>
+
+        <p style="margin-top:14px; font-size:12px; color:#374151;">
+        <b>학습 컬럼 선택</b> 탭에서 입력 변수를 골라서 씁니다.<br>
+        체크 안 된 컬럼은 학습·예측 모두 제외됩니다.
+        </p>
+
+        <p style="margin-top:14px; font-size:11px; color:#6B7280;">
+        전처리 설정 바꿨으면 전처리부터 다시 돌리고 학습할 것.
+        </p>
         """
-        self.show_help_dialog("모델 학습 도움말", help_text)
+        self.show_help_dialog("모델 학습", help_text)
 
     def _reset_pretrained_inputs(self):
         """합금 조성 및 공정 입력값을 기본값으로 초기화한다."""
