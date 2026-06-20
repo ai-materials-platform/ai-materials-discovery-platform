@@ -115,6 +115,8 @@ class UISetupMixin:
         file_menu = QMenu("파일", self)
         file_menu.addAction("분석 기록 저장", self._save_workspace_from_menu)
         file_menu.addAction("분석 기록 불러오기", self._open_workspace_dialog)
+        file_menu.addSeparator()
+        file_menu.addAction("프로젝트 닫기", self.close)
         help_menu = QMenu("도움말", self)
         help_menu.addAction("사용자 가이드",
                             lambda: self._show_prediction_guide(self.material_prediction_page))
@@ -232,23 +234,11 @@ class UISetupMixin:
         layout.setSpacing(12)
 
         # --- 네비게이션 버튼 ---
-        nav_style_back = (
-            "QPushButton { background: transparent; color: #64748B; border: 1px solid #CBD5E1; "
-            "border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; height: 28px; }"
-            "QPushButton:hover { background: #F1F5F9; color: #1E293B; }"
-        )
         nav_style_sim = (
             "QPushButton { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; "
             "border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; height: 28px; }"
             "QPushButton:hover { background: #DBEAFE; }"
         )
-        self._nav_back_btn = QPushButton("← 대시보드")
-        self._nav_back_btn.setFixedHeight(28)
-        self._nav_back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._nav_back_btn.setStyleSheet(nav_style_back)
-        self._nav_back_btn.clicked.connect(self.close)
-        layout.addWidget(self._nav_back_btn)
-
         self._nav_sim_btn = QPushButton("시뮬레이션 ↗")
         self._nav_sim_btn.setFixedHeight(28)
         self._nav_sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)

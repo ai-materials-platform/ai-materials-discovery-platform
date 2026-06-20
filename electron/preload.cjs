@@ -6,10 +6,13 @@ contextBridge.exposeInMainWorld('integrationApi', {
   saveProject: () => ipcRenderer.invoke('integration:saveProject'),
   loadProject: (projectId) => ipcRenderer.invoke('integration:loadProject', projectId),
   openProjectFolder: (projectId) => ipcRenderer.invoke('integration:openProjectFolder', projectId),
-  startPredictionApp: () => ipcRenderer.invoke('integration:startPredictionApp'),
+  startPredictionApp: (workspace) => ipcRenderer.invoke('integration:startPredictionApp', workspace),
   startSimulationApp: () => ipcRenderer.invoke('integration:startSimulationApp'),
   runPrediction: (payload) => ipcRenderer.invoke('integration:runPrediction', payload),
   runSimulation: (payload) => ipcRenderer.invoke('integration:runSimulation', payload),
   runWorkflow: (payload) => ipcRenderer.invoke('integration:runWorkflow', payload),
-  stopServices: () => ipcRenderer.invoke('integration:stopServices')
+  stopServices: () => ipcRenderer.invoke('integration:stopServices'),
+  sendChatMessage: (message, history) => ipcRenderer.invoke('chatbot:sendMessage', { message, history }),
+  listResults: () => ipcRenderer.invoke('results:list'),
+  downloadResultExcel: (projectName, saveName) => ipcRenderer.invoke('results:downloadExcel', { projectName, saveName })
 });

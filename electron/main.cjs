@@ -3,9 +3,25 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const fsp = fs.promises;
 const http = require('http');
+const https = require('https');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
+
+// Load .env (simple parser, honours existing env vars)
+try {
+  const envPath = path.join(rootDir, '.env');
+  if (fs.existsSync(envPath)) {
+    fs.readFileSync(envPath, 'utf8').split(/\r?\n/).forEach((line) => {
+      line = line.trim();
+      if (!line || line.startsWith('#') || !line.includes('=')) return;
+      const eqIdx = line.indexOf('=');
+      const key = line.slice(0, eqIdx).trim();
+      const value = line.slice(eqIdx + 1).trim();
+      if (key && !(key in process.env)) process.env[key] = value;
+    });
+  }
+} catch (_) {}
 const projectsDir = path.join(rootDir, 'projects');
 const predictionRepoDir = process.env.AI_MATERIALS_PLATFORM_DIR || rootDir;
 const simulationRepoDir = process.env.AI_MATERIALS_SIMULATION_DIR || path.resolve(rootDir, '..', 'ai-materials-discovery-platform-simulation');
@@ -52,6 +68,7 @@ function resolvePythonExe() {
 }
 let mainWindow;
 let predictionAppProcess = null;
+let predictionAppWorkspace = null;  // workspace the running prediction process was launched with
 let simulationAppProcess = null;
 let simulationViteProcess = null;
 let simulationApiProcess = null;
@@ -155,7 +172,14 @@ function isProcessRunning(child) {
 }
 
 function clearProcessRef(label, child) {
-  if (label === 'prediction-app' && predictionAppProcess === child) predictionAppProcess = null;
+  if (label === 'prediction-app' && predictionAppProcess === child) {
+    predictionAppProcess = null;
+    predictionAppWorkspace = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }
   if (label === 'simulation-app' && simulationAppProcess === child) simulationAppProcess = null;
   if (label === 'simulation-vite' && simulationViteProcess === child) simulationViteProcess = null;
   if (label === 'simulation-api' && simulationApiProcess === child) simulationApiProcess = null;
@@ -364,6 +388,64 @@ async function runSimulation(payload) {
   return lastSimulation;
 }
 
+/* ── OpenAI chatbot ── */
+function callOpenAI(messages) {
+  return new Promise((resolve, reject) => {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return reject(new Error('OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.'));
+    const body = Buffer.from(JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 1024,
+      temperature: 0.7
+    }));
+    const req = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Length': body.length
+      }
+    }, (res) => {
+      let raw = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { raw += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(raw);
+          if (res.statusCode >= 400) return reject(new Error(json.error?.message || `OpenAI HTTP ${res.statusCode}`));
+          resolve(json.choices[0].message.content);
+        } catch (e) {
+          reject(new Error(`OpenAI 응답 파싱 오류: ${e.message}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(new Error('OpenAI 요청 시간 초과 (30초)')));
+    req.write(body);
+    req.end();
+  });
+}
+
+ipcMain.handle('chatbot:sendMessage', async (_event, { message, history }) => {
+  const systemPrompt = `당신은 오스테나이트계 스테인리스강 재료 전문가 AI 어시스턴트입니다.
+사용자의 질문에 대해 재료과학, 금속공학, 기계적 물성(항복강도, 인장강도, 연신율, 단면감소율) 관점에서 전문적이고 정확하게 답변하세요.
+- 화학 조성(Cr, Ni, Mo, Mn, Si, C, N 등), 미세조직, 열처리 공정이 물성에 미치는 영향을 설명할 수 있습니다.
+- AI 예측 모델의 결과를 해석하고 맥락을 제공할 수 있습니다.
+- 답변은 한국어로 하되, 전문 용어는 영문을 병기하세요.
+- 불확실한 내용은 솔직하게 모른다고 답하세요.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...((history || []).slice(-10)),
+    { role: 'user', content: message }
+  ];
+  const reply = await callOpenAI(messages);
+  return { reply };
+});
+
 ipcMain.handle('integration:getStatus', async () => {
   let api = { available: false };
   let platform = { available: false };
@@ -413,18 +495,32 @@ ipcMain.handle('integration:openProjectFolder', async (_event, id) => {
   return shell.openPath(target);
 });
 
-ipcMain.handle('integration:startPredictionApp', async () => {
+ipcMain.handle('integration:startPredictionApp', async (_event, workspace) => {
   if (!repoExists(predictionRepoDir, 'main.py')) throw new Error(`Prediction repository not found: ${predictionRepoDir}`);
+
+  // Different project → kill existing process and restart with new workspace
+  if (isProcessRunning(predictionAppProcess) && predictionAppWorkspace !== (workspace || null)) {
+    logService('prediction-app', `workspace switch: ${predictionAppWorkspace} → ${workspace}, restarting`);
+    predictionAppProcess.kill();
+    predictionAppProcess = null;
+    predictionAppWorkspace = null;
+    await new Promise((resolve) => setTimeout(resolve, 700));
+  }
+
   if (!isProcessRunning(predictionAppProcess)) {
     const pythonExe = resolvePythonExe();
-    logService('prediction-app', `starting with ${pythonExe}`);
+    const env = pythonEnv();
+    if (workspace) env.AI_MAPS_WORKSPACE = workspace;
+    logService('prediction-app', `starting with ${pythonExe}${workspace ? ` (workspace: ${workspace})` : ''}`);
     predictionAppProcess = spawnManaged('prediction-app', pythonExe, ['main.py'], {
       cwd: predictionRepoDir,
-      env: pythonEnv(),
+      env,
       hidden: false
     });
+    predictionAppWorkspace = workspace || null;
     await waitForProcessBoot(predictionAppProcess, 'Prediction app');
   }
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
   return { started: true, path: predictionRepoDir };
 });
 
@@ -471,11 +567,128 @@ ipcMain.handle('integration:runWorkflow', async (_event, payload) => {
   return { prediction, simulation };
 });
 
+/* ── Results Repository ── */
+const workspacesRoot = path.join(predictionRepoDir, 'workspaces');
+
+ipcMain.handle('results:list', async () => {
+  const projects = [];
+  if (!fs.existsSync(workspacesRoot)) return projects;
+  const projectDirs = fs.readdirSync(workspacesRoot, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name);
+  for (const projectName of projectDirs) {
+    const projectPath = path.join(workspacesRoot, projectName);
+    const saveDirs = fs.readdirSync(projectPath, { withFileTypes: true })
+      .filter(d => d.isDirectory() && d.name !== 'auto_save')
+      .map(d => d.name);
+    const saves = [];
+    for (const saveName of saveDirs) {
+      const csvFile  = path.join(projectPath, saveName, 'preprocessed_data.csv');
+      const stateFile = path.join(projectPath, saveName, 'state.json');
+      if (!fs.existsSync(csvFile)) continue;
+      let savedDate = '', r2Avg = null;
+      if (fs.existsSync(stateFile)) {
+        try {
+          const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+          savedDate = state.saved_date || '';
+          r2Avg = state.r2_avg ?? null;
+        } catch (_) {}
+      }
+      // count rows (lines - 1 for header)
+      const lines = fs.readFileSync(csvFile, 'utf8').split('\n').filter(l => l.trim());
+      saves.push({ saveName, savedDate, r2Avg, rowCount: Math.max(0, lines.length - 1) });
+    }
+    if (saves.length > 0) {
+      saves.sort((a, b) => b.savedDate.localeCompare(a.savedDate));
+      projects.push({ projectName, saves });
+    }
+  }
+  projects.sort((a, b) => {
+    const aLatest = a.saves[0]?.savedDate || '';
+    const bLatest = b.saves[0]?.savedDate || '';
+    return bLatest.localeCompare(aLatest);
+  });
+  return projects;
+});
+
+ipcMain.handle('results:downloadExcel', async (_event, { projectName, saveName }) => {
+  const { dialog } = require('electron');
+  const csvFile = path.join(workspacesRoot, projectName, saveName, 'preprocessed_data.csv');
+  if (!fs.existsSync(csvFile)) throw new Error('preprocessed_data.csv 파일을 찾을 수 없습니다.');
+
+  const { filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Excel로 저장',
+    defaultPath: `${projectName}_${saveName}_preprocessed.xls`,
+    filters: [{ name: 'Excel', extensions: ['xls'] }]
+  });
+  if (!filePath) return { cancelled: true };
+
+  // BOM 제거 후 파싱 (Python utf-8-sig로 저장된 CSV)
+  const raw = fs.readFileSync(csvFile, 'utf-8').replace(/^﻿/, '');
+  const lines = raw.split('\n').filter(l => l.trim());
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = lines.slice(1).map(l => l.split(','));
+
+  const esc = (v) => String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); // XML 금지 제어문자 제거
+
+  const cell = (v) => {
+    const trimmed = v.trim();
+    if (trimmed === '') return `<Cell><Data ss:Type="String"></Data></Cell>`;
+    const n = Number(trimmed);
+    return isNaN(n)
+      ? `<Cell><Data ss:Type="String">${esc(trimmed)}</Data></Cell>`
+      : `<Cell><Data ss:Type="Number">${trimmed}</Data></Cell>`;
+  };
+
+  const headerRow = `<Row>${headers.map(h => `<Cell ss:StyleID="h"><Data ss:Type="String">${esc(h)}</Data></Cell>`).join('')}</Row>`;
+  const dataRows = rows.map(r => `<Row>${r.map(cell).join('')}</Row>`).join('\n');
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="h">
+   <Font ss:Bold="1"/>
+   <Interior ss:Color="#D9E1F2" ss:Pattern="Solid"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="preprocessed_data">
+  <Table>
+   ${headerRow}
+   ${dataRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+  // UTF-8 BOM 포함해서 저장 (Excel 한글 깨짐 방지)
+  fs.writeFileSync(filePath, '﻿' + xml, 'utf8');
+  return { saved: filePath };
+});
+
+ipcMain.handle('results:getData', async (_event, { projectName, saveName }) => {
+  const csvFile = path.join(workspacesRoot, projectName, saveName, 'preprocessed_data.csv');
+  if (!fs.existsSync(csvFile)) throw new Error('preprocessed_data.csv 파일을 찾을 수 없습니다.');
+  const raw = fs.readFileSync(csvFile, 'utf-8');
+  const lines = raw.split('\n').filter(l => l.trim());
+  const headers = lines[0].split(',');
+  const rows = lines.slice(1).map(line => line.split(','));
+  return { headers, rows };
+});
+
 ipcMain.handle('integration:stopServices', async () => {
   for (const child of [predictionAppProcess, simulationAppProcess, simulationViteProcess, simulationApiProcess]) {
     if (isProcessRunning(child)) child.kill();
   }
   predictionAppProcess = null;
+  predictionAppWorkspace = null;
   simulationAppProcess = null;
   simulationViteProcess = null;
   simulationApiProcess = null;
@@ -490,6 +703,7 @@ function createWindow() {
     minHeight: 760,
     backgroundColor: '#f8fafc',
     title: 'Material Property Prediction & Simulation System',
+    icon: path.join(rootDir, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

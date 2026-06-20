@@ -52,23 +52,19 @@ def _apply_rounded_corners(window):
 def main():
     _load_env()
     from src.gui.constants import LIGHT_QSS
-    from src.gui.widgets.splash_screen import MAPSSplashScreen
 
     app = QApplication(sys.argv)
     app.setStyleSheet(LIGHT_QSS)
 
-    splash = MAPSSplashScreen()
-    splash.show()
-    app.processEvents()
-
-    splash.set_message("UI 구성 중...")
     window = MainWindow()
-
-    splash.set_message("테마 적용 중...")
     _apply_rounded_corners(window)
     window._apply_theme_colors()
+    window.show()
 
-    splash.finish(window)  # window.show() + splash.close()
+    ws_name = os.environ.get("AI_MAPS_WORKSPACE", "").strip()
+    if ws_name:
+        window._active_workspace_name = ws_name
+
     sys.exit(app.exec())
 
 if __name__ == "__main__":

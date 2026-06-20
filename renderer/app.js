@@ -1,188 +1,581 @@
-const defaultPayload = {
-  composition: { Fe: 63.5, Cr: 19.7, Ni: 13.5, Mo: 2.1, Mn: 0.8, Si: 0.4 },
-  densityScale: 0.62,
-  process: {
-    Solution_treatment_temperature: 1323,
-    'Solution_treatment_time(s)': 3600,
-    'Temperature (K)': 293,
-    'Water_Quenched_after_s.t.': 1,
-    'Air_Quenched_after_s.t.': 0,
-    'Grains mm-2': 12000
-  },
-  testType: 'strength',
-  scale: 1
-};
-
 const state = {
   status: null,
-  toastTimer: null
+  toastTimer: null,
+  pendingProject: null   // { type, resolve, reject }
+};
+
+const chatState = {
+  open: false,
+  history: [],  // { role: 'user'|'assistant', content: string }
+  loading: false
 };
 
 const els = {
   recentProjects: document.getElementById('recentProjects'),
-  statusStrip: document.getElementById('statusStrip'),
   toast: document.getElementById('toast')
 };
 
+/* ── Toast ── */
 function showToast(message, type = 'info') {
   clearTimeout(state.toastTimer);
   els.toast.textContent = message;
   els.toast.className = `toast visible ${type === 'error' ? 'error' : ''}`;
-  state.toastTimer = setTimeout(() => {
-    els.toast.className = 'toast';
-  }, 4200);
+  state.toastTimer = setTimeout(() => { els.toast.className = 'toast'; }, 4200);
 }
 
+/* ── Date format ── */
 function formatDate(value) {
   if (!value) return '';
-  const date = new Date(value);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+  const d = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/* ── Project storage (localStorage) ── */
+function getStoredProjects() {
+  try { return JSON.parse(localStorage.getItem('maps_projects') || '[]'); }
+  catch { return []; }
+}
+
+function saveProject(name, type) {
+  const projects = getStoredProjects();
+  const p = {
+    id: `proj-${Date.now()}`,
+    name,
+    type,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  projects.unshift(p);
+  localStorage.setItem('maps_projects', JSON.stringify(projects.slice(0, 20)));
+  return p;
+}
+
+/* ── Recent projects render ── */
 function projectFallbacks() {
   return [
-    { id: 'sample-1', name: 'Project_20250520_001', updatedAt: '2025-05-20T14:30:00', status: '완료', synthetic: true },
-    { id: 'sample-2', name: 'Project_20250519_003', updatedAt: '2025-05-19T16:45:00', status: '완료', synthetic: true },
-    { id: 'sample-3', name: 'Project_20250518_002', updatedAt: '2025-05-18T10:15:00', status: '진행중', synthetic: true },
-    { id: 'sample-4', name: 'Project_20250517_001', updatedAt: '2025-05-17T09:20:00', status: '완료', synthetic: true }
+    { id: 's1', name: 'AI-Si 합금 분석',       updatedAt: '2024-01-15T14:30:00', type: '물성예측' },
+    { id: 's2', name: '탄소강 물성 예측',       updatedAt: '2024-01-12T16:45:00', type: '물성예측' },
+    { id: 's3', name: 'Ti-6Al-4V 시뮬레이션',  updatedAt: '2024-01-10T10:15:00', type: '시뮬레이션' }
   ];
 }
 
-function normalizeProjects(projects = []) {
-  const real = projects.slice(0, 4).map((project) => ({
-    ...project,
-    status: project.status || (project.hasSimulation ? '완료' : project.hasPrediction ? '진행중' : '진행중')
-  }));
-  if (real.length >= 4) return real;
-  return [...real, ...projectFallbacks()].slice(0, 4);
-}
-
-function renderProjects(projects = []) {
-  const rows = normalizeProjects(projects);
-  els.recentProjects.innerHTML = rows.map((project) => {
-    const running = project.status === '진행중';
+function renderProjects() {
+  const stored = getStoredProjects();
+  const rows = stored.length > 0 ? stored.slice(0, 3) : projectFallbacks();
+  els.recentProjects.innerHTML = rows.map((p) => {
+    const isSim = p.type === '시뮬레이션';
+    const safeName = p.name.replace(/"/g, '&quot;');
+    const safeType = (p.type || '물성예측').replace(/"/g, '&quot;');
     return `
-      <div class="project-row">
-        <div>
-          <strong>${project.name}</strong>
-          <small>${formatDate(project.updatedAt || project.createdAt)}</small>
+      <div class="project-row" role="button" tabindex="0"
+           data-name="${safeName}" data-type="${safeType}">
+        <div class="project-row-top">
+          <strong>${p.name}</strong>
+          <span class="type-pill ${isSim ? 'simulation' : 'prediction'}">${p.type || '물성예측'}</span>
         </div>
-        <span class="status-pill ${running ? 'running' : 'done'}">${project.status}</span>
-        <button class="more-button" data-project-id="${project.id}" ${project.synthetic ? 'disabled' : ''}>⋮</button>
-      </div>
-    `;
+        <small>${formatDate(p.updatedAt || p.createdAt)}</small>
+      </div>`;
   }).join('');
-
-  document.querySelectorAll('.more-button:not(:disabled)').forEach((button) => {
-    button.addEventListener('click', async () => {
-      try {
-        const result = await window.integrationApi.loadProject(button.dataset.projectId);
-        showToast(`${result.meta.name} 프로젝트를 불러왔습니다.`);
-        await refresh();
-      } catch (error) {
-        showToast(error.message || String(error), 'error');
-      }
-    });
-  });
 }
 
-function renderStatus(status) {
-  const savedCount = status.projects?.length || 0;
-  const modelCount = status.services?.platform?.available ? 4 : 0;
-  const recentRuns = status.lastSimulation ? 12 : status.lastPrediction ? 1 : 0;
-  const accuracy = status.services?.platform?.r2Avg ? Number(status.services.platform.r2Avg).toFixed(2) : '0.89';
-
-  els.statusStrip.innerHTML = [
-    { label: '데이터셋', value: '3,456', unit: '건', note: '총 학습 데이터', color: 'blue-text' },
-    { label: '예측 모델', value: String(modelCount || 4), unit: '개', note: 'RF, GBM, MLP, TFP', color: '' },
-    { label: '최근 예측', value: String(recentRuns || 12), unit: '건', note: '최근 7일', color: '' },
-    { label: '정확도 (평균 R²)', value: accuracy, unit: '', note: '모델 성능', color: 'green-text' },
-    { label: '저장된 결과', value: String(savedCount || 128), unit: '건', note: '총 결과 개수', color: 'orange-text' }
-  ].map((item) => `
-    <div class="status-card">
-      <span class="label">${item.label}</span>
-      <div class="value ${item.color}">${item.value}<span class="unit">${item.unit}</span></div>
-      <div class="note">${item.note}</div>
-    </div>
-  `).join('');
-}
+function renderStatus(_s) { /* removed from UI */ }
 
 async function refresh() {
   try {
     state.status = await window.integrationApi.getStatus();
-    renderProjects(state.status.projects || []);
-    renderStatus(state.status);
-  } catch (error) {
-    showToast(error.message || String(error), 'error');
-    renderProjects([]);
-    renderStatus({ projects: [], services: {} });
+  } catch (_) { /* offline */ }
+  renderProjects();
+}
+
+/* ── New Project Dialog ── */
+function showNewProjectDialog(type) {
+  return new Promise((resolve, reject) => {
+    state.pendingProject = { type, resolve, reject };
+
+    const modal  = document.getElementById('newProjectModal');
+    const title  = document.getElementById('npTitle');
+    const input  = document.getElementById('npNameInput');
+    const typeLbl = document.getElementById('npTypeLabel');
+    const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const prefix = `${type === '시뮬레이션' ? 'Simulation' : 'Prediction'}_${today}`;
+    const existing = getStoredProjects().map((p) => p.name.toLowerCase());
+    let defaultName = prefix;
+    let counter = 2;
+    while (existing.includes(defaultName.toLowerCase())) {
+      defaultName = `${prefix}_${counter}`;
+      counter++;
+    }
+
+    title.textContent  = `새 ${type} 프로젝트`;
+    typeLbl.textContent = type;
+    input.value = defaultName;
+
+    document.getElementById('npNameError').textContent = '';
+    modal.classList.add('visible');
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+  });
+}
+
+function closeNewProjectDialog(confirmed) {
+  const modal  = document.getElementById('newProjectModal');
+  const input  = document.getElementById('npNameInput');
+  const errEl  = document.getElementById('npNameError');
+
+  if (confirmed) {
+    const name = input.value.trim() || 'Untitled';
+    const exists = getStoredProjects().some(
+      (p) => p.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (exists) {
+      errEl.textContent = `"${name}" 이름이 이미 사용 중입니다.`;
+      input.focus();
+      input.select();
+      return;   // 다이얼로그 닫지 않음
+    }
+    errEl.textContent = '';
+    modal.classList.remove('visible');
+    if (!state.pendingProject) return;
+    const { resolve } = state.pendingProject;
+    state.pendingProject = null;
+    resolve(name);
+  } else {
+    errEl.textContent = '';
+    modal.classList.remove('visible');
+    if (!state.pendingProject) return;
+    const { reject } = state.pendingProject;
+    state.pendingProject = null;
+    reject(new Error('cancelled'));
   }
 }
 
-async function openPredictionPlatform() {
+/* ── Chat ── */
+function toggleChat() {
+  chatState.open = !chatState.open;
+  document.getElementById('chatPanel').classList.toggle('open', chatState.open);
+  document.getElementById('chatFab').classList.toggle('active', chatState.open);
+  if (chatState.open) {
+    if (chatState.history.length === 0) {
+      addChatBubble('ai', '안녕하세요! MAPS AI 어시스턴트입니다.\n오스테나이트계 스테인리스강의 물성, 화학 조성, 공정 조건 등에 대해 질문해 주세요.');
+    }
+    setTimeout(() => document.getElementById('chatInput').focus(), 80);
+  }
+}
+
+function addChatBubble(role, text, id) {
+  const messages = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${role}`;
+  if (id) div.id = id;
+  div.textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+async function sendChatMessage() {
+  if (chatState.loading) return;
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  addChatBubble('user', message);
+
+  chatState.loading = true;
+  document.getElementById('chatSendBtn').disabled = true;
+
+  const typingId = `typing-${Date.now()}`;
+  addChatBubble('typing', '···', typingId);
+
+  const prevHistory = chatState.history.slice(-10);
+
   try {
-    showToast('물성 예측 플랫폼을 실행하고 있습니다.');
-    await window.integrationApi.startPredictionApp();
+    const result = await window.integrationApi.sendChatMessage(message, prevHistory);
+    document.getElementById(typingId)?.remove();
+    addChatBubble('ai', result.reply);
+    chatState.history.push({ role: 'user', content: message });
+    chatState.history.push({ role: 'assistant', content: result.reply });
+  } catch (err) {
+    document.getElementById(typingId)?.remove();
+    addChatBubble('ai', `오류: ${err.message || String(err)}`);
+  } finally {
+    chatState.loading = false;
+    document.getElementById('chatSendBtn').disabled = false;
+    document.getElementById('chatInput').focus();
+  }
+}
+
+/* ── Page switching ── */
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+  document.querySelectorAll('.nav-item[data-page]').forEach(btn => btn.classList.remove('active'));
+  const page = document.getElementById(`page-${pageId}`);
+  if (page) { page.style.display = 'block'; page.classList.add('active'); }
+  const btn = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+  if (btn) btn.classList.add('active');
+
+  if (pageId === 'results') loadResults();
+  if (pageId === 'projects') renderProjectsPage();
+}
+
+/* ── Results Repository ── */
+async function loadResults() {
+  const content = document.getElementById('rsContent');
+  content.innerHTML = '<div class="rs-empty">불러오는 중...</div>';
+  try {
+    const projects = await window.integrationApi.listResults();
+    renderResults(projects);
+  } catch (err) {
+    content.innerHTML = `<div class="rs-empty">오류: ${err.message}</div>`;
+  }
+}
+
+function renderResults(projects) {
+  const content = document.getElementById('rsContent');
+  if (!projects || projects.length === 0) {
+    content.innerHTML = '<div class="rs-empty">저장된 워크스페이스가 없습니다.<br>물성예측 앱에서 분석 기록을 저장하면 여기에 표시됩니다.</div>';
+    return;
+  }
+  content.innerHTML = projects.map((proj) => {
+    const rows = proj.saves.map((s) => {
+      const r2 = s.r2Avg != null ? `<span class="rs-r2">R² ${s.r2Avg.toFixed(3)}</span>` : '';
+      return `
+        <div class="rs-save-row">
+          <div class="rs-save-info">
+            <div class="rs-save-name">${s.saveName}</div>
+            <div class="rs-save-meta">${s.savedDate || '—'}&nbsp;&nbsp;${r2}&nbsp;&nbsp;<span class="rs-rowcount">${s.rowCount}행</span></div>
+          </div>
+          <button class="rs-dl-btn excel"
+                  data-project="${encodeURIComponent(proj.projectName)}"
+                  data-save="${encodeURIComponent(s.saveName)}">
+            ↓ Excel
+          </button>
+        </div>`;
+    }).join('');
+    return `
+      <div class="rs-project-card">
+        <div class="rs-project-header">
+          <span class="rs-project-name">${proj.projectName}</span>
+          <span class="rs-project-count">${proj.saves.length}개 저장됨</span>
+        </div>
+        <div class="rs-save-list">${rows}</div>
+      </div>`;
+  }).join('');
+}
+
+async function downloadResultExcel(projectName, saveName) {
+  try {
+    const result = await window.integrationApi.downloadResultExcel(projectName, saveName);
+    if (result.cancelled) return;
+    showToast(`저장 완료: ${result.saved.split(/[\\/]/).pop()}`);
+  } catch (err) {
+    showToast(err.message || '저장 실패', 'error');
+  }
+}
+
+/* ── Projects Page ── */
+function renderProjectsPage() {
+  const content = document.getElementById('pgContent');
+  const countEl = document.getElementById('pgProjectCount');
+  const projects = getStoredProjects();
+  countEl.textContent = `총 ${projects.length}개`;
+
+  if (projects.length === 0) {
+    content.innerHTML = '<div class="pg-empty">저장된 프로젝트가 없습니다.<br>새 프로젝트를 만들어 시작하세요.</div>';
+    return;
+  }
+
+  content.innerHTML = projects.map((p) => {
+    const isSim = p.type === '시뮬레이션';
+    const safeName = p.name.replace(/"/g, '&quot;');
+    const safeType = (p.type || '물성예측').replace(/"/g, '&quot;');
+    return `
+      <div class="project-row" role="button" tabindex="0"
+           data-name="${safeName}" data-type="${safeType}">
+        <div class="project-row-top">
+          <strong>${p.name}</strong>
+          <span class="type-pill ${isSim ? 'simulation' : 'prediction'}">${p.type || '물성예측'}</span>
+        </div>
+        <div class="project-row-bottom">
+          <small>${formatDate(p.updatedAt || p.createdAt)}</small>
+          <button class="pg-delete-btn" data-id="${p.id}" aria-label="삭제" title="프로젝트 삭제">🗑</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── All Projects Modal ── */
+function openAllProjectsModal() {
+  renderAllProjectsModal();
+  document.getElementById('allProjectsModal').classList.add('visible');
+}
+
+function closeAllProjectsModal() {
+  document.getElementById('allProjectsModal').classList.remove('visible');
+}
+
+function renderAllProjectsModal() {
+  const projects = getStoredProjects();
+  const list = document.getElementById('apProjectList');
+  const count = document.getElementById('apProjectCount');
+  count.textContent = `총 ${projects.length}개 프로젝트`;
+
+  if (projects.length === 0) {
+    list.innerHTML = '<div class="ap-empty">저장된 프로젝트가 없습니다.</div>';
+    return;
+  }
+
+  list.innerHTML = projects.map((p) => {
+    const isSim = p.type === '시뮬레이션';
+    const safeName = p.name.replace(/"/g, '&quot;');
+    const safeType = (p.type || '물성예측').replace(/"/g, '&quot;');
+    return `
+      <div class="ap-item" data-name="${safeName}" data-type="${safeType}" role="button" tabindex="0">
+        <div class="ap-item-info">
+          <div class="ap-item-name">${p.name}</div>
+          <div class="ap-item-date">
+            <span class="type-pill ${isSim ? 'simulation' : 'prediction'}" style="font-size:10.5px;padding:0 7px;height:18px;">${p.type || '물성예측'}</span>
+            &nbsp;${formatDate(p.updatedAt || p.createdAt)}
+          </div>
+        </div>
+        <button class="ap-delete-btn" data-id="${p.id}" aria-label="삭제" title="프로젝트 삭제">🗑</button>
+      </div>`;
+  }).join('');
+}
+
+function deleteProject(id) {
+  let projects = getStoredProjects();
+  const project = projects.find((p) => p.id === id);
+  if (!project) return;
+  if (!confirm(`"${project.name}" 프로젝트를 삭제하시겠습니까?`)) return;
+  projects = projects.filter((p) => p.id !== id);
+  localStorage.setItem('maps_projects', JSON.stringify(projects));
+  renderProjects();
+  renderAllProjectsModal();
+}
+
+/* ── Launch existing project (no dialog) ── */
+async function launchApp(projectName, type) {
+  const isSim = type === '시뮬레이션';
+  const MIN_MS = 2800;
+  const start = Date.now();
+  showLoading(`"${projectName}" — ${isSim ? '시뮬레이션' : '물성 예측'} 플랫폼 실행 중...`);
+  try {
+    if (isSim) {
+      await window.integrationApi.startSimulationApp();
+    } else {
+      await window.integrationApi.startPredictionApp(projectName);
+    }
+    setTimeout(hideLoading, Math.max(0, MIN_MS - (Date.now() - start)));
+    showToast(`${isSim ? '시뮬레이션' : '물성 예측'} 플랫폼을 실행했습니다.`);
+  } catch (err) {
+    hideLoading();
+    showToast(err.message || String(err), 'error');
+  }
+}
+
+/* ── App launchers ── */
+async function openPredictionPlatform() {
+  let projectName;
+  try { projectName = await showNewProjectDialog('물성예측'); }
+  catch { return; }
+
+  saveProject(projectName, '물성예측');
+  renderProjects();
+  renderProjectsPage();
+
+  const MIN_MS = 2800, start = Date.now();
+  showLoading(`"${projectName}" — 물성 예측 플랫폼 실행 중...`);
+  try {
+    await window.integrationApi.startPredictionApp(projectName);
+    setTimeout(hideLoading, Math.max(0, MIN_MS - (Date.now() - start)));
     showToast('물성 예측 플랫폼 실행 요청을 보냈습니다.');
-    await refresh();
-  } catch (error) {
-    showToast(error.message || String(error), 'error');
+  } catch (err) {
+    hideLoading();
+    showToast(err.message || String(err), 'error');
   }
 }
 
 async function openSimulationPlatform() {
+  let projectName;
+  try { projectName = await showNewProjectDialog('시뮬레이션'); }
+  catch { return; }
+
+  saveProject(projectName, '시뮬레이션');
+  renderProjects();
+  renderProjectsPage();
+
+  const MIN_MS = 2800, start = Date.now();
+  showLoading(`"${projectName}" — 시뮬레이션 플랫폼 실행 중...`);
   try {
-    showToast('시뮬레이션 플랫폼을 실행하고 있습니다.');
     await window.integrationApi.startSimulationApp();
+    setTimeout(hideLoading, Math.max(0, MIN_MS - (Date.now() - start)));
     showToast('시뮬레이션 플랫폼 실행 요청을 보냈습니다.');
-    await refresh();
-  } catch (error) {
-    showToast(error.message || String(error), 'error');
+  } catch (err) {
+    hideLoading();
+    showToast(err.message || String(err), 'error');
   }
 }
 
-async function runQuickPredict() {
-  try {
-    showToast('간편 예측 워크플로우를 실행하고 있습니다.');
-    const result = await window.integrationApi.runWorkflow(defaultPayload);
-    showToast(`간편 예측 완료: UTS ${result.prediction.utsMpa.toFixed(1)} MPa`);
-    await refresh();
-  } catch (error) {
-    showToast(error.message || String(error), 'error');
-  }
+/* ── Loading modal ── */
+function showLoading(message) {
+  const modal = document.getElementById('loadingModal');
+  const msg   = document.getElementById('loadingMsg');
+  const bar   = document.getElementById('loadingBar');
+  if (!modal) return;
+  msg.textContent = message;
+  bar.className = 'loading-bar';
+  modal.classList.add('visible');
+  requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add('animating')));
 }
 
+function hideLoading() {
+  const modal = document.getElementById('loadingModal');
+  const bar   = document.getElementById('loadingBar');
+  if (!modal) return;
+  bar.classList.remove('animating');
+  bar.classList.add('complete');
+  setTimeout(() => {
+    modal.classList.remove('visible');
+    setTimeout(() => { bar.className = 'loading-bar'; }, 200);
+  }, 350);
+}
+
+/* ── Splash ── */
+function setSplashMsg(msg) {
+  const el = document.getElementById('splashMsg');
+  if (el) el.textContent = msg;
+}
+
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  splash.classList.add('hidden');
+  setTimeout(() => { splash.style.display = 'none'; }, 420);
+}
+
+/* ── Event bindings ── */
 function bindEvents() {
-  document.getElementById('newProjectBtn').addEventListener('click', async () => {
-    try {
-      const project = await window.integrationApi.newProject();
-      showToast(`${project.name} 새 프로젝트를 만들었습니다.`);
-      await refresh();
-    } catch (error) {
-      showToast(error.message || String(error), 'error');
-    }
+  els.recentProjects.addEventListener('click', (e) => {
+    const row = e.target.closest('.project-row[data-name]');
+    if (!row) return;
+    launchApp(row.dataset.name, row.dataset.type);
+  });
+  els.recentProjects.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest('.project-row[data-name]');
+    if (!row) return;
+    e.preventDefault();
+    launchApp(row.dataset.name, row.dataset.type);
   });
 
-  document.getElementById('loadProjectBtn').addEventListener('click', async () => {
-    try {
-      await window.integrationApi.openProjectFolder(state.status?.activeProjectId);
-    } catch (error) {
-      showToast(error.message || String(error), 'error');
-    }
+  document.getElementById('menuToggleBtn').addEventListener('click', () => {
+    document.querySelector('.app-shell').classList.toggle('sidebar-collapsed');
   });
 
-  document.getElementById('refreshBtn').addEventListener('click', refresh);
+  // Nav page switching
+  document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => switchPage(btn.dataset.page));
+  });
+
+  // Results repository — Excel download button
+  document.getElementById('rsContent').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rs-dl-btn[data-project]');
+    if (!btn) return;
+    downloadResultExcel(
+      decodeURIComponent(btn.dataset.project),
+      decodeURIComponent(btn.dataset.save)
+    );
+  });
+  document.getElementById('rsRefreshBtn').addEventListener('click', loadResults);
+  document.getElementById('allProjectsBtn').addEventListener('click', openAllProjectsModal);
+  document.getElementById('apCloseBtn').addEventListener('click', closeAllProjectsModal);
+  document.getElementById('allProjectsModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeAllProjectsModal();
+  });
+  document.getElementById('apProjectList').addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.ap-delete-btn');
+    if (deleteBtn) { e.stopPropagation(); deleteProject(deleteBtn.dataset.id); return; }
+    const row = e.target.closest('.ap-item[data-name]');
+    if (row) { closeAllProjectsModal(); launchApp(row.dataset.name, row.dataset.type); }
+  });
+  // Projects page
+  document.getElementById('pgContent').addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.pg-delete-btn');
+    if (deleteBtn) {
+      e.stopPropagation();
+      const projects = getStoredProjects();
+      const p = projects.find((x) => x.id === deleteBtn.dataset.id);
+      if (p && confirm(`"${p.name}" 프로젝트를 삭제하시겠습니까?`)) {
+        localStorage.setItem('maps_projects', JSON.stringify(projects.filter((x) => x.id !== p.id)));
+        renderProjects();
+        renderProjectsPage();
+      }
+      return;
+    }
+    const row = e.target.closest('.project-row[data-name]');
+    if (row) launchApp(row.dataset.name, row.dataset.type);
+  });
+  document.getElementById('pgContent').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest('.project-row[data-name]');
+    if (!row) return;
+    e.preventDefault();
+    launchApp(row.dataset.name, row.dataset.type);
+  });
+  document.getElementById('pgNewPredictionBtn').addEventListener('click', openPredictionPlatform);
+  document.getElementById('pgNewSimulationBtn').addEventListener('click', openSimulationPlatform);
+
   document.getElementById('runPredictionBtn').addEventListener('click', openPredictionPlatform);
   document.getElementById('runSimulationBtn').addEventListener('click', openSimulationPlatform);
-  document.getElementById('quickPredictBtn').addEventListener('click', runQuickPredict);
+
+  document.getElementById('npConfirmBtn').addEventListener('click', () => closeNewProjectDialog(true));
+  document.getElementById('npCancelBtn').addEventListener('click',  () => closeNewProjectDialog(false));
+  document.getElementById('npNameInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter')  closeNewProjectDialog(true);
+    if (e.key === 'Escape') closeNewProjectDialog(false);
+  });
+  document.getElementById('npNameInput').addEventListener('input', () => {
+    document.getElementById('npNameError').textContent = '';
+  });
+  document.getElementById('newProjectModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeNewProjectDialog(false);
+  });
+
+  // Chat
+  document.getElementById('chatFab').addEventListener('click', toggleChat);
+  document.getElementById('chatCloseBtn').addEventListener('click', toggleChat);
+  document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+  document.getElementById('chatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+  });
+  document.getElementById('chatInput').addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = `${Math.min(this.scrollHeight, 96)}px`;
+  });
 }
 
+/* ── Init ── */
 window.addEventListener('DOMContentLoaded', async () => {
+  const splashStart = Date.now();
+  const MIN_SPLASH_MS = 2200;
+
+  setSplashMsg('서비스 연결 중...');
+  switchPage('home');
   bindEvents();
+
+  setTimeout(() => setSplashMsg('프로젝트 목록 로드 중...'), 700);
+  setTimeout(() => setSplashMsg('UI 구성 중...'), 1400);
+
   await refresh();
+
+  setSplashMsg('준비 완료');
+  const elapsed = Date.now() - splashStart;
+  setTimeout(hideSplash, Math.max(0, MIN_SPLASH_MS - elapsed) + 300);
 });

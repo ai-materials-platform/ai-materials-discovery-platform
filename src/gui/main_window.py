@@ -44,8 +44,14 @@ class MainWindow(
         super().__init__()
         self.setWindowTitle("MAPS — Microstructure & Alloy Prediction System")
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
-        from src.gui.widgets.maps_logo import MAPSLogoWidget  # noqa: PLC0415
-        self.setWindowIcon(MAPSLogoWidget.as_icon(64))
+        from PyQt6.QtGui import QIcon  # noqa: PLC0415
+        import pathlib
+        _icon_path = pathlib.Path(__file__).parents[2] / "assets" / "icon.png"
+        if _icon_path.exists():
+            self.setWindowIcon(QIcon(str(_icon_path)))
+        else:
+            from src.gui.widgets.maps_logo import MAPSLogoWidget  # noqa: PLC0415
+            self.setWindowIcon(MAPSLogoWidget.as_icon(64))
         screen = QApplication.primaryScreen().availableGeometry()
         init_w = min(1400, max(960, int(screen.width() * 0.88)))
         init_h = min(900, max(680, int(screen.height() * 0.88)))
