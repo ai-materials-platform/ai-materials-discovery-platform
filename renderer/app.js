@@ -222,6 +222,27 @@ function switchPage(pageId) {
 
   if (pageId === 'results') loadResults();
   if (pageId === 'projects') renderProjectsPage();
+  if (pageId === 'settings') loadSettingsLogs();
+}
+
+/* ── Settings / Service Log ── */
+const _logLines = [];
+
+function appendServiceLog(line) {
+  _logLines.unshift(line);
+  if (_logLines.length > 80) _logLines.pop();
+  const box = document.getElementById('serviceLogBox');
+  if (box) {
+    box.textContent = _logLines.join('\n');
+    box.scrollTop = 0;
+  }
+}
+
+function loadSettingsLogs() {
+  const box = document.getElementById('serviceLogBox');
+  if (!box) return;
+  box.textContent = _logLines.length ? _logLines.join('\n') : '(로그 없음)';
+  box.scrollTop = 0;
 }
 
 /* ── Results Repository ── */
@@ -548,6 +569,13 @@ function bindEvents() {
     if (e.target === e.currentTarget) closeNewProjectDialog(false);
   });
 
+  // Clear log button
+  document.getElementById('clearLogBtn').addEventListener('click', () => {
+    _logLines.length = 0;
+    const box = document.getElementById('serviceLogBox');
+    if (box) box.textContent = '(로그 없음)';
+  });
+
   // Chat
   document.getElementById('chatFab').addEventListener('click', toggleChat);
   document.getElementById('chatCloseBtn').addEventListener('click', toggleChat);
@@ -569,6 +597,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   setSplashMsg('서비스 연결 중...');
   switchPage('home');
   bindEvents();
+
+  // Subscribe to service logs from main process
+  if (window.integrationApi.onServiceLog) {
+    window.integrationApi.onServiceLog((line) => appendServiceLog(line));
+    // Load existing logs from system state
+    try {
+      const state = await window.integrationApi.getSystemState();
+      if (state && state.logs) state.logs.forEach((l) => _logLines.push(l));
+    } catch (_) {}
+  }
 
   setTimeout(() => setSplashMsg('프로젝트 목록 로드 중...'), 700);
   setTimeout(() => setSplashMsg('UI 구성 중...'), 1400);

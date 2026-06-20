@@ -9,9 +9,10 @@ const path = require('path');
 const rootDir = path.resolve(__dirname, '..');
 
 // Load .env (simple parser, honours existing env vars)
-try {
-  const envPath = path.join(rootDir, '.env');
-  if (fs.existsSync(envPath)) {
+// Checks exe directory first (packaged), then rootDir (dev)
+function loadEnvFile(envPath) {
+  try {
+    if (!fs.existsSync(envPath)) return;
     fs.readFileSync(envPath, 'utf8').split(/\r?\n/).forEach((line) => {
       line = line.trim();
       if (!line || line.startsWith('#') || !line.includes('=')) return;
@@ -20,11 +21,18 @@ try {
       const value = line.slice(eqIdx + 1).trim();
       if (key && !(key in process.env)) process.env[key] = value;
     });
-  }
-} catch (_) {}
-const projectsDir = path.join(rootDir, 'projects');
+  } catch (_) {}
+}
+loadEnvFile(path.join(path.dirname(process.execPath), '.env')); // packaged: next to exe
+loadEnvFile(path.join(rootDir, '.env'));                         // dev: repo root
+let projectsDir = path.join(rootDir, 'projects'); // overwritten after app.ready when packaged
 const predictionRepoDir = process.env.AI_MATERIALS_PLATFORM_DIR || rootDir;
-const simulationRepoDir = process.env.AI_MATERIALS_SIMULATION_DIR || path.resolve(rootDir, '..', 'ai-materials-discovery-platform-simulation');
+const _simEnv = process.env.AI_MATERIALS_SIMULATION_DIR || '';
+const simulationRepoDir = _simEnv
+  ? path.resolve(path.dirname(process.execPath), _simEnv)
+  : app.isPackaged
+    ? path.resolve(path.dirname(process.execPath), '..', 'ai-materials-discovery-platform-simulation')
+    : path.resolve(rootDir, '..', 'ai-materials-discovery-platform-simulation');
 const simulationApiBase = 'http://127.0.0.1:8765';
 
 function readVenvExecutable(repoDir) {
@@ -446,6 +454,8 @@ ipcMain.handle('chatbot:sendMessage', async (_event, { message, history }) => {
   return { reply };
 });
 
+ipcMain.handle('integration:getSystemState', () => ({ logs: serviceLogs }));
+
 ipcMain.handle('integration:getStatus', async () => {
   let api = { available: false };
   let platform = { available: false };
@@ -496,7 +506,12 @@ ipcMain.handle('integration:openProjectFolder', async (_event, id) => {
 });
 
 ipcMain.handle('integration:startPredictionApp', async (_event, workspace) => {
-  if (!repoExists(predictionRepoDir, 'main.py')) throw new Error(`Prediction repository not found: ${predictionRepoDir}`);
+  if (app.isPackaged) {
+    const bundledExe = path.join(process.resourcesPath, 'main_app', 'main_app.exe');
+    if (!fs.existsSync(bundledExe)) throw new Error(`Bundled prediction app not found: ${bundledExe}`);
+  } else if (!repoExists(predictionRepoDir, 'main.py')) {
+    throw new Error(`Prediction repository not found: ${predictionRepoDir}`);
+  }
 
   // Different project → kill existing process and restart with new workspace
   if (isProcessRunning(predictionAppProcess) && predictionAppWorkspace !== (workspace || null)) {
@@ -508,12 +523,22 @@ ipcMain.handle('integration:startPredictionApp', async (_event, workspace) => {
   }
 
   if (!isProcessRunning(predictionAppProcess)) {
-    const pythonExe = resolvePythonExe();
-    const env = pythonEnv();
+    let exe, args, cwd;
+    if (app.isPackaged) {
+      exe = path.join(process.resourcesPath, 'main_app', 'main_app.exe');
+      args = [];
+      cwd = path.join(process.resourcesPath, 'main_app');
+    } else {
+      exe = resolvePythonExe();
+      args = ['main.py'];
+      cwd = predictionRepoDir;
+    }
+    const env = app.isPackaged ? { ...process.env } : pythonEnv();
+    env.AI_MAPS_WORKSPACE_ROOT = getWorkspacesRoot();
     if (workspace) env.AI_MAPS_WORKSPACE = workspace;
-    logService('prediction-app', `starting with ${pythonExe}${workspace ? ` (workspace: ${workspace})` : ''}`);
-    predictionAppProcess = spawnManaged('prediction-app', pythonExe, ['main.py'], {
-      cwd: predictionRepoDir,
+    logService('prediction-app', `starting ${exe}${workspace ? ` (workspace: ${workspace})` : ''}`);
+    predictionAppProcess = spawnManaged('prediction-app', exe, args, {
+      cwd,
       env,
       hidden: false
     });
@@ -568,7 +593,11 @@ ipcMain.handle('integration:runWorkflow', async (_event, payload) => {
 });
 
 /* ── Results Repository ── */
-const workspacesRoot = path.join(predictionRepoDir, 'workspaces');
+function getWorkspacesRoot() {
+  if (app.isPackaged) return path.join(app.getPath('userData'), 'workspaces');
+  return path.join(predictionRepoDir, 'workspaces');
+}
+const workspacesRoot = getWorkspacesRoot();
 
 ipcMain.handle('results:list', async () => {
   const projects = [];
@@ -714,6 +743,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (app.isPackaged) projectsDir = path.join(app.getPath('userData'), 'projects');
   await fsp.mkdir(projectsDir, { recursive: true });
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

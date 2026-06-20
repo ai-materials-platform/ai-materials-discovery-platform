@@ -25,17 +25,22 @@ from PyQt6.QtWidgets import (
 
 
 class WorkspaceMixin:
+    def _ws_root(self):
+        """워크스페이스 베이스 디렉토리.
+        AI_MAPS_WORKSPACE_ROOT 환경변수가 있으면 그 경로를 사용 (패키징 배포 시 AppData)."""
+        return os.environ.get('AI_MAPS_WORKSPACE_ROOT', 'workspaces')
+
     def _ws_project_dir(self):
         """현재 활성 프로젝트의 워크스페이스 저장 루트.
-        프로젝트가 없으면 workspaces/ 공용 디렉토리를 사용한다."""
+        프로젝트가 없으면 ws_root/ 공용 디렉토리를 사용한다."""
         active = getattr(self, '_active_workspace_name', None) or ''
         if active:
-            return os.path.join("workspaces", active)
-        return "workspaces"
+            return os.path.join(self._ws_root(), active)
+        return self._ws_root()
 
     def auto_save_workspace(self):
         # auto_save는 항상 공유 임시 폴더 — 프로젝트 워크스페이스엔 명시 저장만 기록됨
-        folder = os.path.join("workspaces", "auto_save")
+        folder = os.path.join(self._ws_root(), "auto_save")
         if os.path.exists(folder):
             shutil.rmtree(folder)
         os.makedirs(folder)
@@ -66,7 +71,7 @@ class WorkspaceMixin:
             eng_df.to_csv(os.path.join(folder, "engineered_data.csv"), index=False, encoding="utf-8-sig")
 
     def append_log(self, entry):
-        ws_dir = "workspaces"
+        ws_dir = self._ws_root()
         if not os.path.exists(ws_dir):
             os.makedirs(ws_dir)
         log_path = os.path.join(ws_dir, "log.json")

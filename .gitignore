@@ -32,3 +32,11 @@ data/*.data-*
 data/checkpoint
 
 gcm-diagnose.log*
+
+# 빌드 산출물
+dist_python/
+dist_electron/
+build_pyinstaller/
+*.spec
+assets/icon.ico
+assets/icon.icns
