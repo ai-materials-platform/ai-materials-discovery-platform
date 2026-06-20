@@ -231,6 +231,36 @@ class UISetupMixin:
         layout.setContentsMargins(16, 0, 14, 0)
         layout.setSpacing(12)
 
+        # --- 네비게이션 버튼 ---
+        nav_style_back = (
+            "QPushButton { background: transparent; color: #64748B; border: 1px solid #CBD5E1; "
+            "border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; height: 28px; }"
+            "QPushButton:hover { background: #F1F5F9; color: #1E293B; }"
+        )
+        nav_style_sim = (
+            "QPushButton { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; "
+            "border-radius: 6px; font-size: 11px; font-weight: 700; padding: 0 10px; height: 28px; }"
+            "QPushButton:hover { background: #DBEAFE; }"
+        )
+        self._nav_back_btn = QPushButton("← 대시보드")
+        self._nav_back_btn.setFixedHeight(28)
+        self._nav_back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._nav_back_btn.setStyleSheet(nav_style_back)
+        self._nav_back_btn.clicked.connect(self.close)
+        layout.addWidget(self._nav_back_btn)
+
+        self._nav_sim_btn = QPushButton("시뮬레이션 ↗")
+        self._nav_sim_btn.setFixedHeight(28)
+        self._nav_sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._nav_sim_btn.setStyleSheet(nav_style_sim)
+        self._nav_sim_btn.clicked.connect(self._open_simulation_app)
+        layout.addWidget(self._nav_sim_btn)
+
+        nav_div = QWidget()
+        nav_div.setFixedSize(1, 24)
+        nav_div.setStyleSheet("background: #CBD5E1;")
+        layout.addWidget(nav_div)
+
         self._seg_container = QWidget()
         self._seg_container.setFixedHeight(32)
         seg_layout = QHBoxLayout(self._seg_container)
@@ -291,6 +321,21 @@ class UISetupMixin:
         layout.addWidget(self._theme_btn)
         self._update_mode_buttons()
         return bar
+
+    def _open_simulation_app(self):
+        import subprocess
+        import os
+        from pathlib import Path
+        from PyQt6.QtWidgets import QMessageBox
+        sim_dir = os.environ.get(
+            "AI_MATERIALS_SIMULATION_DIR",
+            str(Path(__file__).parents[4] / "ai-materials-discovery-platform-simulation"),
+        )
+        if not Path(sim_dir).exists():
+            QMessageBox.warning(self, "경로 없음", f"시뮬레이션 레포를 찾을 수 없습니다:\n{sim_dir}")
+            return
+        npm = "npm.cmd" if os.name == "nt" else "npm"
+        subprocess.Popen([npm, "run", "dev"], cwd=sim_dir, shell=False)
 
     def _switch_main_mode(self, index):
         if hasattr(self, "main_mode_stack"):

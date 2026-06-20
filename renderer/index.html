@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 재료 분석 통합 시스템</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-area">
+        <button class="menu-button" aria-label="메뉴">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="divider"></div>
+        <div>
+          <h1>AI 재료 분석 통합 시스템</h1>
+          <p>물성 예측 · 시뮬레이션 통합 플랫폼</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="newProjectBtn" class="btn btn-primary">새 프로젝트</button>
+        <button id="loadProjectBtn" class="btn btn-outline">불러오기</button>
+        <button class="profile-button" aria-label="사용자">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav-list" aria-label="주 메뉴">
+          <button class="nav-item active"><span class="nav-icon home"></span><span>홈</span></button>
+          <button class="nav-item"><span class="nav-icon chart"></span><span>물성 예측</span></button>
+          <button class="nav-item"><span class="nav-icon cube"></span><span>시뮬레이션</span></button>
+          <button class="nav-item"><span class="nav-icon briefcase"></span><span>결과 저장소</span></button>
+          <button class="nav-item"><span class="nav-icon folder"></span><span>프로젝트</span></button>
+          <button class="nav-item"><span class="nav-icon gear"></span><span>설정</span></button>
+          <button class="nav-item"><span class="nav-icon help"></span><span>도움말</span></button>
+        </nav>
+        <div class="version">v1.0.0</div>
+      </aside>
+
+      <main class="main-panel">
+        <section class="dashboard-card">
+          <div class="section-heading">
+            <h2>시작하기</h2>
+            <p>작업을 선택하여 시작하세요</p>
+          </div>
+
+          <div class="start-grid">
+            <article class="workflow-card prediction-card">
+              <div class="card-title-row">
+                <div class="circle-icon teal">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9"/><path d="M12 19V5"/><path d="M19 19v-8"/></svg>
+                </div>
+                <h3>1. 물성 예측</h3>
+              </div>
+              <p class="card-copy">화학 조성 및 공정 조건을 입력하여<br />기계적 물성을 예측합니다.</p>
+              <ul class="feature-list teal-list">
+                <li>화학 조성 입력</li>
+                <li>공정 조건 설정</li>
+                <li>AI 모델 예측</li>
+                <li>결과 및 불확실성 확인</li>
+              </ul>
+              <button id="runPredictionBtn" class="action-button teal-action">물성 예측 시작 <span>→</span></button>
+            </article>
+
+            <div class="flow-connector" aria-label="물성 예측에서 시뮬레이션으로 연결"><svg class="flow-arrow-svg" viewBox="0 0 112 88" aria-hidden="true"><path d="M0 18 H58 V1 L111 44 L58 87 V70 H0 Z"/></svg></div>
+
+            <article class="workflow-card simulation-card">
+              <div class="card-title-row">
+                <div class="circle-icon blue">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z"/><path d="M12 12 4.5 7.8"/><path d="M12 12v8.5"/><path d="m12 12 7.5-4.2"/></svg>
+                </div>
+                <h3>2. 시뮬레이션</h3>
+              </div>
+              <p class="card-copy">예측된 물성 데이터를 기반으로<br />다양한 시뮬레이션을 수행합니다.</p>
+              <ul class="feature-list blue-list">
+                <li>인장 / 굽힘 / 압축 시뮬레이션</li>
+                <li>응력·변형 분포 확인</li>
+                <li>파단 예측 및 분석</li>
+                <li>결과 시각화</li>
+              </ul>
+              <button id="runSimulationBtn" class="action-button blue-action">시뮬레이션 시작 <span>→</span></button>
+            </article>
+
+            <aside class="recent-card">
+              <div class="recent-header">
+                <h3>최근 프로젝트</h3>
+                <button id="refreshBtn">더보기</button>
+              </div>
+              <div id="recentProjects" class="recent-list"></div>
+            </aside>
+          </div>
+
+          <div class="quick-card">
+            <div>
+              <h3>빠른 예측 (간편 모드)</h3>
+              <p>빠른 예측을 원하시면 기본 입력값으로 즉시 예측할 수 있습니다.</p>
+            </div>
+            <button id="quickPredictBtn" class="btn btn-primary quick-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-8 12h6l-1 8 8-12h-6l1-8Z"/></svg>
+              간편 예측 실행
+            </button>
+          </div>
+
+          <section class="status-section">
+            <h3>시스템 상태</h3>
+            <div id="statusStrip" class="status-grid"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
