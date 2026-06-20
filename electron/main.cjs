@@ -553,8 +553,18 @@ ipcMain.handle('integration:startSimulationApp', async () => {
   if (!repoExists(simulationRepoDir, 'package.json')) throw new Error(`Simulation repository not found: ${simulationRepoDir}`);
   const viteCmd = resolveSimulationBin('vite');
   const electronCmd = resolveSimulationBin('electron');
-  if (!fs.existsSync(viteCmd)) throw new Error(`Vite executable not found: ${viteCmd}`);
-  if (!fs.existsSync(electronCmd)) throw new Error(`Electron executable not found: ${electronCmd}`);
+  if (!fs.existsSync(viteCmd) || !fs.existsSync(electronCmd)) {
+    logService('simulation', 'node_modules not found — running npm install...');
+    await new Promise((resolve, reject) => {
+      const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      const child = spawn(npm, ['install'], { cwd: simulationRepoDir, shell: true });
+      child.stdout.on('data', (d) => logService('npm-install', d));
+      child.stderr.on('data', (d) => logService('npm-install', d));
+      child.on('close', (code) => code === 0 ? resolve() : reject(new Error(`npm install failed with code ${code}`)));
+    });
+  }
+  if (!fs.existsSync(viteCmd)) throw new Error(`Vite executable not found after npm install: ${viteCmd}`);
+  if (!fs.existsSync(electronCmd)) throw new Error(`Electron executable not found after npm install: ${electronCmd}`);
 
   if (!isProcessRunning(simulationViteProcess)) {
     logService('simulation-vite', `starting ${viteCmd}`);
