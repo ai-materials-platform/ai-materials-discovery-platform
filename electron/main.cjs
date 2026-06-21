@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const http = require('http');
 const https = require('https');
+const net = require('net');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
@@ -117,6 +118,15 @@ function runtimePath(extra = []) {
 function resolveSimulationBin(name) {
   const suffix = process.platform === 'win32' ? '.cmd' : '';
   return path.join(simulationRepoDir, 'node_modules', '.bin', `${name}${suffix}`);
+}
+
+function isTcpPortOccupied(port) {
+  return new Promise((resolve) => {
+    const s = net.createConnection({ host: '127.0.0.1', port });
+    s.once('connect', () => { s.destroy(); resolve(true); });
+    s.once('error', () => resolve(false));
+    s.setTimeout(500, () => { s.destroy(); resolve(false); });
+  });
 }
 
 function requestOk(url) {
@@ -589,9 +599,9 @@ ipcMain.handle('integration:startSimulationApp', async () => {
   if (!fs.existsSync(electronCmd)) throw new Error(`Electron executable not found after npm install: ${electronCmd}`);
 
   if (!isProcessRunning(simulationViteProcess)) {
-    const viteAlreadyUp = await requestOk('http://127.0.0.1:5173').catch(() => false);
-    if (viteAlreadyUp) {
-      logService('simulation-vite', 'port 5173 already in use — reusing existing server');
+    const portBound = await isTcpPortOccupied(5173);
+    if (portBound) {
+      logService('simulation-vite', 'port 5173 already occupied — reusing existing server');
     } else {
       logService('simulation-vite', `starting ${viteCmd}`);
       simulationViteProcess = spawnManaged('simulation-vite', viteCmd, ['--host', '127.0.0.1', '--port', '5173'], {
