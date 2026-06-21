@@ -538,6 +538,7 @@ ipcMain.handle('integration:startPredictionApp', async (_event, workspace) => {
     }
     const env = app.isPackaged ? { ...process.env } : pythonEnv();
     env.AI_MAPS_WORKSPACE_ROOT = getWorkspacesRoot();
+    env.AI_MATERIALS_SIMULATION_DIR = simulationRepoDir;
     if (workspace) env.AI_MAPS_WORKSPACE = workspace;
     logService('prediction-app', `starting ${exe}${workspace ? ` (workspace: ${workspace})` : ''}`);
     predictionAppProcess = spawnManaged('prediction-app', exe, args, {
