@@ -325,7 +325,10 @@ class UISetupMixin:
             QMessageBox.warning(self, "경로 없음", f"시뮬레이션 레포를 찾을 수 없습니다:\n{sim_dir}")
             return
         npm = "npm.cmd" if os.name == "nt" else "npm"
-        subprocess.Popen([npm, "run", "dev"], cwd=sim_dir, shell=False)
+        kwargs = {"cwd": sim_dir, "shell": False, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if os.name == "nt":
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        subprocess.Popen([npm, "run", "dev"], **kwargs)
 
     def _switch_main_mode(self, index):
         if hasattr(self, "main_mode_stack"):

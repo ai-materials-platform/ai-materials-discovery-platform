@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const http = require('http');
 const https = require('https');
+const net = require('net');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
@@ -78,6 +79,7 @@ let mainWindow;
 let predictionAppProcess = null;
 let predictionAppWorkspace = null;  // workspace the running prediction process was launched with
 let simulationAppProcess = null;
+let simulationWindow = null;
 let simulationViteProcess = null;
 let simulationApiProcess = null;
 let activeProjectId = null;
@@ -116,6 +118,15 @@ function runtimePath(extra = []) {
 function resolveSimulationBin(name) {
   const suffix = process.platform === 'win32' ? '.cmd' : '';
   return path.join(simulationRepoDir, 'node_modules', '.bin', `${name}${suffix}`);
+}
+
+function isTcpPortOccupied(port) {
+  return new Promise((resolve) => {
+    const s = net.createConnection({ host: '127.0.0.1', port });
+    s.once('connect', () => { s.destroy(); resolve(true); });
+    s.once('error', () => resolve(false));
+    s.setTimeout(500, () => { s.destroy(); resolve(false); });
+  });
 }
 
 function requestOk(url) {
@@ -193,10 +204,12 @@ function clearProcessRef(label, child) {
   if (label === 'simulation-api' && simulationApiProcess === child) simulationApiProcess = null;
 }
 function spawnManaged(label, command, args, options = {}) {
-  const child = spawn(command, args, {
+  const useShell = process.platform === 'win32';
+  const safeCmd = useShell && command.includes(' ') ? `"${command}"` : command;
+  const child = spawn(safeCmd, args, {
     cwd: options.cwd,
     env: { ...process.env, ...(options.env || {}) },
-    shell: process.platform === 'win32',
+    shell: useShell,
     windowsHide: !!options.hidden,
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -480,6 +493,24 @@ ipcMain.handle('integration:getStatus', async () => {
   };
 });
 
+const projectsListFile = () => path.join(projectsDir, '_projects.json');
+
+ipcMain.handle('projects:load', () => {
+  try {
+    const f = projectsListFile();
+    if (!fs.existsSync(f)) return [];
+    return JSON.parse(fs.readFileSync(f, 'utf8'));
+  } catch (_) { return []; }
+});
+
+ipcMain.handle('projects:save', (_event, list) => {
+  try {
+    fs.mkdirSync(projectsDir, { recursive: true });
+    fs.writeFileSync(projectsListFile(), JSON.stringify(list), 'utf8');
+    return true;
+  } catch (_) { return false; }
+});
+
 ipcMain.handle('integration:newProject', async () => {
   activeProjectId = projectId();
   lastPrediction = null;
@@ -535,6 +566,7 @@ ipcMain.handle('integration:startPredictionApp', async (_event, workspace) => {
     }
     const env = app.isPackaged ? { ...process.env } : pythonEnv();
     env.AI_MAPS_WORKSPACE_ROOT = getWorkspacesRoot();
+    env.AI_MATERIALS_SIMULATION_DIR = simulationRepoDir;
     if (workspace) env.AI_MAPS_WORKSPACE = workspace;
     logService('prediction-app', `starting ${exe}${workspace ? ` (workspace: ${workspace})` : ''}`);
     predictionAppProcess = spawnManaged('prediction-app', exe, args, {
@@ -567,35 +599,36 @@ ipcMain.handle('integration:startSimulationApp', async () => {
   if (!fs.existsSync(electronCmd)) throw new Error(`Electron executable not found after npm install: ${electronCmd}`);
 
   if (!isProcessRunning(simulationViteProcess)) {
-    const viteAlreadyUp = await requestOk('http://127.0.0.1:5173').catch(() => false);
-    if (viteAlreadyUp) {
-      logService('simulation-vite', 'port 5173 already in use — reusing existing server');
+    const portBound = await isTcpPortOccupied(5173);
+    if (portBound) {
+      logService('simulation-vite', 'port 5173 already occupied — reusing existing server');
     } else {
       logService('simulation-vite', `starting ${viteCmd}`);
       simulationViteProcess = spawnManaged('simulation-vite', viteCmd, ['--host', '127.0.0.1', '--port', '5173'], {
         cwd: simulationRepoDir,
         env: pythonEnv({ AI_MATERIALS_PLATFORM_DIR: predictionRepoDir }),
-        hidden: false
+        hidden: true
       });
     }
   }
 
   await waitForViteServer();
 
-  if (!isProcessRunning(simulationAppProcess)) {
-    const env = pythonEnv({
-      AI_MATERIALS_PLATFORM_DIR: predictionRepoDir,
-      AI_MAPS_WORKSPACE_ROOT: getWorkspacesRoot(),
-      VITE_DEV_SERVER_URL: 'http://127.0.0.1:5173'
+  // Open simulation in a new BrowserWindow (reuses MAPS Electron — no separate electron binary needed)
+  if (!simulationWindow || simulationWindow.isDestroyed()) {
+    simulationWindow = new BrowserWindow({
+      width: 1600, height: 980, minWidth: 1200, minHeight: 760,
+      backgroundColor: '#0B1020',
+      title: 'MAPS',
+      icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+      webPreferences: { contextIsolation: true, nodeIntegration: false }
     });
-    delete env.ELECTRON_RUN_AS_NODE;
-    logService('simulation-app', `starting ${electronCmd}`);
-    simulationAppProcess = spawnManaged('simulation-app', electronCmd, [simulationRepoDir], {
-      cwd: simulationRepoDir,
-      env,
-      hidden: false
-    });
-    await waitForProcessBoot(simulationAppProcess, 'Simulation app');
+    simulationWindow.loadURL('http://127.0.0.1:5173');
+    simulationWindow.on('closed', () => { simulationWindow = null; });
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+    logService('simulation-app', 'opened simulation window at http://127.0.0.1:5173');
+  } else {
+    simulationWindow.focus();
   }
   return { started: true, path: simulationRepoDir };
 });
