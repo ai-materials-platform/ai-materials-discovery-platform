@@ -580,6 +580,7 @@ ipcMain.handle('integration:startSimulationApp', async () => {
   if (!isProcessRunning(simulationAppProcess)) {
     const env = pythonEnv({
       AI_MATERIALS_PLATFORM_DIR: predictionRepoDir,
+      AI_MAPS_WORKSPACE_ROOT: getWorkspacesRoot(),
       VITE_DEV_SERVER_URL: 'http://127.0.0.1:5173'
     });
     delete env.ELECTRON_RUN_AS_NODE;
