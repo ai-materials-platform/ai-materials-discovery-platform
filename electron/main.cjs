@@ -567,12 +567,17 @@ ipcMain.handle('integration:startSimulationApp', async () => {
   if (!fs.existsSync(electronCmd)) throw new Error(`Electron executable not found after npm install: ${electronCmd}`);
 
   if (!isProcessRunning(simulationViteProcess)) {
-    logService('simulation-vite', `starting ${viteCmd}`);
-    simulationViteProcess = spawnManaged('simulation-vite', viteCmd, ['--host', '127.0.0.1', '--port', '5173'], {
-      cwd: simulationRepoDir,
-      env: pythonEnv({ AI_MATERIALS_PLATFORM_DIR: predictionRepoDir }),
-      hidden: false
-    });
+    const viteAlreadyUp = await requestOk('http://127.0.0.1:5173').catch(() => false);
+    if (viteAlreadyUp) {
+      logService('simulation-vite', 'port 5173 already in use — reusing existing server');
+    } else {
+      logService('simulation-vite', `starting ${viteCmd}`);
+      simulationViteProcess = spawnManaged('simulation-vite', viteCmd, ['--host', '127.0.0.1', '--port', '5173'], {
+        cwd: simulationRepoDir,
+        env: pythonEnv({ AI_MATERIALS_PLATFORM_DIR: predictionRepoDir }),
+        hidden: false
+      });
+    }
   }
 
   await waitForViteServer();
