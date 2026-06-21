@@ -156,7 +156,9 @@ function toggleChat() {
   document.getElementById('chatFab').classList.toggle('active', chatState.open);
   if (chatState.open) {
     if (chatState.history.length === 0) {
-      addChatBubble('ai', '안녕하세요! MAPS AI 어시스턴트입니다.\n오스테나이트계 스테인리스강의 물성, 화학 조성, 공정 조건 등에 대해 질문해 주세요.');
+      const welcome = '안녕하세요! MAPS AI 어시스턴트입니다.\n오스테나이트계 스테인리스강의 물성, 화학 조성, 공정 조건 등에 대해 질문해 주세요.';
+      addChatBubble('ai', welcome);
+      chatState.history.push({ role: 'assistant', content: welcome });
     }
     setTimeout(() => document.getElementById('chatInput').focus(), 80);
   }
