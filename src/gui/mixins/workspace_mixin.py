@@ -25,8 +25,22 @@ from PyQt6.QtWidgets import (
 
 
 class WorkspaceMixin:
+    def _ws_root(self):
+        """워크스페이스 베이스 디렉토리.
+        AI_MAPS_WORKSPACE_ROOT 환경변수가 있으면 그 경로를 사용 (패키징 배포 시 AppData)."""
+        return os.environ.get('AI_MAPS_WORKSPACE_ROOT', 'workspaces')
+
+    def _ws_project_dir(self):
+        """현재 활성 프로젝트의 워크스페이스 저장 루트.
+        프로젝트가 없으면 ws_root/ 공용 디렉토리를 사용한다."""
+        active = getattr(self, '_active_workspace_name', None) or ''
+        if active:
+            return os.path.join(self._ws_root(), active)
+        return self._ws_root()
+
     def auto_save_workspace(self):
-        folder = os.path.join("workspaces", "auto_save")
+        # auto_save는 항상 공유 임시 폴더 — 프로젝트 워크스페이스엔 명시 저장만 기록됨
+        folder = os.path.join(self._ws_root(), "auto_save")
         if os.path.exists(folder):
             shutil.rmtree(folder)
         os.makedirs(folder)
@@ -57,7 +71,7 @@ class WorkspaceMixin:
             eng_df.to_csv(os.path.join(folder, "engineered_data.csv"), index=False, encoding="utf-8-sig")
 
     def append_log(self, entry):
-        ws_dir = "workspaces"
+        ws_dir = self._ws_root()
         if not os.path.exists(ws_dir):
             os.makedirs(ws_dir)
         log_path = os.path.join(ws_dir, "log.json")
@@ -80,14 +94,14 @@ class WorkspaceMixin:
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.No:
             return
-        folder = os.path.join("workspaces", name)
+        folder = os.path.join(self._ws_project_dir(), name)
         if os.path.exists(folder):
             shutil.rmtree(folder)
         self.refresh_workspace_list()
         self.status_label.setText(f"상태: 분석 기록 '{name}' 삭제 완료")
 
     def refresh_workspace_list(self):
-        ws_dir = "workspaces"
+        ws_dir = self._ws_project_dir()
         self.ws_combo.clear()
         if os.path.exists(ws_dir):
             names = sorted([d for d in os.listdir(ws_dir)
@@ -97,7 +111,7 @@ class WorkspaceMixin:
             self.refresh_workspace_table()
 
     def refresh_workspace_table(self):
-        ws_dir = "workspaces"
+        ws_dir = self._ws_project_dir()
         search_text = getattr(self, "_ws_search_text", "").lower().strip()
 
         all_names = []
@@ -123,7 +137,7 @@ class WorkspaceMixin:
 
         for row, name in enumerate(page_names):
             self.ws_table.insertRow(row)
-            folder = os.path.join(ws_dir, name)
+            folder = os.path.join(ws_dir, name)  # ws_dir already points to project dir
             state_path = os.path.join(folder, "state.json")
             state = {}
             if os.path.exists(state_path):
@@ -247,7 +261,7 @@ class WorkspaceMixin:
         name_item = self.ws_table.item(row, 0)
         if not name_item:
             return
-        folder = os.path.join("workspaces", name_item.text())
+        folder = os.path.join(self._ws_project_dir(), name_item.text())
         menu = QMenu(self)
         load_action = menu.addAction("불러오기")
         menu.addSeparator()
@@ -278,7 +292,7 @@ class WorkspaceMixin:
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        folder = os.path.join("workspaces", name)
+        folder = os.path.join(self._ws_project_dir(), name)
         if os.path.exists(folder):
             shutil.rmtree(folder)
         self.refresh_workspace_list()
@@ -400,7 +414,7 @@ class WorkspaceMixin:
                 img_lbl = QLabel()
                 img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 img_lbl.setStyleSheet("border: 1px solid #dde1e6; background: white;")
-                path = os.path.join("workspaces", name, graph_file)
+                path = os.path.join(self._ws_project_dir(), name, graph_file)
                 if os.path.exists(path):
                     orig_pix = QPixmap(path)
                     all_pairs.append((orig_pix, img_lbl))
@@ -504,7 +518,7 @@ class WorkspaceMixin:
         if not name:
             self.status_label.setText("상태: 분석 기록 이름을 입력해 주세요")
             return
-        folder = os.path.join("workspaces", name)
+        folder = os.path.join(self._ws_project_dir(), name)
         if os.path.exists(folder):
             reply = QMessageBox.question(self, "덮어쓰기 확인",
                 f"'{name}' 분석 기록가 이미 존재합니다.\n덮어쓰시겠습니까?",
@@ -642,15 +656,18 @@ class WorkspaceMixin:
         self.refresh_workspace_list()
         self.status_label.setText(f"상태: 분석 기록 '{name}' 저장 완료")
 
-    def load_workspace(self):
-        name = self.ws_combo.currentText()
+    def load_workspace(self, name=None):
+        if name is None:
+            name = self.ws_combo.currentText()
         if not name:
             self.status_label.setText("상태: 불러올 분석 기록를 선택해 주세요")
             return
-        folder = os.path.join("workspaces", name)
+        folder = os.path.join(self._ws_project_dir(), name)
         state_path = os.path.join(folder, "state.json")
         if not os.path.exists(state_path):
-            self.status_label.setText("상태: 분석 기록 파일을 찾을 수 없습니다")
+            # 새 프로젝트 — 폴더만 만들어 두고 빈 상태로 시작
+            os.makedirs(folder, exist_ok=True)
+            self.status_label.setText(f"상태: 새 프로젝트 '{name}' — 데이터를 불러와 시작하세요")
             return
         with open(state_path, "r", encoding="utf-8") as f:
             state = json.load(f)

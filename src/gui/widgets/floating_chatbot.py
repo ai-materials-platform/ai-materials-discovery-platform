@@ -3,6 +3,45 @@ from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QRadialGrad
 from PyQt6.QtWidgets import QLabel
 
 
+def _paint_atom(p: QPainter, S: int):
+    """원자 오비탈 아이콘 — 대시보드 FAB 디자인과 동일."""
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    cx = cy = S / 2.0
+    margin = S * 0.04
+
+    # 배경 원 (dark navy)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor("#0e1c40"))
+    p.drawEllipse(QRectF(margin, margin, S - 2 * margin, S - 2 * margin))
+
+    # 오비탈 타원 3개 (0°, 60°, 120°)
+    rx = S * 0.33
+    ry = S * 0.115
+
+    pen = QPen(QColor("#4a9eff"), max(1.0, S * 0.022))
+    pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+    p.setPen(pen)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+
+    for angle in (0, 60, 120):
+        p.save()
+        p.translate(cx, cy)
+        p.rotate(angle)
+        p.drawEllipse(QRectF(-rx, -ry, rx * 2, ry * 2))
+        p.restore()
+
+    # 핵 — 파란 원 + 흰 중심점
+    p.setPen(Qt.PenStyle.NoPen)
+    nr = S * 0.072
+    p.setBrush(QColor("#4a9eff"))
+    p.drawEllipse(QRectF(cx - nr, cy - nr, nr * 2, nr * 2))
+
+    cr = S * 0.034
+    p.setBrush(QColor("#ffffff"))
+    p.drawEllipse(QRectF(cx - cr, cy - cr, cr * 2, cr * 2))
+
+
 class _PopupBubble(QLabel):
     """아이콘 위에 떠오르는 말풍선 팝업."""
 
@@ -83,7 +122,7 @@ class _PopupBubble(QLabel):
 
 
 class RobotAvatarWidget(QLabel):
-    """헤더용 소형 로봇 아바타 — FloatingChatbotIcon과 동일한 그리기."""
+    """헤더용 소형 원자 오비탈 아바타."""
 
     def __init__(self, size: int = 36, parent=None):
         super().__init__(parent)
@@ -92,11 +131,11 @@ class RobotAvatarWidget(QLabel):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
     def paintEvent(self, event):
-        _paint_robot(QPainter(self), self._sz)
+        _paint_atom(QPainter(self), self._sz)
 
 
 def _paint_robot(p: QPainter, S: int):
-    """로봇 아이콘 공통 페인트 함수."""
+    """로봇 아이콘 공통 페인트 함수 (레거시 — 미사용)."""
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     p.setPen(Qt.PenStyle.NoPen)
     cx = S / 2
@@ -193,7 +232,7 @@ class FloatingChatbotIcon(QLabel):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setOpacity(self._opacity)
-        _paint_robot(p, self.SIZE)
+        _paint_atom(p, self.SIZE)
         return
         S = self.SIZE
         cx = S / 2
