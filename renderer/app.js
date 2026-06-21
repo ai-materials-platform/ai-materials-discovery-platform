@@ -31,14 +31,23 @@ function formatDate(value) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/* ── Project storage (localStorage) ── */
-function getStoredProjects() {
-  try { return JSON.parse(localStorage.getItem('maps_projects') || '[]'); }
-  catch { return []; }
+/* ── Project storage (file-based via IPC) ── */
+let _projectsCache = null;
+
+async function getStoredProjects() {
+  if (_projectsCache !== null) return _projectsCache;
+  try { _projectsCache = await window.integrationApi.loadProjects(); }
+  catch (_) { _projectsCache = []; }
+  return _projectsCache;
 }
 
-function saveProject(name, type) {
-  const projects = getStoredProjects();
+async function persistProjects(list) {
+  _projectsCache = list;
+  try { await window.integrationApi.saveProjects(list); } catch (_) {}
+}
+
+async function saveProject(name, type) {
+  const projects = await getStoredProjects();
   const p = {
     id: `proj-${Date.now()}`,
     name,
@@ -46,8 +55,8 @@ function saveProject(name, type) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-  projects.unshift(p);
-  localStorage.setItem('maps_projects', JSON.stringify(projects.slice(0, 20)));
+  const updated = [p, ...projects].slice(0, 20);
+  await persistProjects(updated);
   return p;
 }
 
@@ -60,8 +69,8 @@ function projectFallbacks() {
   ];
 }
 
-function renderProjects() {
-  const stored = getStoredProjects();
+async function renderProjects() {
+  const stored = await getStoredProjects();
   if (stored.length === 0) {
     els.recentProjects.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:.5rem 0;">아직 프로젝트가 없습니다.</div>';
     return;
@@ -89,11 +98,12 @@ async function refresh() {
   try {
     state.status = await window.integrationApi.getStatus();
   } catch (_) { /* offline */ }
-  renderProjects();
+  await renderProjects();
 }
 
 /* ── New Project Dialog ── */
-function showNewProjectDialog(type) {
+async function showNewProjectDialog(type) {
+  const existingProjects = await getStoredProjects();
   return new Promise((resolve, reject) => {
     state.pendingProject = { type, resolve, reject };
 
@@ -103,7 +113,7 @@ function showNewProjectDialog(type) {
     const typeLbl = document.getElementById('npTypeLabel');
     const today  = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `${type === '시뮬레이션' ? 'Simulation' : 'Prediction'}_${today}`;
-    const existing = getStoredProjects().map((p) => p.name.toLowerCase());
+    const existing = existingProjects.map((p) => p.name.toLowerCase());
     let defaultName = prefix;
     let counter = 2;
     while (existing.includes(defaultName.toLowerCase())) {
@@ -121,14 +131,15 @@ function showNewProjectDialog(type) {
   });
 }
 
-function closeNewProjectDialog(confirmed) {
+async function closeNewProjectDialog(confirmed) {
   const modal  = document.getElementById('newProjectModal');
   const input  = document.getElementById('npNameInput');
   const errEl  = document.getElementById('npNameError');
 
   if (confirmed) {
     const name = input.value.trim() || 'Untitled';
-    const exists = getStoredProjects().some(
+    const currentProjects = await getStoredProjects();
+    const exists = currentProjects.some(
       (p) => p.name.trim().toLowerCase() === name.toLowerCase()
     );
     if (exists) {
@@ -307,10 +318,10 @@ async function downloadResultExcel(projectName, saveName) {
 }
 
 /* ── Projects Page ── */
-function renderProjectsPage() {
+async function renderProjectsPage() {
   const content = document.getElementById('pgContent');
   const countEl = document.getElementById('pgProjectCount');
-  const projects = getStoredProjects();
+  const projects = await getStoredProjects();
   countEl.textContent = `총 ${projects.length}개`;
 
   if (projects.length === 0) {
@@ -347,8 +358,8 @@ function closeAllProjectsModal() {
   document.getElementById('allProjectsModal').classList.remove('visible');
 }
 
-function renderAllProjectsModal() {
-  const projects = getStoredProjects();
+async function renderAllProjectsModal() {
+  const projects = await getStoredProjects();
   const list = document.getElementById('apProjectList');
   const count = document.getElementById('apProjectCount');
   count.textContent = `총 ${projects.length}개 프로젝트`;
@@ -376,15 +387,15 @@ function renderAllProjectsModal() {
   }).join('');
 }
 
-function deleteProject(id) {
-  let projects = getStoredProjects();
+async function deleteProject(id) {
+  let projects = await getStoredProjects();
   const project = projects.find((p) => p.id === id);
   if (!project) return;
   if (!confirm(`"${project.name}" 프로젝트를 삭제하시겠습니까?`)) return;
   projects = projects.filter((p) => p.id !== id);
-  localStorage.setItem('maps_projects', JSON.stringify(projects));
-  renderProjects();
-  renderAllProjectsModal();
+  await persistProjects(projects);
+  await renderProjects();
+  await renderAllProjectsModal();
 }
 
 /* ── Launch existing project (no dialog) ── */
@@ -413,8 +424,8 @@ async function openPredictionPlatform() {
   try { projectName = await showNewProjectDialog('물성예측'); }
   catch { return; }
 
-  saveProject(projectName, '물성예측');
-  renderProjects();
+  await saveProject(projectName, '물성예측');
+  await renderProjects();
   renderProjectsPage();
 
   const MIN_MS = 2800, start = Date.now();
@@ -434,8 +445,8 @@ async function openSimulationPlatform() {
   try { projectName = await showNewProjectDialog('시뮬레이션'); }
   catch { return; }
 
-  saveProject(projectName, '시뮬레이션');
-  renderProjects();
+  await saveProject(projectName, '시뮬레이션');
+  await renderProjects();
   renderProjectsPage();
 
   const MIN_MS = 2800, start = Date.now();
@@ -537,13 +548,7 @@ function bindEvents() {
     const deleteBtn = e.target.closest('.pg-delete-btn');
     if (deleteBtn) {
       e.stopPropagation();
-      const projects = getStoredProjects();
-      const p = projects.find((x) => x.id === deleteBtn.dataset.id);
-      if (p && confirm(`"${p.name}" 프로젝트를 삭제하시겠습니까?`)) {
-        localStorage.setItem('maps_projects', JSON.stringify(projects.filter((x) => x.id !== p.id)));
-        renderProjects();
-        renderProjectsPage();
-      }
+      deleteProject(deleteBtn.dataset.id);
       return;
     }
     const row = e.target.closest('.project-row[data-name]');

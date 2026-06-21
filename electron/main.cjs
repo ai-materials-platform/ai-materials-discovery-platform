@@ -483,6 +483,24 @@ ipcMain.handle('integration:getStatus', async () => {
   };
 });
 
+const projectsListFile = () => path.join(projectsDir, '_projects.json');
+
+ipcMain.handle('projects:load', () => {
+  try {
+    const f = projectsListFile();
+    if (!fs.existsSync(f)) return [];
+    return JSON.parse(fs.readFileSync(f, 'utf8'));
+  } catch (_) { return []; }
+});
+
+ipcMain.handle('projects:save', (_event, list) => {
+  try {
+    fs.mkdirSync(projectsDir, { recursive: true });
+    fs.writeFileSync(projectsListFile(), JSON.stringify(list), 'utf8');
+    return true;
+  } catch (_) { return false; }
+});
+
 ipcMain.handle('integration:newProject', async () => {
   activeProjectId = projectId();
   lastPrediction = null;

@@ -16,5 +16,7 @@ contextBridge.exposeInMainWorld('integrationApi', {
   listResults: () => ipcRenderer.invoke('results:list'),
   downloadResultExcel: (projectName, saveName) => ipcRenderer.invoke('results:downloadExcel', { projectName, saveName }),
   onServiceLog: (cb) => ipcRenderer.on('service-log', (_e, line) => cb(line)),
-  getSystemState: () => ipcRenderer.invoke('integration:getSystemState')
+  getSystemState: () => ipcRenderer.invoke('integration:getSystemState'),
+  loadProjects: () => ipcRenderer.invoke('projects:load'),
+  saveProjects: (list) => ipcRenderer.invoke('projects:save', list)
 });
