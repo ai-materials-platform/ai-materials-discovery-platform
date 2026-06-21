@@ -78,6 +78,7 @@ let mainWindow;
 let predictionAppProcess = null;
 let predictionAppWorkspace = null;  // workspace the running prediction process was launched with
 let simulationAppProcess = null;
+let simulationWindow = null;
 let simulationViteProcess = null;
 let simulationApiProcess = null;
 let activeProjectId = null;
@@ -584,20 +585,21 @@ ipcMain.handle('integration:startSimulationApp', async () => {
 
   await waitForViteServer();
 
-  if (!isProcessRunning(simulationAppProcess)) {
-    const env = pythonEnv({
-      AI_MATERIALS_PLATFORM_DIR: predictionRepoDir,
-      AI_MAPS_WORKSPACE_ROOT: getWorkspacesRoot(),
-      VITE_DEV_SERVER_URL: 'http://127.0.0.1:5173'
+  // Open simulation in a new BrowserWindow (reuses MAPS Electron — no separate electron binary needed)
+  if (!simulationWindow || simulationWindow.isDestroyed()) {
+    simulationWindow = new BrowserWindow({
+      width: 1600, height: 980, minWidth: 1200, minHeight: 760,
+      backgroundColor: '#0B1020',
+      title: 'MAPS',
+      icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+      webPreferences: { contextIsolation: true, nodeIntegration: false }
     });
-    delete env.ELECTRON_RUN_AS_NODE;
-    logService('simulation-app', `starting ${electronCmd}`);
-    simulationAppProcess = spawnManaged('simulation-app', electronCmd, [simulationRepoDir], {
-      cwd: simulationRepoDir,
-      env,
-      hidden: false
-    });
-    await waitForProcessBoot(simulationAppProcess, 'Simulation app');
+    simulationWindow.loadURL('http://127.0.0.1:5173');
+    simulationWindow.on('closed', () => { simulationWindow = null; });
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+    logService('simulation-app', 'opened simulation window at http://127.0.0.1:5173');
+  } else {
+    simulationWindow.focus();
   }
   return { started: true, path: simulationRepoDir };
 });
