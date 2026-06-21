@@ -607,7 +607,7 @@ ipcMain.handle('integration:startSimulationApp', async () => {
       simulationViteProcess = spawnManaged('simulation-vite', viteCmd, ['--host', '127.0.0.1', '--port', '5173'], {
         cwd: simulationRepoDir,
         env: pythonEnv({ AI_MATERIALS_PLATFORM_DIR: predictionRepoDir }),
-        hidden: false
+        hidden: true
       });
     }
   }
