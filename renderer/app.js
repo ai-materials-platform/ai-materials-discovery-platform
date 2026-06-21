@@ -62,7 +62,11 @@ function projectFallbacks() {
 
 function renderProjects() {
   const stored = getStoredProjects();
-  const rows = stored.length > 0 ? stored.slice(0, 3) : projectFallbacks();
+  if (stored.length === 0) {
+    els.recentProjects.innerHTML = '<div style="color:var(--text-muted);font-size:.85rem;padding:.5rem 0;">아직 프로젝트가 없습니다.</div>';
+    return;
+  }
+  const rows = stored.slice(0, 3);
   els.recentProjects.innerHTML = rows.map((p) => {
     const isSim = p.type === '시뮬레이션';
     const safeName = p.name.replace(/"/g, '&quot;');
