@@ -193,10 +193,12 @@ function clearProcessRef(label, child) {
   if (label === 'simulation-api' && simulationApiProcess === child) simulationApiProcess = null;
 }
 function spawnManaged(label, command, args, options = {}) {
-  const child = spawn(command, args, {
+  const useShell = process.platform === 'win32';
+  const safeCmd = useShell && command.includes(' ') ? `"${command}"` : command;
+  const child = spawn(safeCmd, args, {
     cwd: options.cwd,
     env: { ...process.env, ...(options.env || {}) },
-    shell: process.platform === 'win32',
+    shell: useShell,
     windowsHide: !!options.hidden,
     stdio: ['ignore', 'pipe', 'pipe']
   });
